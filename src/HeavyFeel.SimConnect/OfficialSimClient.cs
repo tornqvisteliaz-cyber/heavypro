@@ -46,7 +46,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         Pause = 4,
         AxisElevator = 20,
         AxisAileron = 21,
-        AxisRudder = 22
+        AxisRudder = 22,
+        AxisThrottle = 23
     }
 
     private enum Groups : uint
@@ -85,6 +86,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private bool _payloadBaselineSet;
     private double _payloadBaseline;
     private double _payloadWritten = -1;
+    private bool _onGround = true;
+    private double _ias;
 
     public OfficialSimClient(AppLogger logger, IntPtr hwnd)
     {
@@ -283,6 +286,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             case Events.AxisElevator:
             case Events.AxisAileron:
             case Events.AxisRudder:
+            case Events.AxisThrottle:
                 CaptureStick(sender, (Events)data.uEventID, data.dwData);
                 break;
         }
@@ -349,6 +353,22 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         if (raw > 16384)
             raw -= 65536;
         var unit = Math.Clamp(raw / 16384.0, -1, 1);
+        if (ev == Events.AxisThrottle)
+        {
+            var throttle = Math.Clamp(raw / 16383.0, 0, 1);
+            if (_onGround && _ias < 180)
+                throttle *= 0.42;
+            try
+            {
+                _echo = true;
+                TransmitAxis(ev, (int)Math.Round(throttle * 16383.0));
+            }
+            finally
+            {
+                _echo = false;
+            }
+            return;
+        }
         var shaped = StickCurve.Shape(unit, _feelGain);
         var axis = (int)Math.Round(shaped * 16384.0);
         try
@@ -396,6 +416,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                     if (data.dwData[0] is FlightPacket f)
                     {
                         var snap = MapFlight(f, _identity, _fenixFcu, _flags, _yokeSense);
+                        _onGround = snap.OnGround;
+                        _ias = snap.AirspeedIndicatedKnots;
                         SnapshotReceived?.Invoke(this, snap);
                     }
                     break;
@@ -602,9 +624,11 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _sim!.MapClientEventToSimEvent(Events.AxisElevator, "AXIS_ELEVATOR_SET");
             _sim.MapClientEventToSimEvent(Events.AxisAileron, "AXIS_AILERONS_SET");
             _sim.MapClientEventToSimEvent(Events.AxisRudder, "AXIS_RUDDER_SET");
+            _sim.MapClientEventToSimEvent(Events.AxisThrottle, "AXIS_THROTTLE_SET");
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisElevator, false);
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisAileron, false);
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisRudder, false);
+            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisThrottle, false);
             _sim.SetNotificationGroupPriority(Groups.Stick, EventPriority.HighestMaskable);
             _axisWriteReady = true;
             _logger.Info("HeavyPro owns AXIS events. No other program.");

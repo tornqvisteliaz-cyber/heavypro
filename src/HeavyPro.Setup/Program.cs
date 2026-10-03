@@ -6,7 +6,17 @@ static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
-        Application.Run(new SetupForm());
+        var marker = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HeavyPro", "community.path");
+        if (!File.Exists(marker))
+        {
+            using var setup = new SetupForm();
+            System.Windows.Forms.Application.Run(setup);
+            if (!File.Exists(marker))
+                return;
+        }
+
+        var app = new HeavyFeel.App.App();
+        app.Run(new HeavyFeel.App.MainWindow());
     }
 }
 
@@ -62,12 +72,15 @@ sealed class SetupForm : Form
         var appDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HeavyPro");
         Directory.CreateDirectory(appDir);
         var appExe = Path.Combine(appDir, "HeavyPro.exe");
-        File.Copy(Environment.ProcessPath!, appExe, true);
+        if (!string.IsNullOrEmpty(Environment.ProcessPath))
+            File.Copy(Environment.ProcessPath, appExe, true);
+        File.WriteAllText(Path.Combine(appDir, "community.path"), community);
         CreateShortcut(appExe);
 
         MessageBox.Show(this,
-            "Installed.\n\nWindows app: Start menu, HeavyPro.\nMSFS package: " + package + "\n\nRestart MSFS 2024. The toolbar icon needs the panel files in that package.",
+            "Installed. Opening HeavyPro.\n\nRestart MSFS 2024 so the toolbar package loads.",
             "HeavyPro");
+        DialogResult = DialogResult.OK;
         Close();
     }
 

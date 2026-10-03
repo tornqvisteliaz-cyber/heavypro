@@ -427,7 +427,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _client.SetFeelGain(cmd.Mix > 0 ? cmd.Mix : 0.55);
         _client.ApplyInfluence(cmd);
         var extra = _settings.MasterEnable && !_snap.Aircraft.IsFenixA320
-            ? _settings.Inertia / 100.0 * (_snap.MaxGrossWeightPounds > 300000 ? 40000 : _snap.MaxGrossWeightPounds < 8000 ? 400 : 8000)
+            ? _settings.Inertia / 100.0 * (_snap.MaxGrossWeightPounds > 300000 ? 80000 : _snap.MaxGrossWeightPounds < 8000 ? 900 : 18000)
             : 0;
         _client.ApplyPayloadBoost(extra);
         if (_settings.CompanionMode)
