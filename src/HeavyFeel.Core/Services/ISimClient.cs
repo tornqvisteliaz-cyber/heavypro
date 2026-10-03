@@ -24,6 +24,7 @@ public interface ISimClient : IDisposable
     void ApplyInfluence(InfluenceCommand command);
     void ApplyViewCue(ViewCue cue);
     void SetFeelGain(double gain);
+    void ApplyPayloadBoost(double extraPounds);
 }
 
 public interface ISimClientFactory

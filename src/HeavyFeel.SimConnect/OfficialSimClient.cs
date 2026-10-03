@@ -24,7 +24,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         RateWrite = 4,
         Flags = 5,
         YokeSense = 6,
-        YokeWrite = 7
+        YokeWrite = 7,
+        Payload = 8
     }
 
     private enum Requests : uint
@@ -33,7 +34,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         Flight = 2,
         FenixFcu = 3,
         Flags = 4,
-        YokeSense = 5
+        YokeSense = 5,
+        Payload = 6
     }
 
     private enum Events : uint
@@ -79,6 +81,10 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private int _writeLogSkip;
     private double _feelGain = 0.55;
     private bool _echo;
+    private bool _payloadReady;
+    private bool _payloadBaselineSet;
+    private double _payloadBaseline;
+    private double _payloadWritten = -1;
 
     public OfficialSimClient(AppLogger logger, IntPtr hwnd)
     {
@@ -168,6 +174,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             RegisterYokeSense();
             RegisterYokeWrite();
             RegisterRateWrite();
+            RegisterPayload();
             MapAxisEvents();
             sender.SubscribeToSystemEvent(Events.AircraftLoaded, "AircraftLoaded");
             sender.SubscribeToSystemEvent(Events.SimStart, "SimStart");
@@ -283,6 +290,57 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     public void SetFeelGain(double gain) => _feelGain = Math.Clamp(gain, 0.35, 1.0);
 
+    public void ApplyPayloadBoost(double extraPounds)
+    {
+        if (_sim == null || !_payloadReady)
+            return;
+        if (!_payloadBaselineSet)
+            return;
+        var target = extraPounds <= 1 ? _payloadBaseline : _payloadBaseline + extraPounds;
+        if (Math.Abs(target - _payloadWritten) < 20)
+            return;
+        try
+        {
+            _sim.SetDataOnSimObject(
+                Definitions.Payload,
+                Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                SIMCONNECT_DATA_SET_FLAG.DEFAULT,
+                new PayloadPacket { Station1 = target });
+            _payloadWritten = target;
+            _logger.Info(extraPounds <= 1
+                ? $"Payload restored {_payloadBaseline:0} lb"
+                : $"Payload {_payloadBaseline:0} -> {target:0} lb");
+        }
+        catch (Exception ex)
+        {
+            _payloadReady = false;
+            _logger.Warn("Payload write refused: " + ex.Message);
+        }
+    }
+
+    private void RegisterPayload()
+    {
+        try
+        {
+            _sim!.AddToDataDefinition(Definitions.Payload, "PAYLOAD STATION WEIGHT:1", "pounds", SIMCONNECT_DATATYPE.FLOAT64, 0, Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_UNUSED);
+            _sim.RegisterDataDefineStruct<PayloadPacket>(Definitions.Payload);
+            _sim.RequestDataOnSimObject(
+                Requests.Payload,
+                Definitions.Payload,
+                Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                SIMCONNECT_PERIOD.SECOND,
+                SIMCONNECT_DATA_REQUEST_FLAG.DEFAULT,
+                0, 0, 0);
+            _payloadReady = true;
+            _logger.Info("Payload station 1 registered.");
+        }
+        catch (Exception ex)
+        {
+            _payloadReady = false;
+            _logger.Warn("Payload station not available: " + ex.Message);
+        }
+    }
+
     private void CaptureStick(Microsoft.FlightSimulator.SimConnect.SimConnect sender, Events ev, uint data)
     {
         if (_echo || _writesDisabled)
@@ -355,6 +413,14 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 case Requests.YokeSense:
                     if (data.dwData[0] is YokeSensePacket ys)
                         _yokeSense = ys;
+                    break;
+                case Requests.Payload:
+                    if (data.dwData[0] is PayloadPacket payload && !_payloadBaselineSet && payload.Station1 > 0)
+                    {
+                        _payloadBaseline = payload.Station1;
+                        _payloadBaselineSet = true;
+                        _logger.Info($"Payload baseline {payload.Station1:0} lb");
+                    }
                     break;
             }
         }
@@ -891,6 +957,12 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         public double Ap2;
         public double Ap1Light;
         public double Ap2Light;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct PayloadPacket
+    {
+        public double Station1;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

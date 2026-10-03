@@ -90,7 +90,7 @@
                             <CheckBox Content="Log telemetry" IsChecked="{Binding LogTelemetry}"/>
                             <CheckBox Content="Show debug" IsChecked="{Binding DebugMode}"/>
                             <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                       Text="HeavyPro owns the stick events. No other program. Heavier aircraft get a smaller throw."/>
+                                       Text="HeavyPro adds payload weight on stock aircraft. Fenix ignores it. There is no API to replace the flight model."/>
                             <CheckBox Content="View cue (cockpit)" IsChecked="{Binding ViewCue}"/>
                             <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,4,0,0"
                                        Text="Companion on: FSR keeps sound and camera. HeavyPro only shapes the stick."/>
