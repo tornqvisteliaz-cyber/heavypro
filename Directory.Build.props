@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Company>HeavyFeel</Company>
     <Product>HeavyFeel</Product>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
     <Authors>HeavyFeel</Authors>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <PlatformTarget>x64</PlatformTarget>

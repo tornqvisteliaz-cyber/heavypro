@@ -1,20 +1,19 @@
-HEAVYFEEL - START HERE
-======================
+HEAVYFEEL / HEAVYPRO - START HERE
+=================================
 
-The PowerShell script is here:
+1. Double-click Setup-SimConnect.bat (next to HeavyFeel.sln)
+   - Or run: scripts\Setup-SimConnect.ps1
+   - If Windows hides extensions it may appear only as "Setup-SimConnect"
 
-  scripts\Setup-SimConnect.ps1
+2. Double-click HeavyFeel.sln so it opens in Visual Studio 2022
 
-If you do not want to use that, double-click this file instead:
+3. In Solution Explorer: right-click HeavyFeel.App → Set as Startup Project
 
-  Setup-SimConnect.bat
+4. Press F5 (or the green Play button)
 
-That .bat file sits next to HeavyFeel.sln so it is easy to see.
+5. Start MSFS 2024, load an aircraft (Fenix A320 recommended), click Connect if needed
 
-Then:
+See README.md and HOW_TO_RUN.txt for full details, troubleshooting, and what "good" looks like.
 
-  1. Open HeavyFeel.sln in Visual Studio 2022
-  2. Press F5
-
-If Windows hides file extensions, Setup-SimConnect.bat may just look like
-"Setup-SimConnect".
+Master Enable writes AXIS events only while you hold the stick.
+Body-rate writes are intentionally disabled.
