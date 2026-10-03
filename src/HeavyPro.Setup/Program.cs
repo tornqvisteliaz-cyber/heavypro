@@ -67,6 +67,8 @@ sealed class SetupForm : Form
         Controls.Add(install);
     }
 
+    public void SetPath(string path) => _path.Text = path;
+
     private void Install()
     {
         var community = _path.Text.Trim().Trim('"');
