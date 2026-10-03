@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Verify app payload excludes MSFS SDK binaries
+      - name: Verify bundled SimConnect runtime files
         shell: pwsh
         run: |
           Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -24,13 +24,16 @@ jobs:
             if ($names -notcontains 'HeavyPro.exe' -or $names -notcontains 'HeavyPro.exe.config') {
               throw 'The app payload is missing the executable or runtime configuration.'
             }
-            if ($names -contains 'Microsoft.FlightSimulator.SimConnect.dll' -or $names -contains 'SimConnect.dll') {
-              throw 'The payload must not contain MSFS SDK binaries.'
+            if ($names -notcontains 'Microsoft.FlightSimulator.SimConnect.dll' -or $names -notcontains 'SimConnect.dll') {
+              throw 'The payload is missing the SimConnect runtime files.'
+            }
+            if ($names -notcontains 'NOTICE-MSFS-SimConnect.txt') {
+              throw 'The payload is missing the Microsoft SimConnect notice.'
             }
           } finally {
             $zip.Dispose()
           }
-      - name: Build SDK-backed setup
+      - name: Build standalone setup
         run: dotnet publish src/HeavyPro.Setup/HeavyPro.Setup.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true "-p:PayloadZipPath=$pwd\packaging\HeavyProAppPayload.zip" -o publish
       - uses: actions/upload-artifact@v4
         with:

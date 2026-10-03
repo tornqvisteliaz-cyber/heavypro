@@ -18,8 +18,7 @@ if (Test-Path $archive) { Remove-Item -LiteralPath $archive -Force }
 $zip = [System.IO.Compression.ZipFile]::Open($archive, [System.IO.Compression.ZipArchiveMode]::Create)
 try {
     Get-ChildItem -LiteralPath $output -File -Recurse | Where-Object {
-        $_.Extension -ne ".pdb" -and
-        $_.Name -notin @("SimConnect.dll", "Microsoft.FlightSimulator.SimConnect.dll")
+        $_.Extension -ne ".pdb"
     } | ForEach-Object {
         $relative = [System.IO.Path]::GetRelativePath($output, $_.FullName).Replace("\", "/")
         [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
@@ -30,4 +29,16 @@ try {
     $zip.Dispose()
 }
 
-Write-Host "Created $archive without PDBs or MSFS SDK DLLs."
+$zip = [System.IO.Compression.ZipFile]::Open($archive, [System.IO.Compression.ZipArchiveMode]::Update)
+try {
+    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+        $zip,
+        (Join-Path $PSScriptRoot "NOTICE-MSFS-SimConnect.txt"),
+        "NOTICE-MSFS-SimConnect.txt",
+        [System.IO.Compression.CompressionLevel]::Optimal
+    ) | Out-Null
+} finally {
+    $zip.Dispose()
+}
+
+Write-Host "Created $archive with the HeavyPro app payload and SimConnect runtime files."
