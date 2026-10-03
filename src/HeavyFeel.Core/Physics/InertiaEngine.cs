@@ -8,11 +8,20 @@ namespace HeavyFeel.Core.Physics;
 /// Centered stick ramps back to zero then writes stop.
 /// Never writes body rates or thrust — those fight MSFS physics / FBW.
 /// WriteRates is always false; only AXIS (and optional yoke) are sent.
+///
+/// Axis bias (from flight test):
+/// pitch is reduced (too sensitive), yaw is extra-damped, roll is the reference.
 /// </summary>
 public sealed class InertiaEngine
 {
     private const double A320TypicalTakeoffLb = 154000;
     private const double Deadzone = 0.04;
+
+    // Flight-test axis mix. Roll is 1.0 (leave as-is).
+    private const double PitchAuthorityMul = 0.70;
+    private const double YawAuthorityMul = 0.55;
+    private const double PitchRateMul = 0.78;
+    private const double YawRateMul = 0.58;
 
     private double _outPitch;
     private double _outRoll;
@@ -104,16 +113,24 @@ public sealed class InertiaEngine
 
         maxRate = Math.Clamp(maxRate, 0.35, 8.0);
 
-        var pitchRate = Math.Clamp(maxRate / (0.55 + pitchDamp * 1.20) * profile.PitchResponse, 0.25, 8.0);
-        var rollRate = Math.Clamp(maxRate / (0.55 + rollDamp * 1.20) * profile.RollResponse, 0.25, 8.0);
-        var yawRate = Math.Clamp(maxRate / (0.55 + yawDamp * 1.20) * profile.YawResponse, 0.25, 8.0);
+        // Roll uses the original curve. Pitch is slower / less peak. Yaw is extra-damped.
+        var pitchRate = Math.Clamp(
+            maxRate / (0.70 + pitchDamp * 1.45) * profile.PitchResponse * PitchRateMul,
+            0.14, 5.2);
+        var rollRate = Math.Clamp(
+            maxRate / (0.55 + rollDamp * 1.20) * profile.RollResponse,
+            0.25, 8.0);
+        var yawRate = Math.Clamp(
+            maxRate / (0.90 + yawDamp * 1.70) * profile.YawResponse * YawRateMul,
+            0.08, 2.8);
 
-        // Held stick is scaled. A heavy jet never reaches the raw deflection.
-        // Released stick still slews back to zero, then writes stop.
-        var gain = Authority(feel, response, size, snap.OnGround ? ground : 0);
-        var targetY = holding ? stickY * gain : 0;
-        var targetX = holding ? stickX * gain : 0;
-        var targetR = holding ? stickR * gain : 0;
+        var gainRoll = Authority(feel, response, size, snap.OnGround ? ground : 0);
+        var gainPitch = Math.Clamp(gainRoll * PitchAuthorityMul, 0.24, 0.86);
+        var gainYaw = Math.Clamp(gainRoll * YawAuthorityMul, 0.18, 0.70);
+
+        var targetY = holding ? stickY * gainPitch : 0;
+        var targetX = holding ? stickX * gainRoll : 0;
+        var targetR = holding ? stickR * gainYaw : 0;
         _rampingOut = !holding && movingOut;
 
         _outPitch = Slew(_outPitch, targetY, pitchRate, dt);
@@ -160,12 +177,12 @@ public sealed class InertiaEngine
             RudderAxis = rud,
             Phase = phase.ToString(),
             ProfileName = profile.Name,
-            Mix = gain,
+            Mix = gainRoll,
             RawPitch = stickY,
             OutPitch = pitch,
             RawRoll = stickX,
             OutRoll = roll,
-            Reason = $"{phase} {profile.Name} gain={gain:0.00} rawY={stickY:+0.00;-0.00;0} outY={pitch:+0.00;-0.00;0} {kg:0}kg"
+            Reason = $"{phase} {profile.Name} p={gainPitch:0.00} r={gainRoll:0.00} y={gainYaw:0.00} rawY={stickY:+0.00;-0.00;0} outY={pitch:+0.00;-0.00;0} {kg:0}kg"
         };
     }
 
