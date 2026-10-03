@@ -198,7 +198,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             {
                 _settings.ViewCue = false;
                 _viewCue.Reset();
-                _client.ApplyViewCue(Physics.ViewCue.Zero);
+                _client.ApplyViewCue(HeavyFeel.Core.Physics.ViewCue.Zero);
                 OnChanged(nameof(ViewCue));
             }
             OnChanged();
@@ -215,7 +215,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             if (!value)
             {
                 _viewCue.Reset();
-                _client.ApplyViewCue(Physics.ViewCue.Zero);
+                _client.ApplyViewCue(HeavyFeel.Core.Physics.ViewCue.Zero);
             }
             OnChanged();
             ScheduleSave();
@@ -431,7 +431,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             : 0;
         _client.ApplyPayloadBoost(extra);
         if (_settings.CompanionMode)
-            _client.ApplyViewCue(Physics.ViewCue.Zero);
+            _client.ApplyViewCue(HeavyFeel.Core.Physics.ViewCue.Zero);
         else
             _client.ApplyViewCue(_viewCue.Step(_settings, snap));
         if (WriteStatus != cmd.Reason)
