@@ -9,13 +9,22 @@ static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
-        using var setup = new SetupForm();
-        var detected = CommunityFinder.Find();
-        if (!string.IsNullOrEmpty(detected))
-            setup.SetPath(detected);
-        System.Windows.Forms.Application.Run(setup);
-        if (setup.DialogResult != DialogResult.OK)
-            return;
+        var installedExe = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "HeavyPro",
+            "HeavyPro.exe");
+
+        // The downloaded setup EXE installs the app; the installed copy launches it directly.
+        if (!string.Equals(Environment.ProcessPath, installedExe, StringComparison.OrdinalIgnoreCase))
+        {
+            using var setup = new SetupForm();
+            var detected = CommunityFinder.Find();
+            if (!string.IsNullOrEmpty(detected))
+                setup.SetPath(detected);
+            System.Windows.Forms.Application.Run(setup);
+            if (setup.DialogResult != DialogResult.OK)
+                return;
+        }
 
         var sim = SimConnectLocator.Ensure();
         if (sim == null)
@@ -87,6 +96,7 @@ sealed class SetupForm : Form
         if (!string.IsNullOrEmpty(Environment.ProcessPath))
             File.Copy(Environment.ProcessPath, appExe, true);
         File.WriteAllText(Path.Combine(appDir, "community.path"), community);
+        SimConnectLocator.CreateShortcut(appExe);
 
         MessageBox.Show(this,
             "Installed. Opening HeavyPro.\n\nRestart MSFS 2024. The toolbar icon needs InGamePanels/HeavyPro.spb from the MSFS SDK. HTML alone does not add the icon.",
@@ -296,7 +306,7 @@ static class SimConnectLocator
             }
         }
 
-        private static void CreateShortcut(string exe)
+        public static void CreateShortcut(string exe)
     {
         var start = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "Programs", "HeavyPro.lnk");
         var desktop = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "HeavyPro.lnk");
