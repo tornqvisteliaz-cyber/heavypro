@@ -12,8 +12,8 @@ This is the honest map for HeavyFeel. No invented APIs.
 - Read Fenix FCU locals in a separate packet: `L:S_FCU_AP1`, `L:S_FCU_AP2`, `L:I_FCU_AP1`, `L:I_FCU_AP2`.
 - Read mass and inertia: TOTAL WEIGHT, EMPTY WEIGHT, MAX GROSS WEIGHT, fuel weight, pitch/roll/yaw MOI.
 - Read configuration: flaps, gear, spoilers, throttle, N1, yoke, pedals, surface positions, trim.
-- Write (optional, Master Enable): `AXIS_ELEVATOR_SET` / `AXIS_AILERONS_SET` / `AXIS_RUDDER_SET`.
-- Write (optional, currently disabled in the engine): `ROTATION VELOCITY BODY X/Y/Z`.
+- Write (optional, Master Enable, only while stick held): `AXIS_ELEVATOR_SET` / `AXIS_AILERONS_SET` / `AXIS_RUDDER_SET`.
+- Write (registered but **disabled** in the inertia engine): `ROTATION VELOCITY BODY X/Y/Z` — left off because continuous rate writes fight the sim and Fenix FBW.
 - Detect aircraft family from title/model (Cessna → A320 → 777 → 747) and scale feel.
 
 ## Partially possible
