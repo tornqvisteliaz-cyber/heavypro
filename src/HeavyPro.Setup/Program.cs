@@ -296,9 +296,8 @@ static class SimConnectLocator
                 return null;
             }
         }
-    }
 
-    private static void CreateShortcut(string exe)
+        private static void CreateShortcut(string exe)
     {
         var start = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "Programs", "HeavyPro.lnk");
         var desktop = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "HeavyPro.lnk");
