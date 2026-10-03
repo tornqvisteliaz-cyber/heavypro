@@ -74,12 +74,6 @@ sealed class SetupForm : Form
 
         var appDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HeavyPro");
         Directory.CreateDirectory(appDir);
-        if (!SimConnectLocator.CopySdkFiles(appDir, out var sdkMessage))
-        {
-            MessageBox.Show(this, sdkMessage, "HeavyPro");
-            return;
-        }
-
         BundleInstaller.Extract(appDir);
         PackageInstaller.Install(community);
         var appExe = Path.Combine(appDir, "HeavyPro.exe");
@@ -255,40 +249,7 @@ static class CommunityFinder
 
 static class SimConnectLocator
 {
-    public static bool CopySdkFiles(string destination, out string message)
-    {
-        foreach (var root in CandidateRoots())
-        {
-            var lib = Path.Combine(root, "SimConnect SDK", "lib");
-            var native = Path.Combine(lib, "SimConnect.dll");
-            var managed = Path.Combine(lib, "managed", "Microsoft.FlightSimulator.SimConnect.dll");
-            if (!File.Exists(native) || !File.Exists(managed))
-                continue;
-
-            File.Copy(native, Path.Combine(destination, "SimConnect.dll"), true);
-            File.Copy(managed, Path.Combine(destination, "Microsoft.FlightSimulator.SimConnect.dll"), true);
-            message = "MSFS 2024 SDK files found.";
-            return true;
-        }
-
-        message = "The MSFS 2024 SimConnect SDK was not found. Install it from Flight Simulator's Developer Mode, then run HeavyPro setup again.";
-        return false;
-    }
-
-    private static IEnumerable<string> CandidateRoots()
-    {
-        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return new[]
-        {
-            @"C:\MSFS 2024 SDK",
-            @"C:\MSFS SDK",
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft Flight Simulator 2024 SDK"),
-            Path.Combine(local, "MSFS 2024 SDK"),
-            Path.Combine(local, "MSFS SDK")
-        };
-    }
-
-        public static void CreateShortcut(string exe)
+    public static void CreateShortcut(string exe)
     {
         var start = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "Programs", "HeavyPro.lnk");
         var desktop = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "HeavyPro.lnk");
