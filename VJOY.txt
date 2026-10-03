@@ -1,0 +1,8 @@
+vJoy is the path that actually changes heaviness. SimConnect cannot.
+
+1. Install vJoy from https://sourceforge.net/projects/vjoystick/
+2. In vJoy Configure, enable device 1 with X, Y and Z.
+3. Start HeavyPro. It should say vJoy device 1 acquired.
+4. In MSFS Controls, bind aileron, elevator and rudder to the vJoy device.
+5. Remove those axes from your physical stick, or both will fight.
+6. Realistic feel + higher Inertia = heavier curve. A 777 is heavier than a 172.

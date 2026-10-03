@@ -89,7 +89,10 @@
                             <CheckBox Content="Auto-connect" IsChecked="{Binding AutoConnect}"/>
                             <CheckBox Content="Log telemetry" IsChecked="{Binding LogTelemetry}"/>
                             <CheckBox Content="Show debug" IsChecked="{Binding DebugMode}"/>
-                            <CheckBox Content="Use with FSRealistic / ChasePlane" IsChecked="{Binding CompanionMode}"/>
+                            <CheckBox Content="vJoy stick curve (recommended)" IsChecked="{Binding UseHardwareCurve}"/>
+                            <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Text="SimConnect cannot change lift. Install vJoy, bind MSFS to vJoy, unbind the physical stick."/>
+                            <TextBlock Text="{Binding HardwareStatus}" Margin="0,4,0,0" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11"/>
                             <CheckBox Content="View cue (cockpit)" IsChecked="{Binding ViewCue}"/>
                             <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,4,0,0"
                                        Text="Companion on: FSR keeps sound and camera. HeavyPro only shapes the stick."/>

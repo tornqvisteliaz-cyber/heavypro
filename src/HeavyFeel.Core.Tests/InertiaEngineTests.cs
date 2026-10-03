@@ -92,6 +92,15 @@ public class InertiaEngineTests
     }
 
     [Fact]
+    public void Stick_curve_is_heavier_when_gain_is_low()
+    {
+        var light = StickCurve.Shape(0.8, 1.0);
+        var heavy = StickCurve.Shape(0.8, 0.4);
+        Assert.True(light > heavy);
+        Assert.InRange(light, 0.75, 0.85);
+    }
+
+    [Fact]
     public void Heavier_setting_reduces_authority()
     {
         var light = InertiaEngine.Authority(0.1, 0.8, 0.5, 0);

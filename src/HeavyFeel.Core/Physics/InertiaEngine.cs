@@ -30,6 +30,14 @@ public sealed class InertiaEngine
             return InfluenceCommand.Idle("Master off — no writes");
         }
 
+        if (settings.UseHardwareCurve)
+        {
+            return InfluenceCommand.Idle("hardware curve owns the stick — SimConnect axis writes off") with
+            {
+                ProfileName = ProfileLibrary.For(snap.Aircraft, snap.Class).Name
+            };
+        }
+
         if (snap.AutopilotMaster)
         {
             Reset();

@@ -168,6 +168,26 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    public AppSettings Settings => _settings;
+    public FlightSnapshot Snapshot => _snap;
+    public string HardwareStatus
+    {
+        get => _hardwareStatus;
+        set => Set(ref _hardwareStatus, value);
+    }
+    private string _hardwareStatus = "hardware curve idle";
+
+    public bool UseHardwareCurve
+    {
+        get => _settings.UseHardwareCurve;
+        set
+        {
+            _settings.UseHardwareCurve = value;
+            OnChanged();
+            ScheduleSave();
+        }
+    }
+
     public bool CompanionMode
     {
         get => _settings.CompanionMode;
