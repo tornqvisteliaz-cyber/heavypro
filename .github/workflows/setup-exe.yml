@@ -3,6 +3,7 @@ name: Build installer
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -13,8 +14,30 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - run: dotnet publish src/HeavyPro.Setup/HeavyPro.Setup.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+      - name: Check for MSFS SimConnect SDK
+        id: simconnect
+        shell: pwsh
+        run: |
+          $hasManaged = Test-Path "lib/Microsoft.FlightSimulator.SimConnect.dll"
+          $hasNative = Test-Path "lib/SimConnect.dll"
+          $available = ($hasManaged -and $hasNative).ToString().ToLowerInvariant()
+          "available=$available" >> $env:GITHUB_OUTPUT
+          if ($available -eq "false") {
+            Write-Host "::warning::Skipping the installer artifact because the MSFS SimConnect SDK DLLs are not staged in lib."
+          }
+      - name: Build HeavyPro
+        run: dotnet build src/HeavyFeel.App/HeavyFeel.App.csproj -c Release -p:Platform=x64
+      - name: Build SDK-backed installer when SDK files are staged
+        if: steps.simconnect.outputs.available == 'true'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path 'src/HeavyFeel.App/bin/x64/Release/net48/*' -DestinationPath 'heavypro-payload.zip' -CompressionLevel Optimal
+          dotnet publish src/HeavyPro.Setup/HeavyPro.Setup.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true "-p:PayloadZipPath=$pwd\heavypro-payload.zip" -o publish
+      - name: Build setup project when SDK files are not available
+        if: steps.simconnect.outputs.available != 'true'
+        run: dotnet build src/HeavyPro.Setup/HeavyPro.Setup.csproj -c Release
       - uses: actions/upload-artifact@v4
+        if: steps.simconnect.outputs.available == 'true'
         with:
           name: HeavyProSetup
           path: publish/HeavyProSetup.exe

@@ -1,3 +1,4 @@
+using HeavyFeel.Core;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
@@ -503,7 +504,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void SetSlider(string name, double value, Action<double> assign)
     {
-        assign(Math.Clamp(value, SliderLimits.Min, SliderLimits.Max));
+        assign(Numeric.Clamp(value, SliderLimits.Min, SliderLimits.Max));
         OnChanged(name);
         OnChanged(nameof(PreviewTau));
         if (!_applyingPreset)
