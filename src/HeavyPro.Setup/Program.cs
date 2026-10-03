@@ -10,7 +10,10 @@ static class Program
     {
         ApplicationConfiguration.Initialize();
         var marker = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HeavyPro", "community.path");
-        if (!File.Exists(marker))
+        var community = File.Exists(marker) ? File.ReadAllText(marker).Trim() : CommunityFinder.Find();
+        if (!string.IsNullOrEmpty(community) && Directory.Exists(community))
+            PackageInstaller.Install(community);
+        else
         {
             using var setup = new SetupForm();
             System.Windows.Forms.Application.Run(setup);
@@ -78,11 +81,7 @@ sealed class SetupForm : Form
         }
 
         var package = Path.Combine(community, "heavypro-feel");
-        WritePackage(package);
-        var sibling = Path.Combine(Path.GetDirectoryName(community) ?? community, "Community2024");
-        if (Directory.Exists(sibling))
-            WritePackage(Path.Combine(sibling, "heavypro-feel"));
-        SimConnectLocator.Ensure();
+        PackageInstaller.Install(community);
 
         var appDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HeavyPro");
         Directory.CreateDirectory(appDir);
@@ -90,13 +89,26 @@ sealed class SetupForm : Form
         if (!string.IsNullOrEmpty(Environment.ProcessPath))
             File.Copy(Environment.ProcessPath, appExe, true);
         File.WriteAllText(Path.Combine(appDir, "community.path"), community);
-        CreateShortcut(appExe);
 
         MessageBox.Show(this,
             "Installed. Opening HeavyPro.\n\nRestart MSFS 2024. The toolbar icon needs InGamePanels/HeavyPro.spb from the MSFS SDK. HTML alone does not add the icon.",
             "HeavyPro");
         DialogResult = DialogResult.OK;
         Close();
+    }
+}
+
+static class PackageInstaller
+{
+    public static void Install(string community)
+    {
+        WritePackage(Path.Combine(community, "heavypro-feel"));
+        var sibling = Path.Combine(Path.GetDirectoryName(community) ?? community, "Community2024");
+        if (Directory.Exists(sibling))
+            WritePackage(Path.Combine(sibling, "heavypro-feel"));
+        var appDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HeavyPro");
+        Directory.CreateDirectory(appDir);
+        File.WriteAllText(Path.Combine(appDir, "community.path"), community);
     }
 
     private static void WritePackage(string package)
@@ -180,8 +192,49 @@ sealed class SetupForm : Form
         File.WriteAllText(Path.Combine(package, "HeavyPro", "TOOLBAR.txt"),
             "MSFS 2024 only shows a toolbar icon if InGamePanels/HeavyPro.spb exists. That file is compiled by the MSFS SDK Project Editor. HTML alone does not create the icon.");
     }
+}
 
-    private static class SimConnectLocator
+static class CommunityFinder
+{
+    public static string? Find()
+    {
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var appdata = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var candidates = new[]
+        {
+            Path.Combine(local, "Packages", "Microsoft.Limitless_8wekyb3d8bbwe", "LocalCache", "Packages", "Community"),
+            Path.Combine(local, "Packages", "Microsoft.Limitless_8wekyb3d8bbwe", "LocalCache", "Packages", "Community2024"),
+            Path.Combine(appdata, "Microsoft Flight Simulator 2024", "Packages", "Community"),
+            Path.Combine(appdata, "Microsoft Flight Simulator", "Packages", "Community")
+        };
+        foreach (var path in candidates)
+        {
+            if (Directory.Exists(path))
+                return path;
+        }
+        foreach (var cfg in new[]
+        {
+            Path.Combine(appdata, "Microsoft Flight Simulator 2024", "UserCfg.opt"),
+            Path.Combine(local, "Packages", "Microsoft.Limitless_8wekyb3d8bbwe", "LocalCache", "UserCfg.opt")
+        })
+        {
+            if (!File.Exists(cfg))
+                continue;
+            foreach (var line in File.ReadLines(cfg))
+            {
+                if (!line.StartsWith("InstalledPackagesPath", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var value = line.Split(' ', 2).Last().Trim().Trim('"');
+                var community = Path.Combine(value, "Community");
+                if (Directory.Exists(community))
+                    return community;
+            }
+        }
+        return null;
+    }
+}
+
+static class SimConnectLocator
     {
         [System.Runtime.InteropServices.DllImport("kernel32", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
         private static extern bool SetDllDirectory(string path);
