@@ -16,15 +16,16 @@ public static class AircraftCatalog
     {
         var blob = $"{id.Title} {id.AtcModel} {id.AtcType}".ToUpperInvariant();
 
-        if (ContainsAny(blob, "747", "A380", "AN-225", "AN225", "BELUGA", "A400", "C-5", "C5 GALAXY"))
+        if (ContainsAny(blob, "747", "A380", "AN-225", "AN225", "BELUGA", "A400", "C-5", "C5 GALAXY", "C-17", "C17", "IL-76"))
             return AircraftClass.HeavyWide;
 
-        if (ContainsAny(blob, "777", "787", "A330", "A340", "A350", "A300", "A310", "MD-11", "DC-10", "IL-96", "707"))
+        if (ContainsAny(blob, "777", "787", "A330", "A340", "A350", "A300", "A310", "MD-11", "DC-10", "IL-96", "707", "767", "A310", "IL-86"))
             return AircraftClass.WideBody;
 
         if (ContainsAny(blob, "A318", "A319", "A320", "A321", "A32N", "A20N", "A21N",
-                "737", "738", "739", "MAX", "717", "MD-80", "MD-90",
-                "E170", "E175", "E190", "E195", "CRJ", "A220", "CS1", "CS3"))
+                "737", "738", "739", "MAX", "B38M", "B39M", "717", "MD-80", "MD-90",
+                "E170", "E175", "E190", "E195", "CRJ", "A220", "CS1", "CS3", "CS100", "CS300",
+                "SUKHOI", "SSJ", "SUPERJET", "MRJ", "M90"))
             return AircraftClass.NarrowBody;
 
         if (ContainsAny(blob,
@@ -33,7 +34,7 @@ public static class AircraftCatalog
                 "TBM", "PC-12", "PC12", "CJ4", "CITATION", "LONGITUDE", "SF50", "VISION",
                 "TWIN OTTER", "DHC-6", "DHC6", "BEAVER", "DHC-2", "DHC2",
                 "ATR", "DASH", "Q400", "Q300", "SEASTAR", "CL-415", "CL415",
-                "KODIAK", "PILATUS"))
+                "KODIAK", "PILATUS", "DO-228", "DO228", "LET-410", "L410", "EMB-120", "BANDEIRANTE"))
             return AircraftClass.Regional;
 
         if (IsLightGa(blob))
