@@ -23,6 +23,7 @@ public interface ISimClient : IDisposable
     /// </summary>
     void ApplyInfluence(InfluenceCommand command);
     void ApplyViewCue(ViewCue cue);
+    void SetFeelGain(double gain);
 }
 
 public interface ISimClientFactory

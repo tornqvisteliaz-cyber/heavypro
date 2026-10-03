@@ -45,6 +45,10 @@ public sealed class OfflineSimClient : ISimClient
     {
     }
 
+    public void SetFeelGain(double gain)
+    {
+    }
+
     public void Dispose()
     {
     }

@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Interop;
-using HeavyFeel.App.Input;
 using HeavyFeel.App.ViewModels;
 using HeavyFeel.Core.Services;
 using HeavyFeel.Logging;
@@ -45,15 +44,6 @@ public partial class MainWindow : Window
         }
 
         _vm.Start();
-
-        var pump = new HardwareCurvePump(() => _vm.Settings, () => _vm.Snapshot, _logger.Info);
-        var curveTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-        curveTimer.Tick += (_, _) =>
-        {
-            pump.Tick();
-            _vm.HardwareStatus = pump.LastStatus;
-        };
-        curveTimer.Start();
 
         var welcome = new WelcomeWindow { Owner = this };
         welcome.ShowDialog();

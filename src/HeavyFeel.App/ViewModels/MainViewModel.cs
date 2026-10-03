@@ -424,6 +424,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         var cmd = _engine.Step(_settings, snap, _settings.MasterEnable && _client.IsConnected);
         _lastCmd = cmd;
+        _client.SetFeelGain(cmd.Mix > 0 ? cmd.Mix : 0.55);
         _client.ApplyInfluence(cmd);
         if (_settings.CompanionMode)
             _client.ApplyViewCue(Physics.ViewCue.Zero);

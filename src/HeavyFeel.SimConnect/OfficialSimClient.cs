@@ -47,6 +47,11 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         AxisRudder = 22
     }
 
+    private enum Groups : uint
+    {
+        Stick = 1
+    }
+
     /// <summary>
     /// Used as the GroupID argument when GROUPID_IS_PRIORITY is set.
     /// Some SimConnect managed wrappers do not ship SIMCONNECT_GROUP_PRIORITY.
@@ -72,6 +77,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private bool _writesDisabled;
     private bool _cameraDisabled;
     private int _writeLogSkip;
+    private double _feelGain = 0.55;
+    private bool _echo;
 
     public OfficialSimClient(AppLogger logger, IntPtr hwnd)
     {
@@ -266,6 +273,40 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             case Events.Pause:
                 _logger.Info($"Pause event data={data.dwData}");
                 break;
+            case Events.AxisElevator:
+            case Events.AxisAileron:
+            case Events.AxisRudder:
+                CaptureStick(sender, (Events)data.uEventID, data.dwData);
+                break;
+        }
+    }
+
+    public void SetFeelGain(double gain) => _feelGain = Math.Clamp(gain, 0.35, 1.0);
+
+    private void CaptureStick(Microsoft.FlightSimulator.SimConnect.SimConnect sender, Events ev, uint data)
+    {
+        if (_echo || _writesDisabled)
+            return;
+        var raw = unchecked((int)data);
+        if (raw > 16384)
+            raw -= 65536;
+        var unit = Math.Clamp(raw / 16384.0, -1, 1);
+        var shaped = StickCurve.Shape(unit, _feelGain);
+        var axis = (int)Math.Round(shaped * 16384.0);
+        try
+        {
+            _echo = true;
+            TransmitAxis(ev, axis);
+            if ((_writeLogSkip++ % 90) == 0)
+                _logger.Info($"Owned stick {ev} raw={unit:+0.00;-0.00;0} out={shaped:+0.00;-0.00;0} gain={_feelGain:0.00}");
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn("Owned stick rewrite failed: " + ex.Message);
+        }
+        finally
+        {
+            _echo = false;
         }
     }
 
@@ -495,8 +536,12 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _sim!.MapClientEventToSimEvent(Events.AxisElevator, "AXIS_ELEVATOR_SET");
             _sim.MapClientEventToSimEvent(Events.AxisAileron, "AXIS_AILERONS_SET");
             _sim.MapClientEventToSimEvent(Events.AxisRudder, "AXIS_RUDDER_SET");
+            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisElevator, false);
+            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisAileron, false);
+            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisRudder, false);
+            _sim.SetNotificationGroupPriority(Groups.Stick, EventPriority.HighestMaskable);
             _axisWriteReady = true;
-            _logger.Info("Mapped AXIS_ELEVATOR_SET / AXIS_AILERONS_SET / AXIS_RUDDER_SET.");
+            _logger.Info("HeavyPro owns AXIS events. No other program.");
         }
         catch (Exception ex)
         {

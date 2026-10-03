@@ -1,8 +1,5 @@
-vJoy is the path that actually changes heaviness. SimConnect cannot.
+HeavyPro does not use vJoy, FSRealistic, or ChasePlane.
 
-1. Install vJoy from https://sourceforge.net/projects/vjoystick/
-2. In vJoy Configure, enable device 1 with X, Y and Z.
-3. Start HeavyPro. It should say vJoy device 1 acquired.
-4. In MSFS Controls, bind aileron, elevator and rudder to the vJoy device.
-5. Remove those axes from your physical stick, or both will fight.
-6. Realistic feel + higher Inertia = heavier curve. A 777 is heavier than a 172.
+It subscribes to AXIS_ELEVATOR_SET, AXIS_AILERONS_SET and AXIS_RUDDER_SET at the highest maskable SimConnect priority, shapes the value from aircraft weight, and sends that value on. The physical stick stays bound in MSFS.
+
+This cannot change lift or Fenix flight-by-wire if that aircraft reads the controller itself and ignores SimConnect axis events.

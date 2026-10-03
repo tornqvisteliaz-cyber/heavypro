@@ -7,7 +7,7 @@ public sealed class AppSettings
     public bool LogTelemetry { get; set; }
     public bool DebugMode { get; set; } = true;
     public bool ViewCue { get; set; } = false;
-    public bool UseHardwareCurve { get; set; } = true;
+    public bool UseHardwareCurve { get; set; } = false;
     public bool CompanionMode { get; set; } = true;
     public int TelemetryLogIntervalMs { get; set; } = 1000;
 
