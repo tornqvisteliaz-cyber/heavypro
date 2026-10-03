@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>HeavyFeel.SimConnect</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>$(DefineConstants)</DefineConstants>
+    <DefineConstants Condition="Exists('$(MSBuildThisFileDirectory)..\..\lib\Microsoft.FlightSimulator.SimConnect.dll')">$(DefineConstants);HAS_SIMCONNECT</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HeavyFeel.Core\HeavyFeel.Core.csproj" />
+    <ProjectReference Include="..\HeavyFeel.Logging\HeavyFeel.Logging.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.FlightSimulator.SimConnect" Condition="Exists('$(MSBuildThisFileDirectory)..\..\lib\Microsoft.FlightSimulator.SimConnect.dll')">
+      <HintPath>$(MSBuildThisFileDirectory)..\..\lib\Microsoft.FlightSimulator.SimConnect.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\..\lib\SimConnect.dll" Condition="Exists('$(MSBuildThisFileDirectory)..\..\lib\SimConnect.dll')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>SimConnect.dll</Link>
+    </None>
+  </ItemGroup>
+</Project>

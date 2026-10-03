@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon />
+    <RootNamespace>HeavyFeel.App</RootNamespace>
+    <AssemblyName>HeavyFeel</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HeavyFeel.Core\HeavyFeel.Core.csproj" />
+    <ProjectReference Include="..\HeavyFeel.Logging\HeavyFeel.Logging.csproj" />
+    <ProjectReference Include="..\HeavyFeel.SimConnect\HeavyFeel.SimConnect.csproj" />
+  </ItemGroup>
+</Project>

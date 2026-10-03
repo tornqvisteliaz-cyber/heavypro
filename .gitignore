@@ -1,0 +1,8 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+lib/Microsoft.FlightSimulator.SimConnect.dll
+lib/SimConnect.dll
+*.log
