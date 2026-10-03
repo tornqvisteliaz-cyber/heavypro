@@ -91,6 +91,16 @@ public class InertiaEngineTests
         Assert.InRange(InertiaEngine.LiveMassScale(heavy), 1.0, 1.35);
     }
 
+    [Fact]
+    public void Heavier_setting_reduces_authority()
+    {
+        var light = InertiaEngine.Authority(0.1, 0.8, 0.5, 0);
+        var heavy = InertiaEngine.Authority(0.92, 0.18, 1.3, 0.8);
+        Assert.True(light > 0.85);
+        Assert.True(heavy < 0.55);
+        Assert.True(light > heavy);
+    }
+
     private static AppSettings Medium() => new()
     {
         Inertia = 56,

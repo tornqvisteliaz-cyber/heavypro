@@ -104,9 +104,12 @@ public sealed class InertiaEngine
         var rollRate = Math.Clamp(maxRate / (0.55 + rollDamp * 1.20) * profile.RollResponse, 0.25, 8.0);
         var yawRate = Math.Clamp(maxRate / (0.55 + yawDamp * 1.20) * profile.YawResponse, 0.25, 8.0);
 
-        var targetY = holding ? stickY : 0;
-        var targetX = holding ? stickX : 0;
-        var targetR = holding ? stickR : 0;
+        // Held stick is scaled. A heavy jet never reaches the raw deflection.
+        // Released stick still slews back to zero, then writes stop.
+        var gain = Authority(feel, response, size, snap.OnGround ? ground : 0);
+        var targetY = holding ? stickY * gain : 0;
+        var targetX = holding ? stickX * gain : 0;
+        var targetR = holding ? stickR * gain : 0;
         _rampingOut = !holding && movingOut;
 
         _outPitch = Slew(_outPitch, targetY, pitchRate, dt);
@@ -144,7 +147,7 @@ public sealed class InertiaEngine
             Active = true,
             WriteRates = false,
             WriteAxes = true,
-            WriteYoke = !settings.CompanionMode,
+            WriteYoke = true,
             YokeXOut = roll,
             YokeYOut = pitch,
             RudderOut = yaw,
@@ -153,12 +156,12 @@ public sealed class InertiaEngine
             RudderAxis = rud,
             Phase = phase.ToString(),
             ProfileName = profile.Name,
-            Mix = maxRate,
+            Mix = gain,
             RawPitch = stickY,
             OutPitch = pitch,
             RawRoll = stickX,
             OutRoll = roll,
-            Reason = $"{phase} {profile.Name} P={pitchRate:0.00} R={rollRate:0.00} Y={yawRate:0.00}/s rawY={stickY:+0.00;-0.00;0} outY={pitch:+0.00;-0.00;0} {kg:0}kg"
+            Reason = $"{phase} {profile.Name} gain={gain:0.00} rawY={stickY:+0.00;-0.00;0} outY={pitch:+0.00;-0.00;0} {kg:0}kg"
         };
     }
 
@@ -207,6 +210,13 @@ public sealed class InertiaEngine
             return 1.0;
         var refMoi = snap.PitchMoi < 50_000 ? 20_000.0 : 1_500_000.0;
         return Math.Clamp(snap.PitchMoi / refMoi, 0.80, 1.25);
+    }
+
+    public static double Authority(double feel, double response, double size, double ground)
+    {
+        var heavy = feel * Math.Clamp(size, 0.45, 1.6);
+        var gain = 1.0 - heavy * 0.42 - ground * 0.12 + response * 0.18;
+        return Math.Clamp(gain, 0.38, 1.0);
     }
 
     private static double Slew(double current, double target, double maxPerSec, double dt)

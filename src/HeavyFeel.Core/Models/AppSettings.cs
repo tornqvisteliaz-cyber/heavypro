@@ -2,7 +2,7 @@ namespace HeavyFeel.Core.Models;
 
 public sealed class AppSettings
 {
-    public bool MasterEnable { get; set; }
+    public bool MasterEnable { get; set; } = true;
     public bool AutoConnect { get; set; } = true;
     public bool LogTelemetry { get; set; }
     public bool DebugMode { get; set; } = true;
@@ -19,7 +19,7 @@ public sealed class AppSettings
     public double TurbulenceResponse { get; set; } = 24;
 
     public string AircraftProfile { get; set; } = "Auto Detect";
-    public string FeelLevel { get; set; } = "Medium";
+    public string FeelLevel { get; set; } = "Realistic";
     public double WindowWidth { get; set; } = 1280;
     public double WindowHeight { get; set; } = 800;
 }

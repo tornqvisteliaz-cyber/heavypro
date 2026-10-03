@@ -38,12 +38,12 @@ public static class FeelPresets
         TurbulenceResponse: 24);
 
     public static FeelPreset Realistic { get; } = new(
-        Inertia: 78,
-        PitchDamping: 72,
-        RollDamping: 68,
-        YawDamping: 64,
-        ControlResponse: 28,
-        GroundInertia: 78,
+        Inertia: 92,
+        PitchDamping: 80,
+        RollDamping: 76,
+        YawDamping: 70,
+        ControlResponse: 18,
+        GroundInertia: 88,
         TurbulenceResponse: 16);
 
     public static FeelPreset For(FeelLevel level) => level switch
