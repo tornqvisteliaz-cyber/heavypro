@@ -27,13 +27,13 @@ public sealed class ViewCueEngine
 
         var turb = settings.TurbulenceResponse / 100.0;
         var ground = settings.GroundInertia / 100.0;
-        var size = Math.Clamp(InertiaEngine.LiveMassScale(snap) * AircraftCatalog.InertiaScale(snap.Class), 0.4, 1.5);
+        var size = Numeric.Clamp(InertiaEngine.LiveMassScale(snap) * AircraftCatalog.InertiaScale(snap.Class), 0.4, 1.5);
         var heavy = 1.0 / size;
 
         if (!_wasGround && snap.OnGround)
         {
             var sink = Math.Max(0, -snap.VerticalSpeedFpm);
-            _thump = Math.Clamp(sink / 700.0, 0, 1.2) * heavy;
+            _thump = Numeric.Clamp(sink / 700.0, 0, 1.2) * heavy;
         }
         _wasGround = snap.OnGround;
         _thump *= 0.86;
@@ -45,19 +45,19 @@ public sealed class ViewCueEngine
             _phase -= 6.2832;
 
         var rumble = snap.OnGround && snap.GroundSpeedKnots > 4
-            ? Math.Sin(_phase) * Math.Clamp(snap.GroundSpeedKnots / 80.0, 0, 1) * ground * 0.012 * heavy
+            ? Math.Sin(_phase) * Numeric.Clamp(snap.GroundSpeedKnots / 80.0, 0, 1) * ground * 0.012 * heavy
             : 0;
 
         var g = snap.GForce - 1.0;
         var z = rumble + _thump * 0.035 + g * 0.010 * turb * heavy;
         var pitch = g * 0.18 * turb * heavy + _thump * 0.35;
-        var bank = Math.Clamp(snap.AccelerationBodyY / 40.0, -1, 1) * 0.15 * turb * heavy;
+        var bank = Numeric.Clamp(snap.AccelerationBodyY / 40.0, -1, 1) * 0.15 * turb * heavy;
         var x = rumble * 0.35;
 
-        z = Math.Clamp(z, -0.045, 0.045);
-        pitch = Math.Clamp(pitch, -0.8, 0.8);
-        bank = Math.Clamp(bank, -0.6, 0.6);
-        x = Math.Clamp(x, -0.02, 0.02);
+        z = Numeric.Clamp(z, -0.045, 0.045);
+        pitch = Numeric.Clamp(pitch, -0.8, 0.8);
+        bank = Numeric.Clamp(bank, -0.6, 0.6);
+        x = Numeric.Clamp(x, -0.02, 0.02);
 
         return new ViewCue(x, 0, z, pitch, bank, 0,
             snap.OnGround ? $"view ground gs={snap.GroundSpeedKnots:0}" : $"view air G={snap.GForce:0.00}");

@@ -1,4 +1,5 @@
 #if HAS_SIMCONNECT
+using HeavyFeel.Core;
 using System.Runtime.InteropServices;
 using HeavyFeel.Core.Models;
 using HeavyFeel.Core.Physics;
@@ -296,7 +297,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         }
     }
 
-    public void SetFeelGain(double gain) => _feelGain = Math.Clamp(gain, 0.35, 1.0);
+    public void SetFeelGain(double gain) => _feelGain = Numeric.Clamp(gain, 0.35, 1.0);
 
     public void ApplyPayloadBoost(double extraPounds)
     {
@@ -356,7 +357,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         var raw = unchecked((int)data);
         if (raw > 16384)
             raw -= 65536;
-        var unit = Math.Clamp(raw / 16384.0, -1, 1);
+        var unit = Numeric.Clamp(raw / 16384.0, -1, 1);
         if (ev == Events.AxisThrottle)
         {
             if (_outThrottle < 0)
@@ -373,7 +374,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             return;
         }
         var shaped = ev == Events.AxisElevator ? _outPitch : ev == Events.AxisAileron ? _outRoll : _outYaw;
-        var axis = (int)Math.Round(Math.Clamp(shaped, -1, 1) * 16384.0);
+        var axis = (int)Math.Round(Numeric.Clamp(shaped, -1, 1) * 16384.0);
         try
         {
             _echo = true;
@@ -729,7 +730,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     private void TransmitAxis(Events ev, int value)
     {
-        var clamped = Math.Clamp(value, -16383, 16384);
+        var clamped = Numeric.Clamp(value, -16383, 16384);
         _sim!.TransmitClientEvent(
             Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
             ev,

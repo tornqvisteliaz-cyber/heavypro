@@ -123,7 +123,7 @@ public sealed class FlightSnapshot
             var span = MaxGrossWeightPounds - EmptyWeightPounds;
             if (span <= 1)
                 return 0;
-            return Math.Clamp((TotalWeightPounds - EmptyWeightPounds) / span, 0, 1);
+            return Numeric.Clamp((TotalWeightPounds - EmptyWeightPounds) / span, 0, 1);
         }
     }
 }

@@ -26,7 +26,7 @@ public sealed class ControlEngine
 
     public ControlFrame Step(AppSettings settings, FlightSnapshot snap, bool masterEnable, double dt)
     {
-        dt = Math.Clamp(dt, 0.001, 0.05);
+        dt = Numeric.Clamp(dt, 0.001, 0.05);
         if (!masterEnable || snap.AutopilotMaster)
         {
             Reset();
@@ -118,17 +118,17 @@ public sealed class ControlEngine
         if (Math.Abs(input) > 0.02 && Math.Abs(state.Velocity) > 0.02 && Math.Sign(input) != Math.Sign(state.Velocity))
             state.Velocity *= tune.ReverseBrake;
         var error = input - state.Output;
-        var accel = Math.Clamp(error * tune.Acceleration, -tune.MaxAccel, tune.MaxAccel);
+        var accel = Numeric.Clamp(error * tune.Acceleration, -tune.MaxAccel, tune.MaxAccel);
         state.Acceleration = accel;
         state.Velocity += accel * dt;
         state.Velocity *= Math.Pow(tune.Damping, dt * 60.0);
-        state.Velocity = Math.Clamp(state.Velocity, -tune.MaxVelocity, tune.MaxVelocity);
+        state.Velocity = Numeric.Clamp(state.Velocity, -tune.MaxVelocity, tune.MaxVelocity);
         state.Output = Clamp(state.Output + state.Velocity * dt);
         state.PreviousInput = input;
     }
 
     private static AxisTune Tune(double accel, double maxVel, double damping, double reverse) =>
-        new(Math.Clamp(accel, 0.4, 14), Math.Clamp(accel * 1.4, 0.5, 18), Math.Clamp(maxVel, 0.15, 3.5), Math.Clamp(damping, 0.82, 0.995), reverse);
+        new(Numeric.Clamp(accel, 0.4, 14), Numeric.Clamp(accel * 1.4, 0.5, 18), Numeric.Clamp(maxVel, 0.15, 3.5), Numeric.Clamp(damping, 0.82, 0.995), reverse);
 
     private static double FeelScale(AppSettings settings)
     {
@@ -143,20 +143,20 @@ public sealed class ControlEngine
     {
         if (snap.TotalWeightPounds < 500)
             return 1;
-        return Math.Clamp(snap.TotalWeightPounds / profile.ReferenceWeightLb, 0.65, 1.8);
+        return Numeric.Clamp(snap.TotalWeightPounds / profile.ReferenceWeightLb, 0.65, 1.8);
     }
 
     public static double SpeedFactor(double iasKnots)
     {
-        var t = Math.Clamp((iasKnots - 70) / 230.0, 0, 1);
+        var t = Numeric.Clamp((iasKnots - 70) / 230.0, 0, 1);
         return 1.0 - t * 0.45;
     }
 
     private static double SmoothNoise(double t) =>
         Math.Sin(t * 1.7) * 0.6 + Math.Sin(t * 0.37 + 1.2) * 0.4;
 
-    private static double Clamp(double v) => Math.Clamp(v, -1, 1);
-    private static double Clamp01(double v) => Math.Clamp(v, 0, 1);
+    private static double Clamp(double v) => Numeric.Clamp(v, -1, 1);
+    private static double Clamp01(double v) => Numeric.Clamp(v, 0, 1);
 }
 
 public sealed record ControlFrame

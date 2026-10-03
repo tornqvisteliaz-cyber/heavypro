@@ -48,7 +48,7 @@ public sealed class InertiaEngine
             ElevatorAxis = ToAxis(frame.PitchOut),
             AileronAxis = ToAxis(frame.RollOut),
             RudderAxis = ToAxis(frame.YawOut),
-            ThrottleAxis = (int)Math.Round(Math.Clamp(frame.ThrottleOut, 0, 1) * 16383.0),
+            ThrottleAxis = (int)Math.Round(Numeric.Clamp(frame.ThrottleOut, 0, 1) * 16383.0),
             Phase = FlightPhaseResolver.Resolve(snap).ToString(),
             ProfileName = frame.Profile,
             Mix = frame.WeightFactor,
@@ -81,12 +81,12 @@ public sealed class InertiaEngine
                 reference = 650000;
             else if (snap.Class == AircraftClass.LightGa)
                 reference = 2400;
-            return Math.Clamp(snap.TotalWeightPounds / reference, 0.72, 1.40);
+            return Numeric.Clamp(snap.TotalWeightPounds / reference, 0.72, 1.40);
         }
 
         var frac = snap.MassFraction;
         if (frac > 0)
-            return Math.Clamp(0.85 + frac * 0.35, 0.72, 1.35);
+            return Numeric.Clamp(0.85 + frac * 0.35, 0.72, 1.35);
         return 1.0;
     }
 
@@ -95,15 +95,15 @@ public sealed class InertiaEngine
         if (snap.PitchMoi < 1000)
             return 1.0;
         var refMoi = snap.PitchMoi < 50_000 ? 20_000.0 : 1_500_000.0;
-        return Math.Clamp(snap.PitchMoi / refMoi, 0.80, 1.25);
+        return Numeric.Clamp(snap.PitchMoi / refMoi, 0.80, 1.25);
     }
 
     public static double Authority(double feel, double response, double size, double ground)
     {
-        var heavy = feel * Math.Clamp(size, 0.45, 1.6);
+        var heavy = feel * Numeric.Clamp(size, 0.45, 1.6);
         var gain = 1.0 - heavy * 0.42 - ground * 0.12 + response * 0.18;
-        return Math.Clamp(gain, 0.38, 1.0);
+        return Numeric.Clamp(gain, 0.38, 1.0);
     }
 
-    private static int ToAxis(double unit) => (int)Math.Round(Math.Clamp(unit, -1, 1) * 16384.0);
+    private static int ToAxis(double unit) => (int)Math.Round(Numeric.Clamp(unit, -1, 1) * 16384.0);
 }

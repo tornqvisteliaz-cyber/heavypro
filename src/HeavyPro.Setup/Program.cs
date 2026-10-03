@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 
 namespace HeavyPro.Setup;
 
@@ -9,33 +10,11 @@ static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
-        var installedExe = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "HeavyPro",
-            "HeavyPro.exe");
-
-        // The downloaded setup EXE installs the app; the installed copy launches it directly.
-        if (!string.Equals(Environment.ProcessPath, installedExe, StringComparison.OrdinalIgnoreCase))
-        {
-            using var setup = new SetupForm();
-            var detected = CommunityFinder.Find();
-            if (!string.IsNullOrEmpty(detected))
-                setup.SetPath(detected);
-            System.Windows.Forms.Application.Run(setup);
-            if (setup.DialogResult != DialogResult.OK)
-                return;
-        }
-
-        var sim = SimConnectLocator.Ensure();
-        if (sim == null)
-        {
-            MessageBox.Show(
-                "SimConnect.dll was not found. Turn on MSFS Developer Mode, install the MSFS 2024 SDK, then start HeavyPro again. Without that DLL the app cannot change the aircraft.",
-                "HeavyPro");
-        }
-
-        var app = new HeavyFeel.App.App();
-        app.Run(new HeavyFeel.App.MainWindow());
+        using var setup = new SetupForm();
+        var detected = CommunityFinder.Find();
+        if (!string.IsNullOrEmpty(detected))
+            setup.SetPath(detected);
+        System.Windows.Forms.Application.Run(setup);
     }
 }
 
@@ -80,6 +59,12 @@ sealed class SetupForm : Form
 
     private void Install()
     {
+        if (!BundleInstaller.HasPayload)
+        {
+            MessageBox.Show(this, "This setup file was built without the MSFS-enabled app. Download the MSFS-enabled HeavyPro installer.", "HeavyPro");
+            return;
+        }
+
         var community = _path.Text.Trim().Trim('"');
         if (community.Length == 0 || !Directory.Exists(community))
         {
@@ -92,9 +77,8 @@ sealed class SetupForm : Form
 
         var appDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HeavyPro");
         Directory.CreateDirectory(appDir);
+        BundleInstaller.Extract(appDir);
         var appExe = Path.Combine(appDir, "HeavyPro.exe");
-        if (!string.IsNullOrEmpty(Environment.ProcessPath))
-            File.Copy(Environment.ProcessPath, appExe, true);
         File.WriteAllText(Path.Combine(appDir, "community.path"), community);
         SimConnectLocator.CreateShortcut(appExe);
 
@@ -103,6 +87,28 @@ sealed class SetupForm : Form
             "HeavyPro");
         DialogResult = DialogResult.OK;
         Close();
+        Process.Start(new ProcessStartInfo(appExe) { UseShellExecute = true });
+    }
+}
+
+static class BundleInstaller
+{
+    public static bool HasPayload => typeof(BundleInstaller).Assembly.GetManifestResourceNames().Contains("HeavyProPayload.zip");
+
+    public static void Extract(string destination)
+    {
+        var assembly = typeof(BundleInstaller).Assembly;
+        using var stream = assembly.GetManifestResourceStream("HeavyProPayload.zip")
+            ?? throw new InvalidOperationException("This setup file has no app payload. Download the MSFS-enabled HeavyPro installer.");
+        using var archive = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Read);
+        foreach (var entry in archive.Entries)
+        {
+            var file = Path.GetFullPath(Path.Combine(destination, entry.FullName));
+            if (!file.StartsWith(Path.GetFullPath(destination) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Invalid app payload path.");
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            entry.ExtractToFile(file, true);
+        }
     }
 }
 
