@@ -7,6 +7,7 @@ public partial class App : System.Windows.Application
 {
     public App()
     {
+        InitializeComponent();
         DispatcherUnhandledException += OnUnhandled;
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {

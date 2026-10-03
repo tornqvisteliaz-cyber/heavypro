@@ -104,34 +104,54 @@ sealed class SetupForm : Form
         }
         """);
         File.WriteAllText(Path.Combine(package, "html_ui", "InGamePanels", "HeavyPro", "HeavyPro.html"), """
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <link rel="stylesheet" href="HeavyPro.css" />
-          <script type="text/javascript" src="HeavyPro.js"></script>
-        </head>
-        <body>
-          <ingame-ui id="HeavyPro" panel-id="HeavyPro" title="HeavyPro" class="ingameUiFrame" min-width="320" min-height="180">
+        <script type="text/html" import-script="/JS/dataStorage.js"></script>
+        <script type="text/html" import-script="/JS/simvar.js"></script>
+        <script type="text/html" import-script="/Pages/VCockpit/Instruments/Shared/BaseInstrument.js"></script>
+        <link rel="stylesheet" href="HeavyPro.css" />
+        <script type="text/javascript" src="HeavyPro.js"></script>
+        <ingamepanel-custom>
+          <ingame-ui id="HeavyPro" panel-id="HeavyPro" title="HeavyPro" class="ingameUiFrame" min-width="320" min-height="180" content-fit="true">
             <div class="panel">HeavyPro</div>
           </ingame-ui>
-        </body>
-        </html>
-        """);
-        File.WriteAllText(Path.Combine(package, "html_ui", "InGamePanels", "HeavyPro", "HeavyPro.css"), """
-        .panel { color: #eee; background: #1c1c1c; padding: 16px; font: 16px Segoe UI, sans-serif; }
+        </ingamepanel-custom>
         """);
         File.WriteAllText(Path.Combine(package, "html_ui", "InGamePanels", "HeavyPro", "HeavyPro.js"), """
         class IngamePanelHeavyPro extends HTMLElement {
           connectedCallback() {
-            this.innerHTML = "<div class='panel'>HeavyPro is installed.</div>";
+            this.innerHTML = "<div class='panel'>HeavyPro</div>";
           }
         }
-        if (!window.customElements.get("ingamepanel-heavypro"))
-          window.customElements.define("ingamepanel-heavypro", IngamePanelHeavyPro);
+        window.customElements.define("ingamepanel-custom", IngamePanelHeavyPro);
+        setTimeout(() => {
+          const panel = document.getElementById("HeavyPro");
+          if (!panel) return;
+          panel.classList.remove("hide");
+          panel.classList.remove("panelInvisible");
+        }, 500);
         if (typeof checkAutoload === "function") checkAutoload();
         """);
         File.WriteAllText(Path.Combine(package, "html_ui", "icons", "toolbar", "ICON_TOOLBAR_HEAVYPRO.svg"), """
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><g id="HIGHLIGHT"><rect width="48" height="48" rx="6" fill="#2a2a2a"/><text x="24" y="30" text-anchor="middle" font-size="14" fill="#eee">HP</text></g></svg>
+        <?xml version="1.0" encoding="utf-8"?>
+        <svg version="1.1" id="Titre" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+          <title>HeavyPro</title>
+          <g id="HIGHLIGHT">
+            <rect width="64" height="64" rx="8" fill="#2a2a2a"/>
+            <text x="32" y="40" text-anchor="middle" font-size="18" fill="#eeeeee">HP</text>
+          </g>
+        </svg>
+        """);
+        File.WriteAllText(Path.Combine(package, "html_ui", "InGamePanels", "HeavyPro", "HeavyPro.css"), """
+        .panel { color: #eee; background: #1c1c1c; padding: 16px; font: 16px Segoe UI, sans-serif; }
+        """);
+        File.WriteAllText(Path.Combine(package, "html_ui", "icons", "toolbar", "ICON_TOOLBAR_HEAVYPRO.svg"), """
+        <?xml version="1.0" encoding="utf-8"?>
+        <svg version="1.1" id="Titre" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+          <title>HeavyPro</title>
+          <g id="HIGHLIGHT">
+            <rect width="64" height="64" rx="8" fill="#2a2a2a"/>
+            <text x="32" y="40" text-anchor="middle" font-size="18" fill="#eeeeee">HP</text>
+          </g>
+        </svg>
         """);
 
         var files = Directory.GetFiles(package, "*", SearchOption.AllDirectories);
