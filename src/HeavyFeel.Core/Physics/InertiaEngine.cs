@@ -6,7 +6,8 @@ namespace HeavyFeel.Core.Physics;
 /// Mass-based command acceleration. The AXIS value cannot jump;
 /// it ramps at a rate set by live weight, MOI and aircraft class.
 /// Centered stick ramps back to zero then writes stop.
-/// Never writes body rates or thrust — those fight MSFS physics.
+/// Never writes body rates or thrust — those fight MSFS physics / FBW.
+/// WriteRates is always false; only AXIS (and optional yoke) are sent.
 /// </summary>
 public sealed class InertiaEngine
 {
@@ -61,12 +62,15 @@ public sealed class InertiaEngine
             };
         }
 
+        // Clamp dt so a long hitch or paused sim does not produce a huge step.
         var dt = 0.016;
         if (_last != DateTime.MinValue)
         {
             var raw = (snap.Utc - _last).TotalSeconds;
             if (raw > 0.001 && raw < 0.12)
                 dt = raw;
+            else if (raw >= 0.12)
+                dt = 0.05; // recovery after hitch / pause
         }
         _last = snap.Utc;
 
