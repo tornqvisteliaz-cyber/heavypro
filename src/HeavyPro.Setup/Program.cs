@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.IO;
+
 namespace HeavyPro.Setup;
 
 static class Program
