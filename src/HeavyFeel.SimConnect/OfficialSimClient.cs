@@ -632,7 +632,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisAileron, false);
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisRudder, false);
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisThrottle, false);
-            _sim.SetNotificationGroupPriority(Groups.Stick, EventPriority.HighestMaskable);
+            _sim.SetNotificationGroupPriority(Groups.Stick, (uint)EventPriority.HighestMaskable);
             _axisWriteReady = true;
             _logger.Info("HeavyPro owns AXIS events. No other program.");
         }
