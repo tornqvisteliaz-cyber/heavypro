@@ -25,7 +25,7 @@ public partial class App : System.Windows.Application
     {
         MessageBox.Show(
             ex.Message + Environment.NewLine + Environment.NewLine + ex,
-            "HeavyFeel",
+            "HeavyPro",
             MessageBoxButton.OK,
             MessageBoxImage.Error);
     }

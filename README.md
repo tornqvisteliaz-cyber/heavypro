@@ -1,4 +1,4 @@
-# HeavyFeel
+# HeavyPro
 
 Windows desktop app for Microsoft Flight Simulator 2024.
 

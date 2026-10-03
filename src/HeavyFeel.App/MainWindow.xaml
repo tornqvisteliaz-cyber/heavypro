@@ -1,7 +1,7 @@
 <Window x:Class="HeavyFeel.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="HeavyFeel"
+        Title="HeavyPro"
         Width="1180" Height="760"
         MinWidth="960" MinHeight="620"
         Background="{StaticResource BrushBg0}"
@@ -15,7 +15,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel>
                     <TextBlock>
-                        <Run Text="HeavyFeel" FontWeight="SemiBold"/>
+                        <Run Text="HeavyPro" FontWeight="SemiBold"/>
                         <Run Text="  —  " Foreground="{StaticResource BrushMuted}"/>
                         <Run Text="{Binding AircraftTitle, Mode=OneWay}"/>
                     </TextBlock>
@@ -92,7 +92,7 @@
                             <CheckBox Content="Use with FSRealistic / ChasePlane" IsChecked="{Binding CompanionMode}"/>
                             <CheckBox Content="View cue (cockpit)" IsChecked="{Binding ViewCue}"/>
                             <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,4,0,0"
-                                       Text="Companion on: FSR keeps sound and camera. HeavyFeel only shapes the stick."/>
+                                       Text="Companion on: FSR keeps sound and camera. HeavyPro only shapes the stick."/>
                             <TextBlock Text="{Binding WriteStatus}" Margin="0,8,0,0" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11"/>
                         </StackPanel>
                     </GroupBox>

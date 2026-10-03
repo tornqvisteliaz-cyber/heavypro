@@ -5,7 +5,7 @@
     <UseWPF>true</UseWPF>
     <ApplicationIcon />
     <RootNamespace>HeavyFeel.App</RootNamespace>
-    <AssemblyName>HeavyFeel</AssemblyName>
+    <AssemblyName>HeavyPro</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Nullable>enable</Nullable>
   </PropertyGroup>
