@@ -67,6 +67,8 @@ sealed class SetupForm : Form
         Controls.Add(install);
     }
 
+    public void SetPath(string path) => _path.Text = path;
+
     private void Install()
     {
         var community = _path.Text.Trim().Trim('"');
@@ -185,6 +187,7 @@ static class PackageInstaller
             }).ToArray()
         };
         File.WriteAllText(Path.Combine(package, "layout.json"), System.Text.Json.JsonSerializer.Serialize(layout));
+        Directory.CreateDirectory(Path.Combine(package, "HeavyPro"));
         File.WriteAllText(Path.Combine(package, "HeavyPro", "TOOLBAR.txt"),
             "MSFS 2024 only shows a toolbar icon if InGamePanels/HeavyPro.spb exists. That file is compiled by the MSFS SDK Project Editor. HTML alone does not create the icon.");
     }
