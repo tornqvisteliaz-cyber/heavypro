@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 const string Manifest = """
@@ -19,38 +20,56 @@ Installed by HeavyProSetup.exe.
 Stock aircraft overrides belong in this package. Fenix and PMDG are locked.
 """;
 
-var community = FindCommunity();
-if (community == null)
+string message;
+try
 {
-    Console.WriteLine("Could not find an MSFS Community folder.");
-    Console.WriteLine("Start MSFS 2024 once, then run HeavyProSetup.exe again.");
+    var community = FindCommunity();
+    if (community == null)
+    {
+        message = "HeavyPro did not install. No MSFS Community folder was found. Start MSFS 2024 once, then run this again.";
+        Show(message);
+        return 1;
+    }
+
+    var target = Path.Combine(community, "heavypro-feel");
+    Directory.CreateDirectory(Path.Combine(target, "HeavyPro"));
+    File.WriteAllText(Path.Combine(target, "manifest.json"), Manifest);
+    File.WriteAllText(Path.Combine(target, "HeavyPro", "README.txt"), Readme);
+
+    var files = new[]
+    {
+        Path.Combine(target, "manifest.json"),
+        Path.Combine(target, "HeavyPro", "README.txt")
+    };
+    var layout = new
+    {
+        content = files.Select(file => new
+        {
+            path = Path.GetRelativePath(target, file).Replace('\\', '/'),
+            size = new FileInfo(file).Length,
+            date = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        }).ToArray()
+    };
+    File.WriteAllText(Path.Combine(target, "layout.json"), JsonSerializer.Serialize(layout, new JsonSerializerOptions { WriteIndented = true }));
+    message = "Installed. Restart MSFS 2024.\n\n" + target;
+    Show(message);
+    return 0;
+}
+catch (Exception ex)
+{
+    Show("HeavyPro install failed.\n\n" + ex.Message);
     return 1;
 }
 
-var target = Path.Combine(community, "heavypro-feel");
-Directory.CreateDirectory(Path.Combine(target, "HeavyPro"));
-File.WriteAllText(Path.Combine(target, "manifest.json"), Manifest);
-File.WriteAllText(Path.Combine(target, "HeavyPro", "README.txt"), Readme);
-
-var files = new[]
+static void Show(string text)
 {
-    Path.Combine(target, "manifest.json"),
-    Path.Combine(target, "HeavyPro", "README.txt")
-};
-var layout = new
-{
-    content = files.Select(file => new
-    {
-        path = Path.GetRelativePath(target, file).Replace('\\', '/'),
-        size = new FileInfo(file).Length,
-        date = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-    }).ToArray()
-};
-File.WriteAllText(Path.Combine(target, "layout.json"), JsonSerializer.Serialize(layout, new JsonSerializerOptions { WriteIndented = true }));
+    var log = Path.Combine(AppContext.BaseDirectory, "HeavyProSetup.log");
+    File.WriteAllText(log, text);
+    MessageBox(IntPtr.Zero, text, "HeavyPro", 0);
+}
 
-Console.WriteLine("Installed to " + target);
-Console.WriteLine("Restart MSFS 2024. HeavyPro is in the Community folder.");
-return 0;
+[DllImport("user32.dll", CharSet = CharSet.Unicode)]
+static extern int MessageBox(IntPtr owner, string text, string caption, uint type);
 
 static string? FindCommunity()
 {
