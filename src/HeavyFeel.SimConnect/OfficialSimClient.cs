@@ -79,6 +79,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private bool _rateWriteReady;
     private bool _axisWriteReady;
     private bool _yokeWriteReady;
+    private bool _controlOutputActive;
     private bool _writesDisabled;
     private bool _cameraDisabled;
     private int _writeLogSkip;
@@ -352,7 +353,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     private void CaptureStick(Microsoft.FlightSimulator.SimConnect.SimConnect sender, Events ev, uint data)
     {
-        if (_echo || _writesDisabled)
+        if (_echo || _writesDisabled || !_controlOutputActive)
             return;
         var raw = unchecked((int)data);
         if (raw > 16384)
@@ -632,7 +633,10 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     public void ApplyInfluence(InfluenceCommand command)
     {
-        if (_sim == null || _writesDisabled || command is not { Active: true })
+        if (_sim == null || _writesDisabled)
+            return;
+        _controlOutputActive = command is { Active: true };
+        if (!_controlOutputActive)
             return;
         _outPitch = command.YokeYOut;
         _outRoll = command.YokeXOut;
@@ -846,6 +850,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _rateWriteReady = false;
         _axisWriteReady = false;
         _yokeWriteReady = false;
+        _controlOutputActive = false;
         _writesDisabled = false;
         SetState(ConnectionState.Disconnected, message);
     }
