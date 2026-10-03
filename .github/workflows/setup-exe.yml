@@ -14,8 +14,20 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Check for MSFS SimConnect SDK
+        id: simconnect
+        shell: pwsh
+        run: |
+          $hasManaged = Test-Path "lib/Microsoft.FlightSimulator.SimConnect.dll"
+          $hasNative = Test-Path "lib/SimConnect.dll"
+          $available = ($hasManaged -and $hasNative).ToString().ToLowerInvariant()
+          "available=$available" >> $env:GITHUB_OUTPUT
+          if ($available -eq "false") {
+            Write-Host "::warning::Skipping the installer artifact because the MSFS SimConnect SDK DLLs are not staged in lib."
+          }
       - run: dotnet publish src/HeavyPro.Setup/HeavyPro.Setup.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
       - uses: actions/upload-artifact@v4
+        if: steps.simconnect.outputs.available == 'true'
         with:
           name: HeavyProSetup
           path: publish/HeavyProSetup.exe
