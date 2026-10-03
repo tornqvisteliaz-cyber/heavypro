@@ -74,18 +74,77 @@ sealed class SetupForm : Form
 
         var appDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HeavyPro");
         Directory.CreateDirectory(appDir);
-        BundleInstaller.Extract(appDir);
-        PackageInstaller.Install(community);
-        var appExe = Path.Combine(appDir, "HeavyPro.exe");
-        File.WriteAllText(Path.Combine(appDir, "community.path"), community);
-        SimConnectLocator.CreateShortcut(appExe);
+        if (!CloseRunningHeavyPro())
+            return;
 
-        MessageBox.Show(this,
-            "Installed. Opening HeavyPro.\n\nRestart MSFS 2024. The toolbar icon needs InGamePanels/HeavyPro.spb from the MSFS SDK. HTML alone does not add the icon.",
-            "HeavyPro");
-        DialogResult = DialogResult.OK;
-        Close();
-        Process.Start(new ProcessStartInfo(appExe) { UseShellExecute = true });
+        try
+        {
+            BundleInstaller.Extract(appDir);
+            PackageInstaller.Install(community);
+            var appExe = Path.Combine(appDir, "HeavyPro.exe");
+            File.WriteAllText(Path.Combine(appDir, "community.path"), community);
+            SimConnectLocator.CreateShortcut(appExe);
+
+            MessageBox.Show(this,
+                "Installed. Opening HeavyPro.\n\nRestart MSFS 2024. The toolbar icon needs InGamePanels/HeavyPro.spb from the MSFS SDK. HTML alone does not add the icon.",
+                "HeavyPro");
+            DialogResult = DialogResult.OK;
+            Close();
+            Process.Start(new ProcessStartInfo(appExe) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this,
+                $"HeavyPro could not be updated. Close HeavyPro and try again.\n\n{ex.Message}",
+                "HeavyPro setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private bool CloseRunningHeavyPro()
+    {
+        var processes = Process.GetProcessesByName("HeavyPro");
+        if (processes.Length == 0)
+            return true;
+
+        var answer = MessageBox.Show(this,
+            "HeavyPro is open and must close before setup can update it. Save any settings, then choose Yes to close HeavyPro and continue.",
+            "Close HeavyPro?", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+        if (answer != DialogResult.Yes)
+        {
+            foreach (var process in processes)
+                process.Dispose();
+            return false;
+        }
+
+        try
+        {
+            foreach (var process in processes)
+            {
+                if (!process.HasExited)
+                    process.CloseMainWindow();
+            }
+
+            foreach (var process in processes)
+            {
+                if (!process.HasExited && !process.WaitForExit(7000))
+                {
+                    process.Kill();
+                    if (!process.WaitForExit(5000))
+                    {
+                        MessageBox.Show(this,
+                            "HeavyPro could not be closed. Restart Windows, then run setup again.",
+                            "HeavyPro setup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        finally
+        {
+            foreach (var process in processes)
+                process.Dispose();
+        }
     }
 }
 
