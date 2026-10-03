@@ -128,10 +128,14 @@ sealed class SetupForm : Form
             {
                 if (!process.HasExited && !process.WaitForExit(7000))
                 {
-                    MessageBox.Show(this,
-                        "HeavyPro is still running. Close it manually and run setup again.",
-                        "HeavyPro setup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return false;
+                    process.Kill();
+                    if (!process.WaitForExit(5000))
+                    {
+                        MessageBox.Show(this,
+                            "HeavyPro could not be closed. Restart Windows, then run setup again.",
+                            "HeavyPro setup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return false;
+                    }
                 }
             }
             return true;
