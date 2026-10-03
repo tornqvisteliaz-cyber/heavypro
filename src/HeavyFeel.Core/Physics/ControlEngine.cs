@@ -50,7 +50,8 @@ public sealed class ControlEngine
         var thrIn = Clamp01(snap.Throttle1Percent / 100.0);
         var moving = Math.Abs(pitchIn) + Math.Abs(rollIn) + Math.Abs(yawIn) > 0.08;
 
-        var pitchTune = Tune(profile.PitchAccel / feel / weight * speed, profile.MaxVel * speed / feel, profile.Damping + (flare ? 0.08 : 0), profile.Reverse);
+        var pitchResponse = profile.Name == "LIGHT GA" ? 0.85 : 1.0;
+        var pitchTune = Tune(profile.PitchAccel * pitchResponse / feel / weight * speed, profile.MaxVel * speed / feel * pitchResponse, profile.Damping + (flare ? 0.08 : 0), profile.Reverse);
         var rollTune = Tune(profile.RollAccel / feel / weight * speed, profile.MaxVel * speed / feel, profile.Damping, profile.Reverse);
         var yawAccel = profile.YawAccel / feel / weight;
         if (ground)
