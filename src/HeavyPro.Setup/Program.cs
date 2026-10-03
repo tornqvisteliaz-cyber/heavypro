@@ -18,6 +18,14 @@ static class Program
                 return;
         }
 
+        var sim = SimConnectLocator.Ensure();
+        if (sim == null)
+        {
+            MessageBox.Show(
+                "SimConnect.dll was not found. Turn on MSFS Developer Mode, install the MSFS 2024 SDK, then start HeavyPro again. Without that DLL the app cannot change the aircraft.",
+                "HeavyPro");
+        }
+
         var app = new HeavyFeel.App.App();
         app.Run(new HeavyFeel.App.MainWindow());
     }
@@ -71,6 +79,10 @@ sealed class SetupForm : Form
 
         var package = Path.Combine(community, "heavypro-feel");
         WritePackage(package);
+        var sibling = Path.Combine(Path.GetDirectoryName(community) ?? community, "Community2024");
+        if (Directory.Exists(sibling))
+            WritePackage(Path.Combine(sibling, "heavypro-feel"));
+        SimConnectLocator.Ensure();
 
         var appDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HeavyPro");
         Directory.CreateDirectory(appDir);
@@ -81,7 +93,7 @@ sealed class SetupForm : Form
         CreateShortcut(appExe);
 
         MessageBox.Show(this,
-            "Installed. Opening HeavyPro.\n\nRestart MSFS 2024 so the toolbar package loads.",
+            "Installed. Opening HeavyPro.\n\nRestart MSFS 2024. The toolbar icon needs InGamePanels/HeavyPro.spb from the MSFS SDK. HTML alone does not add the icon.",
             "HeavyPro");
         DialogResult = DialogResult.OK;
         Close();
@@ -165,6 +177,72 @@ sealed class SetupForm : Form
             }).ToArray()
         };
         File.WriteAllText(Path.Combine(package, "layout.json"), System.Text.Json.JsonSerializer.Serialize(layout));
+        File.WriteAllText(Path.Combine(package, "HeavyPro", "TOOLBAR.txt"),
+            "MSFS 2024 only shows a toolbar icon if InGamePanels/HeavyPro.spb exists. That file is compiled by the MSFS SDK Project Editor. HTML alone does not create the icon.");
+    }
+
+    private static class SimConnectLocator
+    {
+        [System.Runtime.InteropServices.DllImport("kernel32", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
+        private static extern bool SetDllDirectory(string path);
+
+        public static string? Ensure()
+        {
+            var found = Find();
+            if (found == null)
+                return null;
+            var destDir = AppContext.BaseDirectory;
+            Directory.CreateDirectory(destDir);
+            var dest = Path.Combine(destDir, "SimConnect.dll");
+            if (!File.Exists(dest) || new FileInfo(dest).Length != new FileInfo(found).Length)
+                File.Copy(found, dest, true);
+            if (!string.IsNullOrEmpty(Environment.ProcessPath))
+            {
+                var nextToExe = Path.Combine(Path.GetDirectoryName(Environment.ProcessPath)!, "SimConnect.dll");
+                if (!File.Exists(nextToExe))
+                    File.Copy(found, nextToExe, true);
+            }
+            SetDllDirectory(Path.GetDirectoryName(found)!);
+            return dest;
+        }
+
+        private static string? Find()
+        {
+            var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var roots = new[]
+            {
+                Path.Combine(local, "MSFS SDK"),
+                Path.Combine(local, "Packages", "Microsoft.Limitless_8wekyb3d8bbwe", "LocalCache"),
+                @"C:\MSFS SDK",
+                @"C:\MSFS 2024 SDK",
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft Flight Simulator 2024 SDK"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft Games", "Microsoft Flight Simulator")
+            };
+            foreach (var root in roots)
+            {
+                var hit = Search(root);
+                if (hit != null)
+                    return hit;
+            }
+            return null;
+        }
+
+        private static string? Search(string root)
+        {
+            if (!Directory.Exists(root))
+                return null;
+            var direct = Path.Combine(root, "SimConnect SDK", "lib", "SimConnect.dll");
+            if (File.Exists(direct))
+                return direct;
+            try
+            {
+                return Directory.EnumerateFiles(root, "SimConnect.dll", SearchOption.AllDirectories).FirstOrDefault();
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
 
     private static void CreateShortcut(string exe)
