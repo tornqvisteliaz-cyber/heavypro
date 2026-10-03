@@ -3,203 +3,69 @@ using HeavyFeel.Core.Models;
 namespace HeavyFeel.Core.Physics;
 
 /// <summary>
-/// Mass-based command acceleration. The AXIS value cannot jump;
-/// it ramps at a rate set by live weight, MOI and aircraft class.
-/// Centered stick ramps back to zero then writes stop.
-/// Never writes body rates or thrust — those fight MSFS physics / FBW.
-/// WriteRates is always false; only AXIS (and optional yoke) are sent.
-///
-/// Axis bias (from flight test):
-/// pitch is reduced (too sensitive), yaw is extra-damped, roll is the reference.
+/// Sends the control engine output to SimConnect. No body-rate writes.
 /// </summary>
 public sealed class InertiaEngine
 {
     private const double A320TypicalTakeoffLb = 154000;
-    private const double Deadzone = 0.04;
-
-    // Flight-test axis mix. Roll is 1.0 (leave as-is).
-    private const double PitchAuthorityMul = 0.70;
-    private const double YawAuthorityMul = 0.55;
-    private const double PitchRateMul = 0.78;
-    private const double YawRateMul = 0.58;
-
-    private double _outPitch;
-    private double _outRoll;
-    private double _outYaw;
+    private readonly ControlEngine _control = new();
     private DateTime _last = DateTime.MinValue;
-    private bool _rampingOut;
-    private int _lastElv = int.MinValue;
-    private int _lastAil = int.MinValue;
-    private int _lastRud = int.MinValue;
 
     public InfluenceCommand Step(AppSettings settings, FlightSnapshot snap, bool masterEnable)
     {
-        if (!masterEnable)
-        {
-            Reset();
-            return InfluenceCommand.Idle("Master off — no writes");
-        }
-
-        if (snap.AutopilotMaster)
-        {
-            Reset();
-            return InfluenceCommand.Idle("Autopilot on — writes paused");
-        }
-
-        var stickY = Clamp1(snap.StickY);
-        var stickX = Clamp1(snap.StickX);
-        var stickR = Clamp1(snap.RudderPedal);
-        var holding =
-            Math.Abs(stickY) > Deadzone
-            || Math.Abs(stickX) > Deadzone
-            || Math.Abs(stickR) > Deadzone;
-
-        var profile = ProfileLibrary.For(snap.Aircraft, snap.Class);
-        var phase = FlightPhaseResolver.Resolve(snap);
-        var movingOut =
-            Math.Abs(_outPitch) > Deadzone
-            || Math.Abs(_outRoll) > Deadzone
-            || Math.Abs(_outYaw) > Deadzone;
-
-        if (!holding && !movingOut)
-        {
-            ResetSoft();
-            return InfluenceCommand.Idle($"{phase} stick released — hardware has the jet") with
-            {
-                Phase = phase.ToString(),
-                ProfileName = profile.Name
-            };
-        }
-
-        // Clamp dt so a long hitch or paused sim does not produce a huge step.
         var dt = 0.016;
         if (_last != DateTime.MinValue)
         {
             var raw = (snap.Utc - _last).TotalSeconds;
             if (raw > 0.001 && raw < 0.12)
                 dt = raw;
-            else if (raw >= 0.12)
-                dt = 0.05; // recovery after hitch / pause
         }
         _last = snap.Utc;
 
-        var massScale = LiveMassScale(snap);
-        var moiScale = MoiScale(snap);
-        var size = Math.Clamp(massScale * moiScale * profile.MassFactor, 0.40, 1.60);
-        var feel = settings.Inertia / 100.0;
-        var response = settings.ControlResponse / 100.0;
-        var pitchDamp = settings.PitchDamping / 100.0;
-        var rollDamp = settings.RollDamping / 100.0;
-        var yawDamp = settings.YawDamping / 100.0;
-        var ground = settings.GroundInertia / 100.0;
-        var turb = settings.TurbulenceResponse / 100.0;
-        var phaseMul = FlightPhaseResolver.PhaseFactor(phase, profile);
-
-        // Each slider must move maxRate a lot. 0 = almost raw, 100 = heavy.
-        var maxRate = (3.6 / size) * (0.35 + response * 1.25) / (0.35 + feel * 1.35);
-        maxRate /= Math.Max(0.80, phaseMul);
-        if (snap.OnGround)
-            maxRate /= 0.70 + ground * 0.80;
-        if (phase is FlightPhase.Takeoff or FlightPhase.Landing)
-            maxRate *= 0.88;
-
-        var gBump = Math.Abs(snap.GForce - 1.0);
-        if (gBump > 0.04)
-            maxRate /= 1.0 + turb * gBump * 0.55;
-
-        var flaps = Math.Max(snap.FlapsHandlePercent, snap.TrailingEdgeFlapsPercent) / 100.0;
-        if (flaps > 0.15)
-            maxRate *= 1.0 - flaps * 0.12;
-
-        maxRate = Math.Clamp(maxRate, 0.35, 8.0);
-
-        // Roll uses the original curve. Pitch is slower / less peak. Yaw is extra-damped.
-        var pitchRate = Math.Clamp(
-            maxRate / (0.70 + pitchDamp * 1.45) * profile.PitchResponse * PitchRateMul,
-            0.14, 5.2);
-        var rollRate = Math.Clamp(
-            maxRate / (0.55 + rollDamp * 1.20) * profile.RollResponse,
-            0.25, 8.0);
-        var yawRate = Math.Clamp(
-            maxRate / (0.90 + yawDamp * 1.70) * profile.YawResponse * YawRateMul,
-            0.08, 2.8);
-
-        var gainRoll = Authority(feel, response, size, snap.OnGround ? ground : 0);
-        var gainPitch = Math.Clamp(gainRoll * PitchAuthorityMul, 0.24, 0.86);
-        var gainYaw = Math.Clamp(gainRoll * YawAuthorityMul, 0.18, 0.70);
-
-        var targetY = holding ? stickY * gainPitch : 0;
-        var targetX = holding ? stickX * gainRoll : 0;
-        var targetR = holding ? stickR * gainYaw : 0;
-        _rampingOut = !holding && movingOut;
-
-        _outPitch = Slew(_outPitch, targetY, pitchRate, dt);
-        _outRoll = Slew(_outRoll, targetX, rollRate, dt);
-        _outYaw = Slew(_outYaw, targetR, yawRate, dt);
-
-        var pitch = Clamp1(_outPitch);
-        var roll = Clamp1(_outRoll);
-        var yaw = Clamp1(_outYaw);
-
-        var elv = ToAxis(pitch);
-        var ail = ToAxis(roll);
-        var rud = ToAxis(yaw);
-        if (elv == _lastElv && ail == _lastAil && rud == _lastRud)
+        if (!masterEnable)
         {
-            return InfluenceCommand.Idle($"{phase} identical AXIS — skip") with
-            {
-                Phase = phase.ToString(),
-                ProfileName = profile.Name,
-                Mix = maxRate,
-                RawPitch = stickY,
-                OutPitch = pitch,
-                RawRoll = stickX,
-                OutRoll = roll
-            };
+            Reset();
+            return InfluenceCommand.Idle("Master off — no writes");
         }
 
-        _lastElv = elv;
-        _lastAil = ail;
-        _lastRud = rud;
+        var frame = _control.Step(settings, snap, true, dt);
+        if (!frame.Active)
+        {
+            Reset();
+            return InfluenceCommand.Idle(frame.Reason);
+        }
 
-        var kg = snap.TotalWeightPounds > 1000 ? snap.TotalWeightPounds * 0.45359237 : 0;
         return new InfluenceCommand
         {
             Active = true,
             WriteRates = false,
             WriteAxes = true,
             WriteYoke = true,
-            YokeXOut = roll,
-            YokeYOut = pitch,
-            RudderOut = yaw,
-            ElevatorAxis = elv,
-            AileronAxis = ail,
-            RudderAxis = rud,
-            Phase = phase.ToString(),
-            ProfileName = profile.Name,
-            Mix = gainRoll,
-            RawPitch = stickY,
-            OutPitch = pitch,
-            RawRoll = stickX,
-            OutRoll = roll,
-            Reason = $"{phase} {profile.Name} p={gainPitch:0.00} r={gainRoll:0.00} y={gainYaw:0.00} rawY={stickY:+0.00;-0.00;0} outY={pitch:+0.00;-0.00;0} {kg:0}kg"
+            WriteThrottle = true,
+            YokeXOut = frame.RollOut,
+            YokeYOut = frame.PitchOut,
+            RudderOut = frame.YawOut,
+            ElevatorAxis = ToAxis(frame.PitchOut),
+            AileronAxis = ToAxis(frame.RollOut),
+            RudderAxis = ToAxis(frame.YawOut),
+            ThrottleAxis = (int)Math.Round(Math.Clamp(frame.ThrottleOut, 0, 1) * 16383.0),
+            Phase = FlightPhaseResolver.Resolve(snap).ToString(),
+            ProfileName = frame.Profile,
+            Mix = frame.WeightFactor,
+            RawPitch = frame.PitchIn,
+            OutPitch = frame.PitchOut,
+            RawRoll = frame.RollIn,
+            OutRoll = frame.RollOut,
+            Reason =
+                $"INPUT {frame.PitchIn:0.00} OUTPUT {frame.PitchOut:0.00} VELOCITY {frame.PitchVelocity:0.00} " +
+                $"WEIGHT {frame.WeightFactor:0.00} SPEED {frame.SpeedFactor:0.00} PROFILE {frame.Profile} {frame.Reason}"
         };
     }
 
     public void Reset()
     {
-        _outPitch = _outRoll = _outYaw = 0;
+        _control.Reset();
         _last = DateTime.MinValue;
-        _rampingOut = false;
-        _lastElv = _lastAil = _lastRud = int.MinValue;
-    }
-
-    private void ResetSoft()
-    {
-        _outPitch = _outRoll = _outYaw = 0;
-        _last = DateTime.MinValue;
-        _rampingOut = false;
-        _lastElv = _lastAil = _lastRud = int.MinValue;
     }
 
     public static string Phase(FlightSnapshot snap) => FlightPhaseResolver.Resolve(snap).ToString();
@@ -221,7 +87,6 @@ public sealed class InertiaEngine
         var frac = snap.MassFraction;
         if (frac > 0)
             return Math.Clamp(0.85 + frac * 0.35, 0.72, 1.35);
-
         return 1.0;
     }
 
@@ -240,18 +105,5 @@ public sealed class InertiaEngine
         return Math.Clamp(gain, 0.38, 1.0);
     }
 
-    private static double Slew(double current, double target, double maxPerSec, double dt)
-    {
-        var maxStep = Math.Max(0.05, maxPerSec) * dt;
-        var delta = target - current;
-        if (delta > maxStep)
-            return current + maxStep;
-        if (delta < -maxStep)
-            return current - maxStep;
-        return target;
-    }
-
-    private static double Clamp1(double v) => Math.Clamp(v, -1.0, 1.0);
-
-    private static int ToAxis(double unit) => (int)Math.Round(Clamp1(unit) * 16384.0);
+    private static int ToAxis(double unit) => (int)Math.Round(Math.Clamp(unit, -1, 1) * 16384.0);
 }

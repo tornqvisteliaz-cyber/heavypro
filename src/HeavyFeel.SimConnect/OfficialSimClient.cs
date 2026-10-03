@@ -88,6 +88,10 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private double _payloadWritten = -1;
     private bool _onGround = true;
     private double _ias;
+    private double _outPitch;
+    private double _outRoll;
+    private double _outYaw;
+    private int _outThrottle = -1;
 
     public OfficialSimClient(AppLogger logger, IntPtr hwnd)
     {
@@ -355,13 +359,12 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         var unit = Math.Clamp(raw / 16384.0, -1, 1);
         if (ev == Events.AxisThrottle)
         {
-            var throttle = Math.Clamp(raw / 16383.0, 0, 1);
-            if (_onGround && _ias < 180)
-                throttle *= 0.42;
+            if (_outThrottle < 0)
+                return;
             try
             {
                 _echo = true;
-                TransmitAxis(ev, (int)Math.Round(throttle * 16383.0));
+                TransmitAxis(ev, _outThrottle);
             }
             finally
             {
@@ -369,8 +372,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             }
             return;
         }
-        var shaped = StickCurve.Shape(unit, _feelGain);
-        var axis = (int)Math.Round(shaped * 16384.0);
+        var shaped = ev == Events.AxisElevator ? _outPitch : ev == Events.AxisAileron ? _outRoll : _outYaw;
+        var axis = (int)Math.Round(Math.Clamp(shaped, -1, 1) * 16384.0);
         try
         {
             _echo = true;
@@ -644,6 +647,10 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     {
         if (_sim == null || _writesDisabled || command is not { Active: true })
             return;
+        _outPitch = command.YokeYOut;
+        _outRoll = command.YokeXOut;
+        _outYaw = command.RudderOut;
+        _outThrottle = command.ThrottleAxis;
 
         try
         {
@@ -668,6 +675,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 TransmitAxis(Events.AxisAileron, command.AileronAxis);
                 TransmitAxis(Events.AxisRudder, command.RudderAxis);
             }
+
+            if (command.WriteThrottle && _axisWriteReady)
+                TransmitAxis(Events.AxisThrottle, command.ThrottleAxis);
 
             if (command.WriteYoke && _yokeWriteReady)
             {

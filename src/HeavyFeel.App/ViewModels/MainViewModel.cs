@@ -337,9 +337,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 $"State     {(_snap.OnGround ? "GROUND" : "AIR")}   phase {phase}   AP {_snap.AutopilotLabel}\n" +
                 $"IAS       {_snap.AirspeedIndicatedKnots:0.0} kt   AGL {_snap.AltitudeAglFeet:0} ft\n" +
                 $"Input     {_snap.InputSource}  yokeY={_snap.YokeY:+0.00;-0.00;0} apY={_snap.YokeYWithAp:+0.00;-0.00;0} indY={_snap.YokeYIndicator:+0.00;-0.00;0}\n" +
-                $"Stick raw Y {_lastCmd.RawPitch:+0.00;-0.00;0.00}  X {_lastCmd.RawRoll:+0.00;-0.00;0.00}\n" +
-                $"Stick out Y {_lastCmd.OutPitch:+0.00;-0.00;0.00}  X {_lastCmd.OutRoll:+0.00;-0.00;0.00}\n" +
-                $"Mix       {_lastCmd.Mix:0.000}   write {(_lastCmd.Active ? "YES" : "no")}\n" +
+                $"INPUT     {_lastCmd.RawPitch:0.00}   OUTPUT {_lastCmd.OutPitch:0.00}\n" +
+                $"WEIGHT    {kg:0} kg   factor {_lastCmd.Mix:0.00}\n" +
                 $"{_lastCmd.Reason}";
         }
     }
@@ -434,14 +433,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _client.ApplyViewCue(HeavyFeel.Core.Physics.ViewCue.Zero);
         else
             _client.ApplyViewCue(_viewCue.Step(_settings, snap));
-        if (WriteStatus != cmd.Reason)
+        if (WriteStatus != cmd.Reason || cmd.Reason.Contains("NO EFFECT"))
         {
-            WriteStatus = cmd.Reason;
-            if (_settings.DebugMode && cmd.Active)
-                _logger.Info("WRITE " + cmd.Reason);
+            WriteStatus = cmd.Reason.Contains("NO EFFECT") ? "NO EFFECT DETECTED" : cmd.Reason;
         }
-        else
-            WriteStatus = cmd.Reason;
         RaiseTelemetry();
     }
 

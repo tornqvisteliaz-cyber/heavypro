@@ -21,6 +21,8 @@ public sealed record InfluenceCommand
     public int ElevatorAxis { get; init; }
     public int AileronAxis { get; init; }
     public int RudderAxis { get; init; }
+    public int ThrottleAxis { get; init; }
+    public bool WriteThrottle { get; init; }
 
     public string Reason { get; init; } = "idle";
     public string Phase { get; init; } = "";
