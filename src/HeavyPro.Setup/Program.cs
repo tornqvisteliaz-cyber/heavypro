@@ -9,17 +9,13 @@ static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
-        var marker = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HeavyPro", "community.path");
-        var community = File.Exists(marker) ? File.ReadAllText(marker).Trim() : CommunityFinder.Find();
-        if (!string.IsNullOrEmpty(community) && Directory.Exists(community))
-            PackageInstaller.Install(community);
-        else
-        {
-            using var setup = new SetupForm();
-            System.Windows.Forms.Application.Run(setup);
-            if (!File.Exists(marker))
-                return;
-        }
+        using var setup = new SetupForm();
+        var detected = CommunityFinder.Find();
+        if (!string.IsNullOrEmpty(detected))
+            setup.SetPath(detected);
+        System.Windows.Forms.Application.Run(setup);
+        if (setup.DialogResult != DialogResult.OK)
+            return;
 
         var sim = SimConnectLocator.Ensure();
         if (sim == null)
