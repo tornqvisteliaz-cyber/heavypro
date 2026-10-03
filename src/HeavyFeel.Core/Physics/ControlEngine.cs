@@ -48,6 +48,7 @@ public sealed class ControlEngine
         var rollIn = Clamp(snap.StickX);
         var yawIn = Clamp(snap.RudderPedal);
         var thrIn = Clamp01(snap.Throttle1Percent / 100.0);
+        var moving = Math.Abs(pitchIn) + Math.Abs(rollIn) + Math.Abs(yawIn) > 0.08;
 
         var pitchTune = Tune(profile.PitchAccel / feel / weight * speed, profile.MaxVel * speed / feel, profile.Damping + (flare ? 0.08 : 0), profile.Reverse);
         var rollTune = Tune(profile.RollAccel / feel / weight * speed, profile.MaxVel * speed / feel, profile.Damping, profile.Reverse);
@@ -57,11 +58,19 @@ public sealed class ControlEngine
         var yawTune = Tune(yawAccel, profile.MaxVel / feel, profile.Damping + (ground ? 0.05 : 0), profile.Reverse);
         var thrTune = Tune(profile.ThrottleAccel / feel / Math.Max(0.8, weight), 0.8 / feel, 0.9, 0.4);
 
-        var turb = settings.TurbulenceResponse / 100.0 * 0.04 * SmoothNoise(_clock);
+        var turb = moving ? settings.TurbulenceResponse / 100.0 * 0.04 * SmoothNoise(_clock) : 0;
         StepAxis(_pitch, pitchIn + turb, dt, pitchTune, touched);
         StepAxis(_roll, rollIn + turb * 0.6, dt, rollTune, touched);
         StepAxis(_yaw, yawIn, dt, yawTune, touched);
         StepAxis(_throttle, thrIn, dt, thrTune, false);
+
+        var settling = Math.Abs(_pitch.Output) + Math.Abs(_roll.Output) + Math.Abs(_yaw.Output) > 0.01;
+        if (!moving && !settling)
+        {
+            Reset();
+            Last = ControlFrame.Idle with { Reason = "Stick centred — no writes" };
+            return Last;
+        }
 
         var diff = (Math.Abs(pitchIn - _pitch.Output) + Math.Abs(rollIn - _roll.Output) + Math.Abs(yawIn - _yaw.Output)) / 3.0;
         _diffs.Enqueue((_clock, diff));
@@ -69,7 +78,6 @@ public sealed class ControlEngine
             _diffs.Dequeue();
         var avg = _diffs.Count == 0 ? 0 : _diffs.Average(x => x.Diff);
         var max = _diffs.Count == 0 ? 0 : _diffs.Max(x => x.Diff);
-        var moving = Math.Abs(pitchIn) + Math.Abs(rollIn) + Math.Abs(yawIn) > 0.08;
         var effect = !moving || avg > 0.04;
         var addon = snap.Aircraft.IsFenixA320 || snap.Aircraft.IsPmdg777;
 
