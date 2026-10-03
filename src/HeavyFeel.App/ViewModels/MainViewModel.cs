@@ -28,6 +28,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private string _detectedProfile = "Auto Detect";
     private int _frameCount;
     private DateTime _lastLog = DateTime.MinValue;
+    private DateTime _lastUiRefresh = DateTime.MinValue;
     private DateTime _lastFpsSample = DateTime.UtcNow;
     private int _framesInSample;
     private double _dataHz;
@@ -44,6 +45,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _logger = logger;
         _backend = backendName;
         _settings = settingsStore.Load();
+        _settings.MasterEnable = false;
 
         Profiles = new ObservableCollection<string> { "Auto Detect", "Fenix A320", "PMDG 777", "Generic" };
         LogLines = new ObservableCollection<string>();
@@ -401,6 +403,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _framesInSample++;
         var now = DateTime.UtcNow;
         var elapsed = (now - _lastFpsSample).TotalSeconds;
+        var refreshUi = (now - _lastUiRefresh).TotalMilliseconds >= 100;
         if (elapsed >= 1)
         {
             _dataHz = _framesInSample / elapsed;
@@ -430,15 +433,17 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             ? _settings.Inertia / 100.0 * (_snap.MaxGrossWeightPounds > 300000 ? 80000 : _snap.MaxGrossWeightPounds < 8000 ? 900 : 18000)
             : 0;
         _client.ApplyPayloadBoost(extra);
-        if (_settings.CompanionMode)
-            _client.ApplyViewCue(HeavyFeel.Core.Physics.ViewCue.Zero);
-        else
+        if (!_settings.CompanionMode && _settings.ViewCue)
             _client.ApplyViewCue(_viewCue.Step(_settings, snap));
-        if (WriteStatus != cmd.Reason || cmd.Reason.Contains("NO EFFECT"))
+        if (refreshUi && (WriteStatus != cmd.Reason || cmd.Reason.Contains("NO EFFECT")))
         {
             WriteStatus = cmd.Reason.Contains("NO EFFECT") ? "NO EFFECT DETECTED" : cmd.Reason;
         }
-        RaiseTelemetry();
+        if (refreshUi)
+        {
+            _lastUiRefresh = now;
+            RaiseTelemetry();
+        }
     }
 
     private static string FormatTelemetryLine(FlightSnapshot s)

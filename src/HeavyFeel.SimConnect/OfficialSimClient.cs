@@ -69,6 +69,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     private readonly AppLogger _logger;
     private readonly IntPtr _hwnd;
+    private readonly Dictionary<Events, (int Value, long Tick)> _recentAxisWrites = new();
     private Microsoft.FlightSimulator.SimConnect.SimConnect? _sim;
     private ConnectionState _state = ConnectionState.Disconnected;
     private AircraftIdentity _identity = new();
@@ -78,6 +79,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private bool _rateWriteReady;
     private bool _axisWriteReady;
     private bool _yokeWriteReady;
+    private bool _controlOutputActive;
     private bool _writesDisabled;
     private bool _cameraDisabled;
     private int _writeLogSkip;
@@ -92,7 +94,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private double _outPitch;
     private double _outRoll;
     private double _outYaw;
-    private int _outThrottle = -1;
 
     public OfficialSimClient(AppLogger logger, IntPtr hwnd)
     {
@@ -352,27 +353,15 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     private void CaptureStick(Microsoft.FlightSimulator.SimConnect.SimConnect sender, Events ev, uint data)
     {
-        if (_echo || _writesDisabled)
+        if (_echo || _writesDisabled || !_controlOutputActive)
             return;
         var raw = unchecked((int)data);
         if (raw > 16384)
             raw -= 65536;
-        var unit = Numeric.Clamp(raw / 16384.0, -1, 1);
-        if (ev == Events.AxisThrottle)
-        {
-            if (_outThrottle < 0)
-                return;
-            try
-            {
-                _echo = true;
-                TransmitAxis(ev, _outThrottle);
-            }
-            finally
-            {
-                _echo = false;
-            }
+        if (_recentAxisWrites.TryGetValue(ev, out var recent) &&
+            raw == recent.Value && DateTime.UtcNow.Ticks - recent.Tick < TimeSpan.FromMilliseconds(1500).Ticks)
             return;
-        }
+        var unit = Numeric.Clamp(raw / 16384.0, -1, 1);
         var shaped = ev == Events.AxisElevator ? _outPitch : ev == Events.AxisAileron ? _outRoll : _outYaw;
         var axis = (int)Math.Round(Numeric.Clamp(shaped, -1, 1) * 16384.0);
         try
@@ -628,11 +617,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _sim!.MapClientEventToSimEvent(Events.AxisElevator, "AXIS_ELEVATOR_SET");
             _sim.MapClientEventToSimEvent(Events.AxisAileron, "AXIS_AILERONS_SET");
             _sim.MapClientEventToSimEvent(Events.AxisRudder, "AXIS_RUDDER_SET");
-            _sim.MapClientEventToSimEvent(Events.AxisThrottle, "AXIS_THROTTLE_SET");
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisElevator, false);
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisAileron, false);
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisRudder, false);
-            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisThrottle, false);
             _sim.SetNotificationGroupPriority(Groups.Stick, (uint)EventPriority.HighestMaskable);
             _axisWriteReady = true;
             _logger.Info("HeavyPro owns AXIS events. No other program.");
@@ -646,12 +633,14 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     public void ApplyInfluence(InfluenceCommand command)
     {
-        if (_sim == null || _writesDisabled || command is not { Active: true })
+        if (_sim == null || _writesDisabled)
+            return;
+        _controlOutputActive = command is { Active: true };
+        if (!_controlOutputActive)
             return;
         _outPitch = command.YokeYOut;
         _outRoll = command.YokeXOut;
         _outYaw = command.RudderOut;
-        _outThrottle = command.ThrottleAxis;
 
         try
         {
@@ -676,9 +665,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 TransmitAxis(Events.AxisAileron, command.AileronAxis);
                 TransmitAxis(Events.AxisRudder, command.RudderAxis);
             }
-
-            if (command.WriteThrottle && _axisWriteReady)
-                TransmitAxis(Events.AxisThrottle, command.ThrottleAxis);
 
             if (command.WriteYoke && _yokeWriteReady)
             {
@@ -731,6 +717,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private void TransmitAxis(Events ev, int value)
     {
         var clamped = Numeric.Clamp(value, -16383, 16384);
+        _recentAxisWrites[ev] = (clamped, DateTime.UtcNow.Ticks);
         _sim!.TransmitClientEvent(
             Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
             ev,
@@ -863,6 +850,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _rateWriteReady = false;
         _axisWriteReady = false;
         _yokeWriteReady = false;
+        _controlOutputActive = false;
         _writesDisabled = false;
         SetState(ConnectionState.Disconnected, message);
     }

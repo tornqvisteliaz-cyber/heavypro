@@ -2,7 +2,7 @@ namespace HeavyFeel.Core.Models;
 
 public sealed class AppSettings
 {
-    public bool MasterEnable { get; set; } = true;
+    public bool MasterEnable { get; set; } = false;
     public bool AutoConnect { get; set; } = true;
     public bool LogTelemetry { get; set; }
     public bool DebugMode { get; set; } = true;
