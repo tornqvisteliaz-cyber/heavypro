@@ -20,29 +20,29 @@ public readonly record struct FeelPreset(
 public static class FeelPresets
 {
     public static FeelPreset Normal { get; } = new(
-        Inertia: 25,
-        PitchDamping: 20,
+        Inertia: 28,
+        PitchDamping: 36,
         RollDamping: 20,
-        YawDamping: 18,
-        ControlResponse: 70,
-        GroundInertia: 25,
+        YawDamping: 40,
+        ControlResponse: 66,
+        GroundInertia: 28,
         TurbulenceResponse: 40);
 
     public static FeelPreset Medium { get; } = new(
-        Inertia: 56,
-        PitchDamping: 50,
+        Inertia: 62,
+        PitchDamping: 68,
         RollDamping: 46,
-        YawDamping: 42,
-        ControlResponse: 40,
-        GroundInertia: 50,
+        YawDamping: 76,
+        ControlResponse: 38,
+        GroundInertia: 52,
         TurbulenceResponse: 24);
 
     public static FeelPreset Realistic { get; } = new(
-        Inertia: 92,
-        PitchDamping: 80,
+        Inertia: 94,
+        PitchDamping: 88,
         RollDamping: 76,
-        YawDamping: 70,
-        ControlResponse: 18,
+        YawDamping: 92,
+        ControlResponse: 16,
         GroundInertia: 88,
         TurbulenceResponse: 16);
 
