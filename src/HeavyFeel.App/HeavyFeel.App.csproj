@@ -15,4 +15,8 @@
     <ProjectReference Include="..\HeavyFeel.Logging\HeavyFeel.Logging.csproj" />
     <ProjectReference Include="..\HeavyFeel.SimConnect\HeavyFeel.SimConnect.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\RsgLogo.png" />
+    <Resource Include="Assets\RsgBanner.png" />
+  </ItemGroup>
 </Project>
