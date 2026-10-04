@@ -44,14 +44,22 @@ public sealed class ControlEngine
         _wasGround = ground;
         _clock += dt;
 
-        var pitchIn = Clamp(snap.StickY);
+        var pitchDamping = Numeric.Clamp(settings.PitchDamping / 100.0, 0, 1);
+        var controlResponse = Numeric.Clamp(settings.ControlResponse / 100.0, 0, 1);
+        var pitchAuthority = 1.0 - pitchDamping * 0.07;
+        var pitchIn = Clamp(snap.StickY * pitchAuthority);
         var rollIn = Clamp(snap.StickX);
         var yawIn = Clamp(snap.RudderPedal);
         var thrIn = Clamp01(snap.Throttle1Percent / 100.0);
         var moving = Math.Abs(pitchIn) + Math.Abs(rollIn) + Math.Abs(yawIn) > 0.08;
 
-        var pitchResponse = profile.Name == "LIGHT GA" ? 0.85 : 1.0;
-        var pitchTune = Tune(profile.PitchAccel * pitchResponse / feel / weight * speed, profile.MaxVel * speed / feel * pitchResponse, profile.Damping + (flare ? 0.08 : 0), profile.Reverse);
+        var pitchResponse = (profile.Name == "LIGHT GA" ? 0.85 : 1.0)
+            * (1.0 - pitchDamping * 0.15)
+            * (0.90 + controlResponse * 0.10);
+        var pitchDampingTune = profile.Damping - pitchDamping * 0.02;
+        var pitchTune = Tune(profile.PitchAccel * pitchResponse / feel / weight * speed,
+            profile.MaxVel * speed / feel * pitchResponse,
+            pitchDampingTune + (flare ? 0.08 : 0), profile.Reverse);
         var rollTune = Tune(profile.RollAccel / feel / weight * speed, profile.MaxVel * speed / feel, profile.Damping, profile.Reverse);
         var yawAccel = profile.YawAccel / feel / weight;
         if (ground)
