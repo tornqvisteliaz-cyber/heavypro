@@ -47,7 +47,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _settings = settingsStore.Load();
         _settings.MasterEnable = false;
 
-        Profiles = new ObservableCollection<string> { "Auto Detect", "Fenix A320", "PMDG 777", "Generic" };
+        Profiles = new ObservableCollection<string> { "Auto Detect", "Generic GA", "Generic Airliner", "Fenix A320", "PMDG 737", "PMDG 777", "Asobo 787" };
+        InputCurves = new ObservableCollection<string> { "Linear", "Expo", "S-curve" };
+        ReleaseModes = new ObservableCollection<string> { "Aircraft Profile", "Damped", "Delayed", "Immediate" };
         LogLines = new ObservableCollection<string>();
 
         ConnectCommand = new RelayCommand(Connect);
@@ -97,6 +99,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ICommand SetFeelMediumCommand { get; }
     public ICommand SetFeelRealisticCommand { get; }
     public ObservableCollection<string> Profiles { get; }
+    public ObservableCollection<string> InputCurves { get; }
+    public ObservableCollection<string> ReleaseModes { get; }
     public ObservableCollection<string> LogLines { get; }
 
     public string Status
@@ -244,6 +248,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             _settings.AircraftProfile = value;
             OnChanged();
+            OnChanged(nameof(DebugPanel));
             ScheduleSave();
         }
     }
@@ -273,6 +278,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public double ControlResponse { get => _settings.ControlResponse; set => SetSlider(nameof(ControlResponse), value, v => _settings.ControlResponse = v); }
     public double GroundInertia { get => _settings.GroundInertia; set => SetSlider(nameof(GroundInertia), value, v => _settings.GroundInertia = v); }
     public double TurbulenceResponse { get => _settings.TurbulenceResponse; set => SetSlider(nameof(TurbulenceResponse), value, v => _settings.TurbulenceResponse = v); }
+    public bool InputDynamicsEnabled { get => _settings.InputDynamicsEnabled; set => SetSetting(nameof(InputDynamicsEnabled), value, v => _settings.InputDynamicsEnabled = v); }
+    public bool AirspeedScheduling { get => _settings.AirspeedScheduling; set => SetSetting(nameof(AirspeedScheduling), value, v => _settings.AirspeedScheduling = v); }
+    public string InputCurve { get => _settings.InputCurve; set => SetSetting(nameof(InputCurve), value, v => _settings.InputCurve = v); }
+    public string StickReleaseMode { get => _settings.StickReleaseMode; set => SetSetting(nameof(StickReleaseMode), value, v => _settings.StickReleaseMode = v); }
+    public double InputDeadzonePercent { get => _settings.InputDeadzonePercent; set => SetDynamicsSlider(nameof(InputDeadzonePercent), value, 0, 20, v => _settings.InputDeadzonePercent = v); }
+    public double InputExpoPercent { get => _settings.InputExpoPercent; set => SetDynamicsSlider(nameof(InputExpoPercent), value, 0, 100, v => _settings.InputExpoPercent = v); }
+    public double ElevatorRateLimit { get => _settings.ElevatorRateLimit; set => SetDynamicsSlider(nameof(ElevatorRateLimit), value, 0.15, 4, v => _settings.ElevatorRateLimit = v); }
+    public double AileronRateLimit { get => _settings.AileronRateLimit; set => SetDynamicsSlider(nameof(AileronRateLimit), value, 0.15, 4, v => _settings.AileronRateLimit = v); }
+    public double RudderRateLimit { get => _settings.RudderRateLimit; set => SetDynamicsSlider(nameof(RudderRateLimit), value, 0.15, 4, v => _settings.RudderRateLimit = v); }
 
     public string Ias => F("{0:0.0} kts", _snap.AirspeedIndicatedKnots);
     public string Tas => F("{0:0.0} kts", _snap.AirspeedTrueKnots);
@@ -330,7 +344,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         get
         {
-            var p = ProfileLibrary.For(_snap.Aircraft, _snap.Class);
+            var p = InputDynamicsProfiles.Resolve(_snap, SelectedProfile);
             var phase = FlightPhaseResolver.Resolve(_snap);
             var kg = _snap.TotalWeightPounds * 0.45359237;
             return
@@ -339,8 +353,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 $"Weight    {kg:0} kg   MOI P {_snap.PitchMoi:0}\n" +
                 $"State     {(_snap.OnGround ? "GROUND" : "AIR")}   phase {phase}   AP {_snap.AutopilotLabel}\n" +
                 $"IAS       {_snap.AirspeedIndicatedKnots:0.0} kt   AGL {_snap.AltitudeAglFeet:0} ft\n" +
-                $"Input     {_snap.InputSource}  yokeY={_snap.YokeY:+0.00;-0.00;0} apY={_snap.YokeYWithAp:+0.00;-0.00;0} indY={_snap.YokeYIndicator:+0.00;-0.00;0}\n" +
-                $"INPUT     {_lastCmd.RawPitch:0.00}   OUTPUT {_lastCmd.OutPitch:0.00}\n" +
+                $"Raw source {(_snap.HasRawElevatorInput || _snap.HasRawAileronInput || _snap.HasRawRudderInput ? "AXIS events" : "yoke SimVars")}  {_snap.InputSource}\n" +
+                $"PITCH     raw {_lastCmd.RawPitch:+0.00;-0.00;0}  filtered {_lastCmd.FilteredPitch:+0.00;-0.00;0}  final {_lastCmd.OutPitch:+0.00;-0.00;0}\n" +
+                $"ROLL      raw {_lastCmd.RawRoll:+0.00;-0.00;0}  filtered {_lastCmd.FilteredRoll:+0.00;-0.00;0}  final {_lastCmd.OutRoll:+0.00;-0.00;0}\n" +
+                $"YAW       raw {_lastCmd.RawYaw:+0.00;-0.00;0}  filtered {_lastCmd.FilteredYaw:+0.00;-0.00;0}  final {_lastCmd.OutYaw:+0.00;-0.00;0}\n" +
                 $"WEIGHT    {kg:0} kg   factor {_lastCmd.Mix:0.00}\n" +
                 $"{_lastCmd.Reason}";
         }
@@ -411,11 +427,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _lastFpsSample = now;
         }
 
-        var profile = snap.Aircraft.IsFenixA320
-            ? "Fenix A320"
-            : snap.Aircraft.IsPmdg777
-                ? "PMDG 777"
-                : AircraftCatalog.DisplayName(snap.Class);
+        var profile = snap.Aircraft.SuggestedProfile == "Generic"
+            ? AircraftCatalog.DisplayName(snap.Class)
+            : snap.Aircraft.SuggestedProfile;
         if (profile != DetectedProfile)
             DetectedProfile = profile;
 
@@ -520,6 +534,22 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _settings.FeelLevel = FeelLevel.Custom.ToString();
             RaiseFeel();
         }
+        ScheduleSave();
+    }
+
+    private void SetDynamicsSlider(string name, double value, double min, double max, Action<double> assign)
+    {
+        assign(Numeric.Clamp(value, min, max));
+        OnChanged(name);
+        OnChanged(nameof(DebugPanel));
+        ScheduleSave();
+    }
+
+    private void SetSetting<T>(string name, T value, Action<T> assign)
+    {
+        assign(value);
+        OnChanged(name);
+        OnChanged(nameof(DebugPanel));
         ScheduleSave();
     }
 

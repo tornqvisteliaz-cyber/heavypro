@@ -14,6 +14,15 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Rebuild app payload from source
+        shell: pwsh
+        run: |
+          $runtime = Join-Path $env:RUNNER_TEMP 'heavypro-simconnect-runtime'
+          Expand-Archive -LiteralPath 'packaging/HeavyProAppPayload.zip' -DestinationPath $runtime -Force
+          New-Item -ItemType Directory -Force -Path 'lib' | Out-Null
+          Copy-Item -LiteralPath (Join-Path $runtime 'Microsoft.FlightSimulator.SimConnect.dll') -Destination 'lib/Microsoft.FlightSimulator.SimConnect.dll' -Force
+          Copy-Item -LiteralPath (Join-Path $runtime 'SimConnect.dll') -Destination 'lib/SimConnect.dll' -Force
+          ./packaging/New-AppPayload.ps1 -Configuration Release
       - name: Verify bundled SimConnect runtime files
         shell: pwsh
         run: |

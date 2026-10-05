@@ -94,6 +94,12 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private double _outPitch;
     private double _outRoll;
     private double _outYaw;
+    private double _rawPitch;
+    private double _rawRoll;
+    private double _rawYaw;
+    private bool _hasRawPitch;
+    private bool _hasRawRoll;
+    private bool _hasRawYaw;
 
     public OfficialSimClient(AppLogger logger, IntPtr hwnd)
     {
@@ -353,7 +359,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     private void CaptureStick(Microsoft.FlightSimulator.SimConnect.SimConnect sender, Events ev, uint data)
     {
-        if (_echo || _writesDisabled || !_controlOutputActive)
+        if (_echo || _writesDisabled)
+            return;
+        if (ev == Events.AxisThrottle)
             return;
         var raw = unchecked((int)data);
         if (raw > 16384)
@@ -362,6 +370,14 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             raw == recent.Value && DateTime.UtcNow.Ticks - recent.Tick < TimeSpan.FromMilliseconds(1500).Ticks)
             return;
         var unit = Numeric.Clamp(raw / 16384.0, -1, 1);
+        switch (ev)
+        {
+            case Events.AxisElevator: _rawPitch = unit; _hasRawPitch = true; break;
+            case Events.AxisAileron: _rawRoll = unit; _hasRawRoll = true; break;
+            case Events.AxisRudder: _rawYaw = unit; _hasRawYaw = true; break;
+        }
+        if (!_controlOutputActive)
+            return;
         var shaped = ev == Events.AxisElevator ? _outPitch : ev == Events.AxisAileron ? _outRoll : _outYaw;
         var axis = (int)Math.Round(Numeric.Clamp(shaped, -1, 1) * 16384.0);
         try
@@ -408,7 +424,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 case Requests.Flight:
                     if (data.dwData[0] is FlightPacket f)
                     {
-                        var snap = MapFlight(f, _identity, _fenixFcu, _flags, _yokeSense);
+                        var snap = MapFlight(f, _identity, _fenixFcu, _flags, _yokeSense, _rawRoll, _hasRawRoll, _rawPitch, _hasRawPitch, _rawYaw, _hasRawYaw);
                         _onGround = snap.OnGround;
                         _ias = snap.AirspeedIndicatedKnots;
                         SnapshotReceived?.Invoke(this, snap);
@@ -744,7 +760,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _sim!.AddToDataDefinition(def, name, null, SIMCONNECT_DATATYPE.STRING256, 0.0f, Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_UNUSED);
     }
 
-    private static FlightSnapshot MapFlight(FlightPacket f, AircraftIdentity identity, FenixFcuPacket fenix, FlagsPacket flags, YokeSensePacket yoke)
+    private static FlightSnapshot MapFlight(FlightPacket f, AircraftIdentity identity, FenixFcuPacket fenix, FlagsPacket flags, YokeSensePacket yoke,
+        double rawRoll, bool hasRawRoll, double rawPitch, bool hasRawPitch, double rawYaw, bool hasRawYaw)
     {
         var onGround = FlightStateResolver.ResolveOnGround(
             f.IsOnGround,
@@ -821,6 +838,12 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             YokeXIndicator = yoke.XIndicator,
             YokeYIndicator = yoke.YIndicator,
             RudderPedal = f.RudderPedal,
+            RawAileronInput = rawRoll,
+            HasRawAileronInput = hasRawRoll,
+            RawElevatorInput = rawPitch,
+            HasRawElevatorInput = hasRawPitch,
+            RawRudderInput = rawYaw,
+            HasRawRudderInput = hasRawYaw,
             ElevatorPosition = f.ElevatorPos,
             AileronPosition = f.AileronPos,
             RudderPosition = f.RudderPos,
@@ -852,6 +875,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _yokeWriteReady = false;
         _controlOutputActive = false;
         _writesDisabled = false;
+        _rawPitch = _rawRoll = _rawYaw = 0;
+        _hasRawPitch = _hasRawRoll = _hasRawYaw = false;
         SetState(ConnectionState.Disconnected, message);
     }
 

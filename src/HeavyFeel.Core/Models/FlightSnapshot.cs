@@ -75,6 +75,15 @@ public sealed class FlightSnapshot
     public double YokeYIndicator { get; init; }
     public double RudderPedal { get; init; }
 
+    // When available, these are the incoming official SimConnect AXIS event values
+    // before HeavyPro writes its processed output. SimVar values remain the fallback.
+    public double RawAileronInput { get; init; }
+    public double RawElevatorInput { get; init; }
+    public double RawRudderInput { get; init; }
+    public bool HasRawAileronInput { get; init; }
+    public bool HasRawElevatorInput { get; init; }
+    public bool HasRawRudderInput { get; init; }
+
     public double StickX => Largest(YokeX, YokeXWithAp, YokeXIndicator);
     public double StickY => Largest(YokeY, YokeYWithAp, YokeYIndicator);
 

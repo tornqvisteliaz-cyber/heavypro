@@ -157,8 +157,23 @@
                             <Slider Value="{Binding ControlResponse}" Margin="0,0,0,7"/>
                             <Grid Margin="0,0,0,2"><TextBlock Text="Ground"/><TextBlock Text="{Binding GroundInertia, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
                             <Slider Value="{Binding GroundInertia}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Turbulence"/><TextBlock Text="{Binding TurbulenceResponse, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Value="{Binding TurbulenceResponse}"/>
+                            <TextBlock Text="INPUT DYNAMICS" Style="{StaticResource SectionText}" Margin="0,10,0,7"/>
+                            <CheckBox Content="Enable control dynamics" IsChecked="{Binding InputDynamicsEnabled}"/>
+                            <CheckBox Content="Schedule response with airspeed" IsChecked="{Binding AirspeedScheduling}" Margin="0,2,0,5"/>
+                            <TextBlock Text="Response curve" Style="{StaticResource MutedText}" FontSize="10"/>
+                            <ComboBox ItemsSource="{Binding InputCurves}" SelectedItem="{Binding InputCurve}" Margin="0,2,0,5"/>
+                            <TextBlock Text="Stick release" Style="{StaticResource MutedText}" FontSize="10"/>
+                            <ComboBox ItemsSource="{Binding ReleaseModes}" SelectedItem="{Binding StickReleaseMode}" Margin="0,2,0,6"/>
+                            <Grid Margin="0,0,0,2"><TextBlock Text="Deadzone %"/><TextBlock Text="{Binding InputDeadzonePercent, StringFormat={}{0:0.0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                            <Slider Minimum="0" Maximum="20" Value="{Binding InputDeadzonePercent}" Margin="0,0,0,6"/>
+                            <Grid Margin="0,0,0,2"><TextBlock Text="Expo"/><TextBlock Text="{Binding InputExpoPercent, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                            <Slider Minimum="0" Maximum="100" Value="{Binding InputExpoPercent}" Margin="0,0,0,6"/>
+                            <Grid Margin="0,0,0,2"><TextBlock Text="Pitch rate limit"/><TextBlock Text="{Binding ElevatorRateLimit, StringFormat={}{0:0.00}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                            <Slider Minimum="0.15" Maximum="4" Value="{Binding ElevatorRateLimit}" Margin="0,0,0,6"/>
+                            <Grid Margin="0,0,0,2"><TextBlock Text="Roll rate limit"/><TextBlock Text="{Binding AileronRateLimit, StringFormat={}{0:0.00}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                            <Slider Minimum="0.15" Maximum="4" Value="{Binding AileronRateLimit}" Margin="0,0,0,6"/>
+                            <Grid Margin="0,0,0,2"><TextBlock Text="Yaw rate limit"/><TextBlock Text="{Binding RudderRateLimit, StringFormat={}{0:0.00}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                            <Slider Minimum="0.15" Maximum="4" Value="{Binding RudderRateLimit}"/>
                         </StackPanel>
                     </Border>
 

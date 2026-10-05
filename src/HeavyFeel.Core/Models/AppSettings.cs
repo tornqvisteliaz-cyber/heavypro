@@ -19,6 +19,16 @@ public sealed class AppSettings
     public double GroundInertia { get; set; } = 50;
     public double TurbulenceResponse { get; set; } = 24;
 
+    public bool InputDynamicsEnabled { get; set; } = true;
+    public bool AirspeedScheduling { get; set; } = true;
+    public string InputCurve { get; set; } = "Expo";
+    public string StickReleaseMode { get; set; } = "Aircraft Profile";
+    public double InputDeadzonePercent { get; set; } = 1;
+    public double InputExpoPercent { get; set; } = 25;
+    public double ElevatorRateLimit { get; set; } = 1.2;
+    public double AileronRateLimit { get; set; } = 1.8;
+    public double RudderRateLimit { get; set; } = 1.0;
+
     public string AircraftProfile { get; set; } = "Auto Detect";
     public string FeelLevel { get; set; } = "RealisticPlus";
     public double WindowWidth { get; set; } = 1280;

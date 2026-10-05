@@ -8,7 +8,7 @@ namespace HeavyFeel.Core.Physics;
 public sealed class InertiaEngine
 {
     private const double A320TypicalTakeoffLb = 154000;
-    private readonly ControlEngine _control = new();
+    private readonly InputDynamicsEngine _control = new();
     private DateTime _last = DateTime.MinValue;
 
     public InfluenceCommand Step(AppSettings settings, FlightSnapshot snap, bool masterEnable)
@@ -28,7 +28,7 @@ public sealed class InertiaEngine
             return InfluenceCommand.Idle("Master off — no writes");
         }
 
-        var frame = _control.Step(settings, snap, true, dt);
+        var frame = _control.Step(settings, snap, true, dt, settings.AircraftProfile);
         if (!frame.Active)
         {
             Reset();
@@ -52,12 +52,20 @@ public sealed class InertiaEngine
             Phase = FlightPhaseResolver.Resolve(snap).ToString(),
             ProfileName = frame.Profile,
             Mix = frame.WeightFactor,
-            RawPitch = frame.PitchIn,
+            RawPitch = frame.RawPitch,
+            FilteredPitch = frame.FilteredPitch,
             OutPitch = frame.PitchOut,
-            RawRoll = frame.RollIn,
+            RawRoll = frame.RawRoll,
+            FilteredRoll = frame.FilteredRoll,
             OutRoll = frame.RollOut,
+            RawYaw = frame.RawYaw,
+            FilteredYaw = frame.FilteredYaw,
+            OutYaw = frame.YawOut,
             Reason =
-                $"INPUT {frame.PitchIn:0.00} OUTPUT {frame.PitchOut:0.00} VELOCITY {frame.PitchVelocity:0.00} " +
+                $"PITCH {frame.RawPitch:0.00} → {frame.FilteredPitch:0.00} → {frame.PitchOut:0.00}  " +
+                $"ROLL {frame.RawRoll:0.00} → {frame.FilteredRoll:0.00} → {frame.RollOut:0.00}  " +
+                $"YAW {frame.RawYaw:0.00} → {frame.FilteredYaw:0.00} → {frame.YawOut:0.00}  " +
+                $"VELOCITY {frame.PitchVelocity:0.00} " +
                 $"WEIGHT {frame.WeightFactor:0.00} SPEED {frame.SpeedFactor:0.00} PROFILE {frame.Profile} {frame.Reason}"
         };
     }

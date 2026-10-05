@@ -27,6 +27,24 @@ public sealed class AircraftIdentity
         }
     }
 
+    public bool IsPmdg737
+    {
+        get
+        {
+            var blob = $"{Title} {AtcModel} {AtcType}".ToUpperInvariant();
+            return blob.Contains("737") && (blob.Contains("PMDG") || blob.Contains("737-600") || blob.Contains("737-700") || blob.Contains("737-800") || blob.Contains("737-900"));
+        }
+    }
+
+    public bool IsAsobo787
+    {
+        get
+        {
+            var blob = $"{Title} {AtcModel} {AtcType}".ToUpperInvariant();
+            return blob.Contains("787") && (blob.Contains("ASOBO") || blob.Contains("BOEING 787") || blob.Contains("787-10"));
+        }
+    }
+
     public string DisplayName
     {
         get
@@ -47,6 +65,10 @@ public sealed class AircraftIdentity
                 return "Fenix A320";
             if (IsPmdg777)
                 return "PMDG 777";
+            if (IsPmdg737)
+                return "PMDG 737";
+            if (IsAsobo787)
+                return "Asobo 787";
             var cls = AircraftCatalog.Classify(this, 0);
             if (cls != AircraftClass.Unknown)
                 return AircraftCatalog.DisplayName(cls);
