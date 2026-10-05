@@ -2,7 +2,7 @@ name: Build installer
 
 on:
   push:
-    branches: [main]
+    branches: [main, c152-weight-pitch-fix]
   pull_request:
   workflow_dispatch:
 
