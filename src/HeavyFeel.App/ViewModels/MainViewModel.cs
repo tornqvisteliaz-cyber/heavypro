@@ -47,7 +47,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _settings = settingsStore.Load();
         _settings.MasterEnable = false;
 
-        Profiles = new ObservableCollection<string> { "Auto Detect", "Fenix A320", "PMDG 777", "Generic" };
+        Profiles = new ObservableCollection<string> { "Auto Detect", "Fenix A320", "PMDG 737", "PMDG 777", "ASOBO 787", "Generic GA", "Generic Airliner" };
+        InputCurves = new ObservableCollection<string> { "Linear", "Expo", "S-Curve" };
+        ReleaseModes = new ObservableCollection<string> { "Auto", "Immediate", "Damped", "Delayed" };
         LogLines = new ObservableCollection<string>();
 
         ConnectCommand = new RelayCommand(Connect);
@@ -97,6 +99,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ICommand SetFeelMediumCommand { get; }
     public ICommand SetFeelRealisticCommand { get; }
     public ObservableCollection<string> Profiles { get; }
+    public ObservableCollection<string> InputCurves { get; }
+    public ObservableCollection<string> ReleaseModes { get; }
     public ObservableCollection<string> LogLines { get; }
 
     public string Status
@@ -244,6 +248,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             _settings.AircraftProfile = value;
             OnChanged();
+            OnChanged(nameof(PitchRateLimit));
+            OnChanged(nameof(RollRateLimit));
+            OnChanged(nameof(YawRateLimit));
+            OnChanged(nameof(DebugPanel));
             ScheduleSave();
         }
     }
@@ -274,6 +282,101 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public double GroundInertia { get => _settings.GroundInertia; set => SetSlider(nameof(GroundInertia), value, v => _settings.GroundInertia = v); }
     public double TurbulenceResponse { get => _settings.TurbulenceResponse; set => SetSlider(nameof(TurbulenceResponse), value, v => _settings.TurbulenceResponse = v); }
 
+    public string SelectedInputCurve
+    {
+        get => _settings.InputCurve;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            _settings.InputCurve = value;
+            OnChanged();
+            ScheduleSave();
+        }
+    }
+
+    public double InputDeadzonePercent
+    {
+        get => _settings.InputDeadzone * 100;
+        set => SetInputSetting(nameof(InputDeadzonePercent), Numeric.Clamp(value, 0, 25) / 100, v => _settings.InputDeadzone = v);
+    }
+
+    public double InputSensitivityPercent
+    {
+        get => _settings.InputSensitivity * 100;
+        set => SetInputSetting(nameof(InputSensitivityPercent), Numeric.Clamp(value, 25, 200) / 100, v => _settings.InputSensitivity = v);
+    }
+
+    public double ExpoStrengthPercent
+    {
+        get => _settings.ExpoStrength * 100;
+        set => SetInputSetting(nameof(ExpoStrengthPercent), Numeric.Clamp(value, 0, 100) / 100, v => _settings.ExpoStrength = v);
+    }
+
+    public double InputAccelerationPercent
+    {
+        get => _settings.InputAccelerationScale * 100;
+        set => SetInputSetting(nameof(InputAccelerationPercent), Numeric.Clamp(value, 25, 200) / 100, v => _settings.InputAccelerationScale = v);
+    }
+
+    public double InputDecelerationPercent
+    {
+        get => _settings.InputDecelerationScale * 100;
+        set => SetInputSetting(nameof(InputDecelerationPercent), Numeric.Clamp(value, 25, 200) / 100, v => _settings.InputDecelerationScale = v);
+    }
+
+    public double PitchRateLimit
+    {
+        get => _settings.PitchRateLimit > 0 ? _settings.PitchRateLimit : InputDynamicsProfile.For(_snap, _settings.AircraftProfile).Elevator.MaxRate;
+        set => SetInputSetting(nameof(PitchRateLimit), Numeric.Clamp(value, 0.1, 6), v => _settings.PitchRateLimit = v);
+    }
+
+    public double RollRateLimit
+    {
+        get => _settings.RollRateLimit > 0 ? _settings.RollRateLimit : InputDynamicsProfile.For(_snap, _settings.AircraftProfile).Aileron.MaxRate;
+        set => SetInputSetting(nameof(RollRateLimit), Numeric.Clamp(value, 0.1, 6), v => _settings.RollRateLimit = v);
+    }
+
+    public double YawRateLimit
+    {
+        get => _settings.YawRateLimit > 0 ? _settings.YawRateLimit : InputDynamicsProfile.For(_snap, _settings.AircraftProfile).Rudder.MaxRate;
+        set => SetInputSetting(nameof(YawRateLimit), Numeric.Clamp(value, 0.1, 6), v => _settings.YawRateLimit = v);
+    }
+
+    public bool AirspeedResponseEnabled
+    {
+        get => _settings.AirspeedResponseEnabled;
+        set
+        {
+            _settings.AirspeedResponseEnabled = value;
+            OnChanged();
+            ScheduleSave();
+        }
+    }
+
+    public string StickReleaseMode
+    {
+        get => _settings.StickReleaseMode;
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            _settings.StickReleaseMode = value;
+            OnChanged();
+            ScheduleSave();
+        }
+    }
+
+    public double AirspeedResponsePercent
+    {
+        get => _settings.AirspeedResponse * 100;
+        set => SetInputSetting(nameof(AirspeedResponsePercent), Numeric.Clamp(value, 0, 100) / 100, v => _settings.AirspeedResponse = v);
+    }
+
+    public double ReturnDelayMs
+    {
+        get => _settings.ReturnDelayMs;
+        set => SetInputSetting(nameof(ReturnDelayMs), Numeric.Clamp(value, 0, 1500), v => _settings.ReturnDelayMs = v);
+    }
+
     public string Ias => F("{0:0.0} kts", _snap.AirspeedIndicatedKnots);
     public string Tas => F("{0:0.0} kts", _snap.AirspeedTrueKnots);
     public string Mach => F("{0:0.000}", _snap.AirspeedMach);
@@ -301,8 +404,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             var kg = _snap.TotalWeightPounds * 0.45359237;
             var emptyKg = _snap.EmptyWeightPounds * 0.45359237;
             var maxKg = _snap.MaxGrossWeightPounds * 0.45359237;
-            var scale = InertiaEngine.LiveMassScale(_snap);
-            return F("{0:0} kg  (empty {1:0}, max {2:0})  feel×{3:0.00}", kg, emptyKg, maxKg, scale);
+            return F("{0:0} kg  (empty {1:0}, max {2:0})", kg, emptyKg, maxKg);
         }
     }
     public string Fuel => F("{0:0} lb", _snap.FuelWeightPounds);
@@ -330,18 +432,20 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         get
         {
-            var p = ProfileLibrary.For(_snap.Aircraft, _snap.Class);
             var phase = FlightPhaseResolver.Resolve(_snap);
             var kg = _snap.TotalWeightPounds * 0.45359237;
             return
                 $"Aircraft  {_snap.Aircraft.DisplayName}\n" +
-                $"Category  {AircraftCatalog.DisplayName(_snap.Class)}   profile {p.Name}\n" +
+                $"Category  {AircraftCatalog.DisplayName(_snap.Class)}   profile {_lastCmd.ProfileName}\n" +
                 $"Weight    {kg:0} kg   MOI P {_snap.PitchMoi:0}\n" +
                 $"State     {(_snap.OnGround ? "GROUND" : "AIR")}   phase {phase}   AP {_snap.AutopilotLabel}\n" +
                 $"IAS       {_snap.AirspeedIndicatedKnots:0.0} kt   AGL {_snap.AltitudeAglFeet:0} ft\n" +
                 $"Input     {_snap.InputSource}  yokeY={_snap.YokeY:+0.00;-0.00;0} apY={_snap.YokeYWithAp:+0.00;-0.00;0} indY={_snap.YokeYIndicator:+0.00;-0.00;0}\n" +
-                $"INPUT     {_lastCmd.RawPitch:0.00}   OUTPUT {_lastCmd.OutPitch:0.00}\n" +
-                $"WEIGHT    {kg:0} kg   factor {_lastCmd.Mix:0.00}\n" +
+                $"RAW       E {_lastCmd.RawPitch:+0.00;-0.00;0}  A {_lastCmd.RawRoll:+0.00;-0.00;0}  R {_lastCmd.RawYaw:+0.00;-0.00;0}\n" +
+                $"FILTERED E {_lastCmd.FilteredPitch:+0.00;-0.00;0}  A {_lastCmd.FilteredRoll:+0.00;-0.00;0}  R {_lastCmd.FilteredYaw:+0.00;-0.00;0}\n" +
+                $"FINAL     E {_lastCmd.OutPitch:+0.00;-0.00;0}  A {_lastCmd.OutRoll:+0.00;-0.00;0}  R {_lastCmd.OutYaw:+0.00;-0.00;0}\n" +
+                $"RATE      pitch {PitchRateLimit:0.00}  roll {RollRateLimit:0.00}  yaw {YawRateLimit:0.00}  IAS factor ×{_lastCmd.AirspeedFactor:0.00}\n" +
+                $"WEIGHT    {kg:0} kg\n" +
                 $"{_lastCmd.Reason}";
         }
     }
@@ -523,6 +627,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         ScheduleSave();
     }
 
+    private void SetInputSetting(string name, double value, Action<double> assign)
+    {
+        assign(value);
+        OnChanged(name);
+        OnChanged(nameof(DebugPanel));
+        ScheduleSave();
+    }
+
     private void RaiseFeel()
     {
         OnChanged(nameof(CurrentFeel));
@@ -585,6 +697,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnChanged(nameof(PreviewTau));
         OnChanged(nameof(WriteStatus));
         OnChanged(nameof(DebugPanel));
+        OnChanged(nameof(PitchRateLimit));
+        OnChanged(nameof(RollRateLimit));
+        OnChanged(nameof(YawRateLimit));
         OnChanged(nameof(PhaseNote));
     }
 

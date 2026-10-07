@@ -13,6 +13,8 @@ public sealed class HardwareCurvePump
     private readonly Func<AppSettings> _settings;
     private readonly Func<FlightSnapshot> _snap;
     private readonly Action<string> _log;
+    private readonly InputDynamicsEngine _engine = new();
+    private DateTime _lastStep = DateTime.MinValue;
     private bool _acquired;
     private bool _missingLogged;
 
@@ -30,6 +32,8 @@ public sealed class HardwareCurvePump
         var settings = _settings();
         if (!settings.UseHardwareCurve || !settings.MasterEnable)
         {
+            _engine.Reset();
+            _lastStep = DateTime.MinValue;
             LastStatus = "hardware curve off";
             return;
         }
@@ -41,26 +45,39 @@ public sealed class HardwareCurvePump
         }
 
         var snap = _snap();
-        var gain = InertiaEngine.Authority(
-            settings.Inertia / 100.0,
-            settings.ControlResponse / 100.0,
-            InertiaEngine.LiveMassScale(snap) * AircraftCatalog.InertiaScale(snap.Class),
-            snap.OnGround ? settings.GroundInertia / 100.0 : 0);
+        var now = DateTime.UtcNow;
+        var dt = _lastStep == DateTime.MinValue ? 1.0 / 60.0 : (now - _lastStep).TotalSeconds;
+        _lastStep = now;
+        var inputSnapshot = new FlightSnapshot
+        {
+            Aircraft = snap.Aircraft,
+            Class = snap.Class,
+            AirspeedIndicatedKnots = snap.AirspeedIndicatedKnots,
+            OnGround = snap.OnGround,
+            YokeX = rawX,
+            YokeXWithAp = rawX,
+            YokeXIndicator = rawX,
+            YokeY = rawY,
+            YokeYWithAp = rawY,
+            YokeYIndicator = rawY,
+            RudderPedal = rawR
+        };
+        var frame = _engine.Step(settings, inputSnapshot, dt);
 
-        var x = StickCurve.Shape(rawX, gain);
-        var y = StickCurve.Shape(rawY, gain);
-        var r = StickCurve.Shape(rawR, gain);
+        var x = frame.FinalAileron;
+        var y = frame.FinalElevator;
+        var r = frame.FinalRudder;
 
         if (!EnsureVJoy())
         {
-            LastStatus = $"curve ready gain={gain:0.00} — install vJoy and bind it in MSFS";
+            LastStatus = $"input dynamics ready ({frame.Profile}) — install vJoy and bind it in MSFS";
             return;
         }
 
         VJoy.SetAxis(StickCurve.ToVJoy(x), 1, VJoy.HidX);
         VJoy.SetAxis(StickCurve.ToVJoy(y), 1, VJoy.HidY);
         VJoy.SetAxis(StickCurve.ToVJoy(r), 1, VJoy.HidZ);
-        LastStatus = $"vJoy gain={gain:0.00} in={rawY:+0.00;-0.00;0} out={y:+0.00;-0.00;0}";
+        LastStatus = $"vJoy {frame.Profile} raw={rawY:+0.00;-0.00;0} filtered={frame.FilteredElevator:+0.00;-0.00;0} final={y:+0.00;-0.00;0}";
     }
 
     private bool EnsureVJoy()

@@ -3,12 +3,11 @@ using HeavyFeel.Core.Models;
 namespace HeavyFeel.Core.Physics;
 
 /// <summary>
-/// Sends the control engine output to SimConnect. No body-rate writes.
+/// Sends dynamically filtered control inputs to SimConnect. No body-rate writes.
 /// </summary>
 public sealed class InertiaEngine
 {
-    private const double A320TypicalTakeoffLb = 154000;
-    private readonly ControlEngine _control = new();
+    private readonly InputDynamicsEngine _input = new();
     private DateTime _last = DateTime.MinValue;
 
     public InfluenceCommand Step(AppSettings settings, FlightSnapshot snap, bool masterEnable)
@@ -17,8 +16,8 @@ public sealed class InertiaEngine
         if (_last != DateTime.MinValue)
         {
             var raw = (snap.Utc - _last).TotalSeconds;
-            if (raw > 0.001 && raw < 0.12)
-                dt = raw;
+            if (raw > 0)
+                dt = Numeric.Clamp(raw, 1.0 / 240.0, 0.1);
         }
         _last = snap.Utc;
 
@@ -28,12 +27,19 @@ public sealed class InertiaEngine
             return InfluenceCommand.Idle("Master off — no writes");
         }
 
-        var frame = _control.Step(settings, snap, true, dt);
-        if (!frame.Active)
+        if (snap.AutopilotMaster)
         {
             Reset();
-            return InfluenceCommand.Idle(frame.Reason);
+            return InfluenceCommand.Idle("Autopilot on — writes paused");
         }
+
+        var frame = _input.Step(settings, snap, dt);
+        var moving = Math.Abs(frame.FilteredElevator) + Math.Abs(frame.FilteredAileron) + Math.Abs(frame.FilteredRudder) > 0.01;
+        var settling = Math.Abs(frame.FinalElevator) + Math.Abs(frame.FinalAileron) + Math.Abs(frame.FinalRudder) > 0.0005;
+        if (!moving && !settling)
+            return InfluenceCommand.Idle("Stick released / centred — no writes");
+
+        var phase = FlightPhaseResolver.Resolve(snap).ToString();
 
         return new InfluenceCommand
         {
@@ -42,29 +48,32 @@ public sealed class InertiaEngine
             WriteAxes = true,
             WriteYoke = false,
             WriteThrottle = false,
-            YokeXOut = frame.RollOut,
-            YokeYOut = frame.PitchOut,
-            RudderOut = frame.YawOut,
-            ElevatorAxis = ToAxis(frame.PitchOut),
-            AileronAxis = ToAxis(frame.RollOut),
-            RudderAxis = ToAxis(frame.YawOut),
-            ThrottleAxis = (int)Math.Round(Numeric.Clamp(frame.ThrottleOut, 0, 1) * 16383.0),
-            Phase = FlightPhaseResolver.Resolve(snap).ToString(),
+            YokeXOut = frame.FinalAileron,
+            YokeYOut = frame.FinalElevator,
+            RudderOut = frame.FinalRudder,
+            ElevatorAxis = ToAxis(frame.FinalElevator),
+            AileronAxis = ToAxis(frame.FinalAileron),
+            RudderAxis = ToAxis(frame.FinalRudder),
+            Phase = phase,
             ProfileName = frame.Profile,
-            Mix = frame.WeightFactor,
-            RawPitch = frame.PitchIn,
-            OutPitch = frame.PitchOut,
-            RawRoll = frame.RollIn,
-            OutRoll = frame.RollOut,
-            Reason =
-                $"INPUT {frame.PitchIn:0.00} OUTPUT {frame.PitchOut:0.00} VELOCITY {frame.PitchVelocity:0.00} " +
-                $"WEIGHT {frame.WeightFactor:0.00} SPEED {frame.SpeedFactor:0.00} PROFILE {frame.Profile} {frame.Reason}"
+            Mix = 1,
+            RawPitch = frame.RawElevator,
+            FilteredPitch = frame.FilteredElevator,
+            OutPitch = frame.FinalElevator,
+            RawRoll = frame.RawAileron,
+            FilteredRoll = frame.FilteredAileron,
+            OutRoll = frame.FinalAileron,
+            RawYaw = frame.RawRudder,
+            FilteredYaw = frame.FilteredRudder,
+            OutYaw = frame.FinalRudder,
+            AirspeedFactor = frame.AirspeedFactor,
+            Reason = $"{phase} · {frame.Profile} · input dynamics · airspeed ×{frame.AirspeedFactor:0.00}"
         };
     }
 
     public void Reset()
     {
-        _control.Reset();
+        _input.Reset();
         _last = DateTime.MinValue;
     }
 
@@ -72,9 +81,10 @@ public sealed class InertiaEngine
 
     public static double LiveMassScale(FlightSnapshot snap)
     {
+        const double a320TypicalTakeoffLb = 154000;
         if (snap.TotalWeightPounds > 20000)
         {
-            var reference = A320TypicalTakeoffLb;
+            var reference = a320TypicalTakeoffLb;
             if (snap.Aircraft.IsPmdg777 || snap.Class == AircraftClass.WideBody)
                 reference = 500000;
             else if (snap.Class == AircraftClass.HeavyWide)
@@ -84,20 +94,20 @@ public sealed class InertiaEngine
             return Numeric.Clamp(snap.TotalWeightPounds / reference, 0.72, 1.40);
         }
 
-        var frac = snap.MassFraction;
-        if (frac > 0)
-            return Numeric.Clamp(0.85 + frac * 0.35, 0.72, 1.35);
-        return 1.0;
+        var fraction = snap.MassFraction;
+        return fraction > 0 ? Numeric.Clamp(0.85 + fraction * 0.35, 0.72, 1.35) : 1.0;
     }
 
     public static double MoiScale(FlightSnapshot snap)
     {
         if (snap.PitchMoi < 1000)
             return 1.0;
-        var refMoi = snap.PitchMoi < 50_000 ? 20_000.0 : 1_500_000.0;
-        return Numeric.Clamp(snap.PitchMoi / refMoi, 0.80, 1.25);
+        var referenceMoi = snap.PitchMoi < 50000 ? 20000.0 : 1500000.0;
+        return Numeric.Clamp(snap.PitchMoi / referenceMoi, 0.80, 1.25);
     }
 
+    // Kept for older UI and settings consumers. The active input dynamics path
+    // does not use this authority multiplier.
     public static double Authority(double feel, double response, double size, double ground)
     {
         var heavy = feel * Numeric.Clamp(size, 0.45, 1.6);

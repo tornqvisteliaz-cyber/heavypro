@@ -3,17 +3,19 @@
 Windows desktop app for **Microsoft Flight Simulator 2024**.
 
 - Connects to MSFS 2024 with the official SimConnect SDK
-- Detects the loaded aircraft (Fenix A320 first-class support, plus PMDG 777, GA, regional, wide-body, heavy)
+- Detects the loaded aircraft and selects a tunable input-dynamics preset (Fenix A320, PMDG 737/777, ASOBO 787, generic GA/airliner)
 - Reads live flight data every frame
-- With **Master Enable** on, writes **AXIS only** while the stick is actually held:
+- With **Master Enable** on, shapes physical stick and rudder input, then writes **AXIS only** while the stick is deflected or settling:
   - `AXIS_ELEVATOR_SET` / `AXIS_AILERONS_SET` / `AXIS_RUDDER_SET`
-  - Optional yoke position write
+- Separates raw, curved/filtered, and final inputs in the debug panel
+- Uses delta-time-based response, acceleration/deceleration limits, damping, airspeed scaling, and stick-release behavior
+- Preserves full endpoint authority; dynamics change how quickly the commanded endpoint is reached
 - **Body-rate writes** (`ROTATION VELOCITY BODY X/Y/Z`) are registered but **disabled** by design — they fight the sim flight model and Fenix FBW
 - Pauses all writes when Master is off or autopilot is on
 - Header feel presets: **Normal**, **Medium**, **Realistic** (plus Custom when you move sliders)
-- Live mass + aircraft-class scaling so a heavy jet feels heavier than a Cessna
+- Input-dynamics profiles are starting presets, not manufacturer control-system data, and can be tuned in the UI
 
-Fenix uses its own fly-by-wire. AXIS events may be weakly coupled or ignored; the app still only writes while the stick is deflected so it does not force a zero-stick.
+Fenix uses its own fly-by-wire. AXIS events may be weakly coupled or ignored; HeavyPro does not change aerodynamic forces or aircraft files.
 
 ## What you need
 
@@ -81,7 +83,7 @@ HeavyFeel/
   HeavyFeel.sln
   lib/                  SimConnect DLLs go here (gitignored)
   scripts/              Setup-SimConnect.ps1
-  docs/                 Capabilities, feasibility, changelog
+  docs/                 Capabilities, feasibility, changelog, input dynamics
   src/HeavyFeel.App     WPF window + view-model
   src/HeavyFeel.Core    Settings, aircraft catalog, inertia engine
   src/HeavyFeel.SimConnect
@@ -95,12 +97,13 @@ HeavyFeel/
 |---------|--------|
 | Connect + read telemetry | Working |
 | Aircraft identity + class detection | Working |
-| Live weight / MOI scaling | Working |
-| Feel presets + per-axis sliders | Working |
-| AXIS writes while stick held | Working (Master Enable) |
+| Aircraft-specific input-dynamics presets | Working; illustrative defaults |
+| Per-axis response and rate tuning | Working |
+| Raw / filtered / final input debug values | Working |
+| AXIS writes while input is held or settling | Working (Master Enable) |
 | Body-rate writes | **Disabled** (by design) |
 | View-cue (camera offset) | Optional, off by default |
-| Event masking / input interception | Not implemented (too risky) |
+| SimConnect axis-event capture and rewrite | Working while HeavyPro output is active |
 
 ## Next ideas (not built)
 

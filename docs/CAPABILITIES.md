@@ -12,14 +12,15 @@ This is the honest map for HeavyFeel. No invented APIs.
 - Read Fenix FCU locals in a separate packet: `L:S_FCU_AP1`, `L:S_FCU_AP2`, `L:I_FCU_AP1`, `L:I_FCU_AP2`.
 - Read mass and inertia: TOTAL WEIGHT, EMPTY WEIGHT, MAX GROSS WEIGHT, fuel weight, pitch/roll/yaw MOI.
 - Read configuration: flaps, gear, spoilers, throttle, N1, yoke, pedals, surface positions, trim.
-- Write (optional, Master Enable, only while stick held): `AXIS_ELEVATOR_SET` / `AXIS_AILERONS_SET` / `AXIS_RUDDER_SET`.
+- Write (Master Enable, while an input is deflected or settling): `AXIS_ELEVATOR_SET` / `AXIS_AILERONS_SET` / `AXIS_RUDDER_SET`.
 - Write (registered but **disabled** in the inertia engine): `ROTATION VELOCITY BODY X/Y/Z` — left off because continuous rate writes fight the sim and Fenix FBW.
-- Detect aircraft family from title/model (Cessna → A320 → 777 → 747) and scale feel.
+- Read physical control axes, apply HeavyPro's time-based input dynamics, and send the resulting axes through the official SimConnect events.
+- Detect aircraft family from title/model and choose a configurable starting dynamics profile.
 
 ## Partially possible
 
-- Heavier control feel: only as a small mix on AXIS events while the stick is deflected. Fenix FBW owns the sidestick. Writing AXIS at high priority previously locked the jet.
-- Different types feeling different: scale only. We cannot give a 747 a different lift/drag model than MSFS already uses.
+- Heavier control feel: can change how quickly control inputs reach their target. Add-on aircraft may process or ignore the standard AXIS events differently.
+- Different types feeling different: input response profiles only. We cannot give a 747 a different lift/drag model than MSFS already uses.
 - Turbulence as air mass: we can read ambient wind. We cannot replace MSFS weather. Adding extra body rates is a fake force and is not enabled.
 - Landing weight: we can read radio height and gear. We cannot simulate oleo compression or change how the sim solves gear contact.
 - Ground friction / brakes / steering: owned by the aircraft CFG + Fenix. We can only lag nosewheel/rudder input slightly.
@@ -51,6 +52,12 @@ If a write fails or an LVar is missing, the app keeps reading and stops that wri
 ## What “more realistic” means here
 
 1. Correct GROUND/AIR and AP ON/OFF (read path).
-2. Live weight + aircraft class scale how much extra stick inertia is applied.
-3. Writes only while the sidestick is actually deflected, so Fenix is not sent a zero stick.
-4. No rate rewrite on takeoff (that made the nose drop).
+2. Aircraft-specific input dynamics control how quickly stick input reaches its target.
+3. Writes continue while a deflected input is settling, then stop at center.
+4. Keep the simulator's aerodynamic and flight-control model in charge; HeavyPro modifies only the incoming axis commands.
+
+## Input dynamics
+
+The control path keeps three values for elevator, aileron, and rudder: raw input, input after deadzone/curve shaping, and final dynamically filtered input. Profiles set independent response, acceleration, deceleration, rate, damping, and return behavior. Settings can tune response, curves, deadzone, sensitivity, rates, and return delay. Airspeed scaling is optional.
+
+The example GA, Fenix A320, PMDG 737/777, ASOBO 787, and generic airliner values are starting presets only. They are not manufacturer data. The engine uses delta time and bounded second-order updates, prevents overshoot, and does not add input noise or reduce endpoint authority.
