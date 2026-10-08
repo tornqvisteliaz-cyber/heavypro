@@ -24,14 +24,14 @@ public static class ControlInertia
     {
         raw = Sanitize(raw);
         dt = Numeric.Clamp(dt, 0.001, 0.05);
-        var time = Numeric.Clamp(fullTravelSeconds, 0.12, 3.5);
+        var time = Numeric.Clamp(fullTravelSeconds, 0.2, 4.5);
         var target = raw;
         var error = target - state.Position;
         var size = Math.Abs(error);
-        var smallBoost = 1.0 + (1.0 - Numeric.Clamp(size, 0, 1)) * 1.6;
-        var accelLimit = (2.2 / time) * smallBoost * accelScale;
-        var decelLimit = accelLimit * 1.7 * decelScale;
-        var maxVelocity = Math.Max(0.35, 1.15 / time);
+        var smallBoost = 1.0 + (1.0 - Numeric.Clamp(size, 0, 1)) * 0.8;
+        var accelLimit = (1.1 / time) * smallBoost * accelScale;
+        var decelLimit = accelLimit * 1.8 * decelScale;
+        var maxVelocity = Math.Max(0.22, 0.7 / time);
         var stiffness = 4.5 / time * smallBoost;
         var accel = error * stiffness - damping * state.Velocity;
         var limit = Math.Abs(target) < Math.Abs(state.Position) ? decelLimit : accelLimit;
