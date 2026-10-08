@@ -444,10 +444,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 $"RAW       E {_lastCmd.RawPitch:+0.00;-0.00;0}  A {_lastCmd.RawRoll:+0.00;-0.00;0}  R {_lastCmd.RawYaw:+0.00;-0.00;0}\n" +
                 $"FILTERED E {_lastCmd.FilteredPitch:+0.00;-0.00;0}  A {_lastCmd.FilteredRoll:+0.00;-0.00;0}  R {_lastCmd.FilteredYaw:+0.00;-0.00;0}\n" +
                 $"FINAL     E {_lastCmd.OutPitch:+0.00;-0.00;0}  A {_lastCmd.OutRoll:+0.00;-0.00;0}  R {_lastCmd.OutYaw:+0.00;-0.00;0}\n" +
-                $"RATE      pitch {PitchRateLimit:0.00}  roll {RollRateLimit:0.00}  yaw {YawRateLimit:0.00}  IAS factor ×{_lastCmd.AirspeedFactor:0.00}\n" +
-                $"WEIGHT    {kg:0} kg\n" +
+                $"GRAPH     raw {Bar(_lastCmd.RawPitch)} out {Bar(_lastCmd.OutPitch)}\n" +
                 $"{_lastCmd.Reason}";
         }
+    }
+
+    private static string Bar(double value)
+    {
+        var n = (int)Math.Round(Math.Clamp(value, -1, 1) * 8);
+        return n >= 0 ? new string('+', n).PadRight(8) : new string('-', -n).PadRight(8);
     }
 
     public void Start()

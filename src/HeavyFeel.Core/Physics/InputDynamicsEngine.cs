@@ -34,26 +34,39 @@ public sealed class InputDynamicsEngine
         var rawElevator = Clamp(snapshot.StickY);
         var rawAileron = Clamp(snapshot.StickX);
         var rawRudder = Clamp(snapshot.RudderPedal);
-        var moveSeconds = MoveTime.Seconds(snapshot);
-        var followRate = 1.0 / moveSeconds;
-
-        var elevator = Follow(_elevator, rawElevator, deltaTime, followRate);
-        var aileron = Follow(_aileron, rawAileron, deltaTime, followRate * 1.05);
-        var rudder = Follow(_rudder, rawRudder, deltaTime, followRate * 0.9);
+        var phase = FlightPhaseResolver.Resolve(snapshot);
+        var scale = ControlInertia.PhaseScale(phase) * ControlInertia.SpeedScale(snapshot.AirspeedIndicatedKnots);
+        var tune = 0.7 + Numeric.Clamp(settings.Inertia, 0, 100) / 140.0;
+        var pitchTime = ControlInertia.TravelSeconds(snapshot.PitchMoi, snapshot.TotalWeightPounds, profile.Elevator.MaxRate > 0 ? 1.2 / profile.Elevator.MaxRate : 0.35, snapshot.Class) * scale * tune;
+        var rollTime = ControlInertia.TravelSeconds(snapshot.RollMoi, snapshot.TotalWeightPounds, profile.Aileron.MaxRate > 0 ? 1.0 / profile.Aileron.MaxRate : 0.25, snapshot.Class) * scale * tune;
+        var yawTime = ControlInertia.TravelSeconds(snapshot.YawMoi, snapshot.TotalWeightPounds, profile.Rudder.MaxRate > 0 ? 1.1 / profile.Rudder.MaxRate : 0.35, snapshot.Class) * scale * tune;
+        var elevator = ControlInertia.Step(_elevator, rawElevator, deltaTime, pitchTime, settings.InputAccelerationScale, settings.InputDecelerationScale, 0.8 + settings.PitchDamping / 100.0);
+        var aileron = ControlInertia.Step(_aileron, rawAileron, deltaTime, rollTime, settings.InputAccelerationScale, settings.InputDecelerationScale, 0.8 + settings.RollDamping / 100.0);
+        var rudder = ControlInertia.Step(_rudder, rawRudder, deltaTime, yawTime, settings.InputAccelerationScale, settings.InputDecelerationScale, 0.8 + settings.YawDamping / 100.0);
 
         return new InputDynamicsFrame
         {
             Profile = profile.Name,
-            AirspeedFactor = moveSeconds,
-            RawElevator = rawElevator,
-            FilteredElevator = rawElevator,
-            FinalElevator = elevator,
-            RawAileron = rawAileron,
-            FilteredAileron = rawAileron,
-            FinalAileron = aileron,
-            RawRudder = rawRudder,
-            FilteredRudder = rawRudder,
-            FinalRudder = rudder
+            AirspeedFactor = ControlInertia.SpeedScale(snapshot.AirspeedIndicatedKnots),
+            RawElevator = elevator.Raw,
+            FilteredElevator = elevator.Target,
+            FinalElevator = elevator.Output,
+            RawAileron = aileron.Raw,
+            FilteredAileron = aileron.Target,
+            FinalAileron = aileron.Output,
+            RawRudder = rudder.Raw,
+            FilteredRudder = rudder.Target,
+            FinalRudder = rudder.Output,
+            PitchVelocity = elevator.Velocity,
+            PitchAcceleration = elevator.Acceleration,
+            RollVelocity = aileron.Velocity,
+            RollAcceleration = aileron.Acceleration,
+            YawVelocity = rudder.Velocity,
+            YawAcceleration = rudder.Acceleration,
+            PitchSeconds = pitchTime,
+            RollSeconds = rollTime,
+            YawSeconds = yawTime,
+            Compatibility = ControlInertia.Compatibility(snapshot)
         };
     }
 
@@ -228,20 +241,6 @@ public sealed class InputDynamicsEngine
     private static bool IsFinite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
     private static double Clamp(double value) => Numeric.Clamp(IsFinite(value) ? value : 0, -1, 1);
 
-    private sealed class AxisDynamicsState
-    {
-        public double Position { get; set; }
-        public double Velocity { get; set; }
-        public double ReleaseElapsed { get; set; }
-
-        public void Reset()
-        {
-            Position = 0;
-            Velocity = 0;
-            ReleaseElapsed = 0;
-        }
-    }
-
     private readonly record struct AxisTune(
         double ResponseRate,
         double AccelerationLimit,
@@ -281,6 +280,16 @@ public sealed record InputDynamicsFrame
     public double RawRudder { get; init; }
     public double FilteredRudder { get; init; }
     public double FinalRudder { get; init; }
+    public double PitchVelocity { get; init; }
+    public double PitchAcceleration { get; init; }
+    public double RollVelocity { get; init; }
+    public double RollAcceleration { get; init; }
+    public double YawVelocity { get; init; }
+    public double YawAcceleration { get; init; }
+    public double PitchSeconds { get; init; }
+    public double RollSeconds { get; init; }
+    public double YawSeconds { get; init; }
+    public string Compatibility { get; init; } = "UNKNOWN";
 }
 
 /// <summary>Illustrative starting points, not manufacturer control-system data.</summary>

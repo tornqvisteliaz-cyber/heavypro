@@ -67,7 +67,7 @@ public sealed class InertiaEngine
             FilteredYaw = frame.FilteredRudder,
             OutYaw = frame.FinalRudder,
             AirspeedFactor = frame.AirspeedFactor,
-            Reason = $"{phase} · {snap.TotalWeightPounds:0} lb · move {frame.AirspeedFactor:0.00}s · raw {frame.RawElevator:0.00} · out {frame.FinalElevator:0.00}"
+            Reason = $"{phase} · {frame.Profile} · {frame.Compatibility} · P {frame.PitchSeconds:0.00}s R {frame.RollSeconds:0.00}s Y {frame.YawSeconds:0.00}s"
         };
     }
 
