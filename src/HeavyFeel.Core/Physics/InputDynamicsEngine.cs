@@ -34,37 +34,57 @@ public sealed class InputDynamicsEngine
         var rawElevator = Clamp(snapshot.StickY);
         var rawAileron = Clamp(snapshot.StickX);
         var rawRudder = Clamp(snapshot.RudderPedal);
+        var moveSeconds = MoveTime.Seconds(snapshot);
+        var followRate = 1.0 / moveSeconds;
 
-        var elevatorTarget = Shape(rawElevator, deadzone, sensitivity, expoStrength, curve);
-        var aileronTarget = Shape(rawAileron, deadzone, sensitivity, expoStrength, curve);
-        var rudderTarget = Shape(rawRudder, deadzone, sensitivity, expoStrength, curve);
-
-        var pitchDamping = DampingFromSetting(settings.PitchDamping);
-        var rollDamping = DampingFromSetting(settings.RollDamping);
-        var yawDamping = DampingFromSetting(settings.YawDamping);
-        var releaseDelay = Numeric.Clamp(settings.ReturnDelayMs / 1000.0, 0, 1.5);
-
-        var elevator = StepAxis(_elevator, rawElevator, elevatorTarget, deltaTime,
-            Tune(profile.Elevator, settings.PitchRateLimit, pitchDamping, accelerationScale, decelerationScale, responseScale, inertiaScale, airspeedFactor, releaseDelay, settings.StickReleaseMode));
-        var aileron = StepAxis(_aileron, rawAileron, aileronTarget, deltaTime,
-            Tune(profile.Aileron, settings.RollRateLimit, rollDamping, accelerationScale, decelerationScale, responseScale, inertiaScale, airspeedFactor, releaseDelay, settings.StickReleaseMode));
-        var rudder = StepAxis(_rudder, rawRudder, rudderTarget, deltaTime,
-            Tune(profile.Rudder, settings.YawRateLimit, yawDamping, accelerationScale, decelerationScale, responseScale, inertiaScale, airspeedFactor, releaseDelay, settings.StickReleaseMode));
+        var elevator = Follow(_elevator, rawElevator, deltaTime, followRate);
+        var aileron = Follow(_aileron, rawAileron, deltaTime, followRate * 1.05);
+        var rudder = Follow(_rudder, rawRudder, deltaTime, followRate * 0.9);
 
         return new InputDynamicsFrame
         {
             Profile = profile.Name,
-            AirspeedFactor = airspeedFactor,
+            AirspeedFactor = moveSeconds,
             RawElevator = rawElevator,
-            FilteredElevator = elevatorTarget,
+            FilteredElevator = rawElevator,
             FinalElevator = elevator,
             RawAileron = rawAileron,
-            FilteredAileron = aileronTarget,
+            FilteredAileron = rawAileron,
             FinalAileron = aileron,
             RawRudder = rawRudder,
-            FilteredRudder = rudderTarget,
+            FilteredRudder = rawRudder,
             FinalRudder = rudder
         };
+    }
+
+    public static class MoveTime
+    {
+        public const double LightWeightPounds = 2450;
+        public const double LightFullTravelSeconds = 0.35;
+
+        public static double Seconds(FlightSnapshot snapshot)
+        {
+            var weight = snapshot.TotalWeightPounds > 500 ? snapshot.TotalWeightPounds : LightWeightPounds;
+            var massRatio = weight / LightWeightPounds;
+            var moiRatio = 1.0;
+            if (snapshot.PitchMoi > 1000)
+            {
+                var reference = snapshot.PitchMoi < 50000 ? 1800.0 : 1200000.0;
+                moiRatio = snapshot.PitchMoi / reference;
+            }
+            var factor = Math.Sqrt(Math.Max(massRatio, moiRatio));
+            return Numeric.Clamp(LightFullTravelSeconds * factor, 0.25, 6.0);
+        }
+    }
+
+    private static double Follow(AxisDynamicsState state, double stick, double dt, double fullTravelPerSecond)
+    {
+        var error = stick - state.Position;
+        var maxStep = Math.Max(0.05, fullTravelPerSecond) * dt;
+        var step = Numeric.Clamp(error, -maxStep, maxStep);
+        state.Velocity = dt > 0 ? step / dt : 0;
+        state.Position = Clamp(state.Position + step);
+        return state.Position;
     }
 
     public void Reset()
