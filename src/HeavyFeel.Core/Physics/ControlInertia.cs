@@ -28,22 +28,22 @@ public static class ControlInertia
         var target = raw;
         var error = target - state.Position;
         var size = Math.Abs(error);
-        var smallBoost = 1.0 + (1.0 - Numeric.Clamp(size, 0, 1)) * 0.8;
-        var accelLimit = (1.1 / time) * smallBoost * accelScale;
-        var decelLimit = accelLimit * 1.8 * decelScale;
-        var maxVelocity = Math.Max(0.22, 0.7 / time);
-        var stiffness = 4.5 / time * smallBoost;
-        var accel = error * stiffness - damping * state.Velocity;
-        var limit = Math.Abs(target) < Math.Abs(state.Position) ? decelLimit : accelLimit;
-        accel = Numeric.Clamp(accel, -limit, limit);
-        state.Velocity = Numeric.Clamp(state.Velocity + accel * dt, -maxVelocity, maxVelocity);
-        state.Position = Numeric.Clamp(state.Position + state.Velocity * dt, -1, 1);
-        if (double.IsNaN(state.Position) || double.IsInfinity(state.Position) || double.IsNaN(state.Velocity) || double.IsInfinity(state.Velocity))
+        var tau = time * (0.4 + 0.6 * Numeric.Clamp(size, 0, 1));
+        var blend = 1.0 - Math.Exp(-dt / tau);
+        var step = error * blend;
+        state.Velocity = dt > 0 ? step / dt : 0;
+        state.Position = Numeric.Clamp(state.Position + step, -1, 1);
+        if (Math.Abs(target - state.Position) < 0.002)
+        {
+            state.Position = target;
+            state.Velocity = 0;
+        }
+        if (double.IsNaN(state.Position) || double.IsInfinity(state.Position))
         {
             state.Reset();
             return new AxisSample(raw, raw, raw, 0, 0);
         }
-        return new AxisSample(raw, target, state.Position, state.Velocity, accel);
+        return new AxisSample(raw, target, state.Position, state.Velocity, step);
     }
 
     public static double TravelSeconds(double moi, double weightPounds, double profileSeconds, AircraftClass aircraftClass)
