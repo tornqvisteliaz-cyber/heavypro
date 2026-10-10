@@ -24,26 +24,27 @@ public static class ControlInertia
     {
         raw = Sanitize(raw);
         dt = Numeric.Clamp(dt, 0.001, 0.05);
-        var time = Numeric.Clamp(fullTravelSeconds, 0.2, 4.5);
+        var time = Numeric.Clamp(fullTravelSeconds, 0.35, 5.5);
         var target = raw;
         var error = target - state.Position;
-        var size = Math.Abs(error);
-        var tau = time * (0.4 + 0.6 * Numeric.Clamp(size, 0, 1));
-        var blend = 1.0 - Math.Exp(-dt / tau);
-        var step = error * blend;
-        state.Velocity = dt > 0 ? step / dt : 0;
-        state.Position = Numeric.Clamp(state.Position + step, -1, 1);
-        if (Math.Abs(target - state.Position) < 0.002)
+        var rate = 1.0 / time;
+        var desired = Math.Abs(error) < 0.0001 ? 0 : Math.Sign(error) * rate;
+        var accel = rate / 0.18;
+        var deltaV = Numeric.Clamp(desired - state.Velocity, -accel * dt, accel * dt);
+        state.Velocity += deltaV;
+        var step = state.Velocity * dt;
+        if (Math.Abs(step) > Math.Abs(error))
         {
-            state.Position = target;
+            step = error;
             state.Velocity = 0;
         }
+        state.Position = Numeric.Clamp(state.Position + step, -1, 1);
         if (double.IsNaN(state.Position) || double.IsInfinity(state.Position))
         {
             state.Reset();
             return new AxisSample(raw, raw, raw, 0, 0);
         }
-        return new AxisSample(raw, target, state.Position, state.Velocity, step);
+        return new AxisSample(raw, target, state.Position, state.Velocity, deltaV);
     }
 
     public static double TravelSeconds(double moi, double weightPounds, double profileSeconds, AircraftClass aircraftClass)
