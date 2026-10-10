@@ -451,7 +451,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private static string Bar(double value)
     {
-        var n = (int)Math.Round(Math.Clamp(value, -1, 1) * 8);
+        var n = (int)Math.Round(Numeric.Clamp(value, -1, 1) * 8);
         return n >= 0 ? new string('+', n).PadRight(8) : new string('-', -n).PadRight(8);
     }
 
