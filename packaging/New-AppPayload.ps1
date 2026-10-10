@@ -31,12 +31,19 @@ try {
 
 $zip = [System.IO.Compression.ZipFile]::Open($archive, [System.IO.Compression.ZipArchiveMode]::Update)
 try {
-    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
-        $zip,
-        (Join-Path $PSScriptRoot "NOTICE-MSFS-SimConnect.txt"),
-        "NOTICE-MSFS-SimConnect.txt",
-        [System.IO.Compression.CompressionLevel]::Optimal
-    ) | Out-Null
+    foreach ($name in @("SimConnect.dll", "Microsoft.FlightSimulator.SimConnect.dll", "NOTICE-MSFS-SimConnect.txt")) {
+        $source = if ($name -eq "NOTICE-MSFS-SimConnect.txt") {
+            Join-Path $PSScriptRoot $name
+        } else {
+            Join-Path $repo "lib\$name"
+        }
+        if (-not (Test-Path $source)) { throw "Missing payload file: $source" }
+        $existing = $zip.GetEntry($name)
+        if ($null -ne $existing) { $existing.Delete() }
+        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+            $zip, $source, $name, [System.IO.Compression.CompressionLevel]::Optimal
+        ) | Out-Null
+    }
 } finally {
     $zip.Dispose()
 }

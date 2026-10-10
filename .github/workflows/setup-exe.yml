@@ -17,6 +17,17 @@ jobs:
       - name: Build app and refresh payload
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force -Path lib | Out-Null
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $old = [System.IO.Compression.ZipFile]::OpenRead('packaging/HeavyProAppPayload.zip')
+          try {
+            foreach ($name in @('SimConnect.dll', 'Microsoft.FlightSimulator.SimConnect.dll')) {
+              $entry = $old.GetEntry($name)
+              if ($null -eq $entry) { throw "Old payload is missing $name" }
+              $dest = Join-Path 'lib' $name
+              [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $dest, $true)
+            }
+          } finally { $old.Dispose() }
           dotnet build src/HeavyFeel.App/HeavyFeel.App.csproj -c Release -p:Platform=x64
           if ($LASTEXITCODE -ne 0) { throw "App build failed." }
           & packaging/New-AppPayload.ps1 -Configuration Release
