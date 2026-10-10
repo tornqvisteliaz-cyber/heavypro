@@ -37,7 +37,7 @@
         <Setter Property="Background" Value="{StaticResource BrushBg1}"/>
         <Setter Property="BorderBrush" Value="{StaticResource BrushLine}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="CornerRadius" Value="4"/>
         <Setter Property="Padding" Value="14"/>
     </Style>
 
