@@ -1,7 +1,7 @@
 <Window x:Class="HeavyFeel.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="HeavyPro | RSG Software"
+        Title="HeavyPro 2"
         Width="1320" Height="850"
         MinWidth="980" MinHeight="700"
         Background="{StaticResource BrushBg0}"
@@ -9,8 +9,8 @@
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
     <DockPanel LastChildFill="True">
-        <Border DockPanel.Dock="Top" Background="{StaticResource BrushBg1}"
-                BorderBrush="{StaticResource BrushLine}" BorderThickness="0,0,0,1" Padding="20,12">
+        <Border DockPanel.Dock="Top" Background="#E7E1D6"
+                BorderBrush="#C9C0B2" BorderThickness="0,0,0,1" Padding="20,12">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -20,14 +20,14 @@
                 </Grid.ColumnDefinitions>
                 <Image Source="/HeavyPro;component/Assets/RsgLogo.png" Width="112" Height="43"
                        Stretch="Uniform" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
-                <Border Grid.Column="1" Width="1" Height="34" Background="{StaticResource BrushLine}" Margin="18,0"/>
+                <Border Grid.Column="1" Width="1" Height="34" Background="#C9C0B2" Margin="18,0"/>
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="16,0,12,0">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="HeavyPro" FontSize="20" FontWeight="Bold"/>
-                        <TextBlock Text="  /  FLIGHT FEEL" Foreground="{StaticResource BrushAccent}"
-                                   FontSize="10" FontWeight="Bold" VerticalAlignment="Center" Margin="4,3,0,0"/>
+                        <TextBlock Text="HeavyPro" FontSize="20" FontWeight="Bold" Foreground="#1C1C1C"/>
+                        <TextBlock Text="  2" Foreground="#8A5A2B"
+                                   FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <TextBlock Text="RSG SOFTWARE  ·  MSFS CONTROL RESPONSE" Style="{StaticResource SectionText}" Margin="1,2,0,0"/>
+                    <TextBlock Text="CONTROL RESPONSE" Foreground="#6E675E" FontSize="10" FontWeight="Bold" Margin="1,2,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Background="{StaticResource BrushBg2}" BorderBrush="{StaticResource BrushLine}"
