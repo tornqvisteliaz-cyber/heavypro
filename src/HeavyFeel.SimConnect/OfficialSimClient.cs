@@ -765,7 +765,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _sim!.AddToDataDefinition(def, name, null, SIMCONNECT_DATATYPE.STRING256, 0.0f, Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_UNUSED);
     }
 
-    private static FlightSnapshot MapFlight(FlightPacket f, AircraftIdentity identity, FenixFcuPacket fenix, FlagsPacket flags, YokeSensePacket yoke)
+    private FlightSnapshot MapFlight(FlightPacket f, AircraftIdentity identity, FenixFcuPacket fenix, FlagsPacket flags, YokeSensePacket yoke)
     {
         var onGround = FlightStateResolver.ResolveOnGround(
             f.IsOnGround,
