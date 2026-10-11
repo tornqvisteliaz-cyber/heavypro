@@ -24,10 +24,10 @@ public static class ControlInertia
     {
         raw = Sanitize(raw);
         dt = Numeric.Clamp(dt, 0.001, 0.05);
+        var target = raw;
         var size = Math.Abs(target - state.Position);
         var scaled = fullTravelSeconds * (0.35 + 0.65 * Numeric.Clamp(size, 0, 1));
         var time = Numeric.Clamp(scaled, 0.2, 4.0);
-        var target = raw;
         var error = target - state.Position;
         var rate = 1.0 / time;
         var desired = Math.Abs(error) < 0.0001 ? 0 : Math.Sign(error) * rate;
