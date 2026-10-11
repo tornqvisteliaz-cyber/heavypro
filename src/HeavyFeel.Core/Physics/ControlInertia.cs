@@ -24,7 +24,7 @@ public static class ControlInertia
     {
         raw = Sanitize(raw);
         dt = Numeric.Clamp(dt, 0.001, 0.05);
-        var time = Numeric.Clamp(fullTravelSeconds, 0.35, 5.5);
+        var time = Numeric.Clamp(fullTravelSeconds * 1.6, 0.45, 6.0);
         var target = raw;
         var error = target - state.Position;
         var rate = 1.0 / time;

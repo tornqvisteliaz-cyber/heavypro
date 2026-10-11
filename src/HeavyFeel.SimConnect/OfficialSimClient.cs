@@ -94,6 +94,12 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private double _outPitch;
     private double _outRoll;
     private double _outYaw;
+    private double _rawPitch;
+    private double _rawRoll;
+    private double _rawYaw;
+    private double _lastPitch;
+    private double _lastRoll;
+    private DateTime _rawCaptured = DateTime.MinValue;
 
     public OfficialSimClient(AppLogger logger, IntPtr hwnd)
     {
@@ -362,6 +368,10 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             raw == recent.Value && DateTime.UtcNow.Ticks - recent.Tick < TimeSpan.FromMilliseconds(1500).Ticks)
             return;
         var unit = Numeric.Clamp(raw / 16384.0, -1, 1);
+        if (ev == Events.AxisElevator) _rawPitch = unit;
+        else if (ev == Events.AxisAileron) _rawRoll = unit;
+        else _rawYaw = unit;
+        _rawCaptured = DateTime.UtcNow;
         var shaped = ev == Events.AxisElevator ? _outPitch : ev == Events.AxisAileron ? _outRoll : _outYaw;
         var axis = (int)Math.Round(Numeric.Clamp(shaped, -1, 1) * 16384.0);
         try
@@ -641,6 +651,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _outPitch = command.YokeYOut;
         _outRoll = command.YokeXOut;
         _outYaw = command.RudderOut;
+        _lastPitch = command.YokeYOut;
+        _lastRoll = command.YokeXOut;
 
         try
         {
@@ -712,6 +724,15 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _cameraDisabled = true;
             _logger.Warn("View cue disabled: " + ex.Message);
         }
+    }
+
+    private double ChooseRaw(double captured, double observed, double lastWritten)
+    {
+        if ((DateTime.UtcNow - _rawCaptured).TotalMilliseconds < 250)
+            return captured;
+        if (Math.Abs(observed - lastWritten) > 0.03)
+            return observed;
+        return captured;
     }
 
     private void TransmitAxis(Events ev, int value)
@@ -814,10 +835,10 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             Throttle2Percent = f.Throttle2,
             EngineN1_1 = f.N1_1,
             EngineN1_2 = f.N1_2,
-            YokeX = f.YokeX,
-            YokeY = f.YokeY,
-            YokeXWithAp = f.YokeXAp,
-            YokeYWithAp = f.YokeYAp,
+            YokeX = ChooseRaw(_rawRoll, f.YokeX, _lastRoll),
+            YokeY = ChooseRaw(_rawPitch, f.YokeY, _lastPitch),
+            YokeXWithAp = ChooseRaw(_rawRoll, f.YokeX, _lastRoll),
+            YokeYWithAp = ChooseRaw(_rawPitch, f.YokeY, _lastPitch),
             YokeXIndicator = yoke.XIndicator,
             YokeYIndicator = yoke.YIndicator,
             RudderPedal = f.RudderPedal,
