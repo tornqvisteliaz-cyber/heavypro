@@ -193,11 +193,20 @@ static class PackageInstaller
           "title": "HeavyPro",
           "manufacturer": "HeavyPro",
           "creator": "HeavyPro",
-          "package_version": "1.0.0",
+          "package_version": "1.1.0",
           "minimum_game_version": "1.0.0",
-          "release_notes": { "neutral": { "LastUpdate": "", "OlderHistory": "" } }
+          "release_notes": { "neutral": { "LastUpdate": "Community profile for the HeavyPro app", "OlderHistory": "" } }
         }
         """);
+        Directory.CreateDirectory(Path.Combine(package, "HeavyPro"));
+        File.WriteAllText(Path.Combine(package, "HeavyPro", "profiles.json"), """
+        {
+          "travelScale": 1.4,
+          "note": "HeavyPro reads this file. 1.0 is normal. 1.4 is heavier. 2.0 is slow. Restart the app after changing it."
+        }
+        """);
+        File.WriteAllText(Path.Combine(package, "HeavyPro", "README.txt"),
+            "This package holds the HeavyPro profile. The Windows app reads HeavyPro/profiles.json from here. HTML does not create a toolbar icon. That still needs InGamePanels/HeavyPro.spb from the MSFS SDK.");
         File.WriteAllText(Path.Combine(package, "html_ui", "InGamePanels", "HeavyPro", "HeavyPro.html"), """
         <script type="text/html" import-script="/JS/dataStorage.js"></script>
         <script type="text/html" import-script="/JS/simvar.js"></script>
@@ -249,20 +258,18 @@ static class PackageInstaller
         </svg>
         """);
 
-        var files = Directory.GetFiles(package, "*", SearchOption.AllDirectories);
+        var files = Directory.GetFiles(package, "*", SearchOption.AllDirectories)
+            .Where(file => !file.EndsWith("layout.json", StringComparison.OrdinalIgnoreCase));
         var layout = new
         {
             content = files.Select(file => new
             {
                 path = Path.GetRelativePath(package, file).Replace('\\', '/'),
                 size = new FileInfo(file).Length,
-                date = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                date = new FileInfo(file).LastWriteTimeUtc.ToFileTimeUtc()
             }).ToArray()
         };
         File.WriteAllText(Path.Combine(package, "layout.json"), System.Text.Json.JsonSerializer.Serialize(layout));
-        Directory.CreateDirectory(Path.Combine(package, "HeavyPro"));
-        File.WriteAllText(Path.Combine(package, "HeavyPro", "TOOLBAR.txt"),
-            "MSFS 2024 only shows a toolbar icon if InGamePanels/HeavyPro.spb exists. That file is compiled by the MSFS SDK Project Editor. HTML alone does not create the icon.");
     }
 }
 
