@@ -1,0 +1,4 @@
+{
+  "travelScale": 1.4,
+  "note": "HeavyPro reads this file from the installed Community package. 1.0 is normal. 1.4 is heavier. 2.0 is slower. Restart the app after changing it."
+}

@@ -14,6 +14,9 @@ public sealed class InputDynamicsEngine
     private readonly AxisDynamicsState _rudder = new();
 
     public InputDynamicsFrame Step(AppSettings settings, FlightSnapshot snapshot, double deltaTime)
+        => Step(settings, snapshot, deltaTime, CommunityProfile.TravelScale());
+
+    public InputDynamicsFrame Step(AppSettings settings, FlightSnapshot snapshot, double deltaTime, double travelScale)
     {
         if (!IsFinite(deltaTime) || deltaTime <= 0)
             deltaTime = 1.0 / 60.0;
@@ -37,7 +40,7 @@ public sealed class InputDynamicsEngine
         var rawRudder = Clamp(snapshot.RudderPedal);
         var phase = FlightPhaseResolver.Resolve(snapshot);
         var scale = ControlInertia.PhaseScale(phase) * ControlInertia.SpeedScale(snapshot.AirspeedIndicatedKnots);
-        var tune = (0.7 + Numeric.Clamp(settings.Inertia, 0, 100) / 140.0) * CommunityProfile.TravelScale();
+        var tune = (0.7 + Numeric.Clamp(settings.Inertia, 0, 100) / 140.0) * Numeric.Clamp(travelScale, 0.5, 3);
         var pitchTime = ControlInertia.TravelSeconds(snapshot.PitchMoi, snapshot.TotalWeightPounds, profile.Elevator.MaxRate > 0 ? 1.2 / profile.Elevator.MaxRate : 0.35, snapshot.Class) * scale * tune;
         var rollTime = ControlInertia.TravelSeconds(snapshot.RollMoi, snapshot.TotalWeightPounds, profile.Aileron.MaxRate > 0 ? 1.0 / profile.Aileron.MaxRate : 0.25, snapshot.Class) * scale * tune;
         var yawTime = ControlInertia.TravelSeconds(snapshot.YawMoi, snapshot.TotalWeightPounds, profile.Rudder.MaxRate > 0 ? 1.1 / profile.Rudder.MaxRate : 0.35, snapshot.Class) * scale * tune;

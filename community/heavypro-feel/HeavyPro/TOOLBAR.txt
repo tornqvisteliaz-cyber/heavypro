@@ -1,0 +1,6 @@
+Toolbar status: incomplete.
+
+HeavyPro.spb is not in this package and was not compiled.
+MSFS 2024 shows a toolbar icon only when a compiled InGamePanels SPB exists.
+The MSFS 2024 SDK Project Editor is not available in this build environment, so no SPB was produced.
+Do not treat the HTML files as a working toolbar.

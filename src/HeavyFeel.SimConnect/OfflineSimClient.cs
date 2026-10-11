@@ -49,10 +49,6 @@ public sealed class OfflineSimClient : ISimClient
     {
     }
 
-    public void ApplyPayloadBoost(double extraPounds)
-    {
-    }
-
     public void Dispose()
     {
     }

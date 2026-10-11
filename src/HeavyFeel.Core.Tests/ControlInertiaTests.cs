@@ -22,6 +22,43 @@ public class ControlInertiaTests
         Assert.Equal(weight, moi, 2);
     }
 
+    [Theory]
+    [InlineData(1.0)]
+    [InlineData(1.4)]
+    [InlineData(2.0)]
+    public void Scale_changes_time_to_target(double scale)
+    {
+        var slower = TimeTo(0.95, scale);
+        var baseline = TimeTo(0.95, 1.0);
+        if (scale > 1)
+            Assert.True(slower > baseline);
+        else
+            Assert.Equal(baseline, slower, 3);
+    }
+
+    [Fact]
+    public void Scales_are_ordered()
+    {
+        var a = TimeTo(0.95, 1.0);
+        var b = TimeTo(0.95, 1.4);
+        var c = TimeTo(0.95, 2.0);
+        Assert.True(a < b && b < c);
+    }
+
+    [Fact]
+    public void Reversal_does_not_overshoot()
+    {
+        var engine = new InputDynamicsEngine();
+        var settings = new AppSettings { Inertia = 50 };
+        var snap = new FlightSnapshot { YokeY = 1, TotalWeightPounds = 2450, Class = AircraftClass.LightGa };
+        for (var i = 0; i < 40; i++)
+            engine.Step(settings, snap, 0.016, 1.4);
+        var reversed = new FlightSnapshot { YokeY = -1, TotalWeightPounds = 2450, Class = AircraftClass.LightGa };
+        var frame = engine.Step(settings, reversed, 0.016, 1.4);
+        Assert.InRange(frame.FinalElevator, -1, 1);
+        Assert.True(frame.FinalElevator > -1);
+    }
+
     [Fact]
     public void Output_cannot_stick_outside_range()
     {
@@ -46,8 +83,24 @@ public class ControlInertiaTests
     {
         var state = new AxisDynamicsState();
         var sample = new AxisSample();
-        for (var i = 0; i < 6; i++)
+        for (var i = 0; i < 8; i++)
             sample = ControlInertia.Step(state, input, 0.016, 0.8, 1, 1, 1);
         return Math.Abs(sample.Output);
+    }
+
+    private static double TimeTo(double target, double scale)
+    {
+        var engine = new InputDynamicsEngine();
+        var settings = new AppSettings { Inertia = 50 };
+        var snap = new FlightSnapshot { YokeY = 1, TotalWeightPounds = 2450, Class = AircraftClass.LightGa };
+        var t = 0.0;
+        while (t < 12)
+        {
+            var frame = engine.Step(settings, snap, 0.016, scale);
+            t += 0.016;
+            if (frame.FinalElevator >= target)
+                return t;
+        }
+        return t;
     }
 }

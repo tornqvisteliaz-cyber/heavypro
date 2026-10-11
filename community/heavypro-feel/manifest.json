@@ -4,9 +4,12 @@
   "title": "HeavyPro",
   "manufacturer": "HeavyPro",
   "creator": "HeavyPro",
-  "package_version": "1.0.0",
+  "package_version": "1.1.0",
   "minimum_game_version": "1.0.0",
   "release_notes": {
-    "neutral": { "LastUpdate": "", "OlderHistory": "" }
+    "neutral": {
+      "LastUpdate": "Community profile for the HeavyPro app",
+      "OlderHistory": ""
+    }
   }
 }

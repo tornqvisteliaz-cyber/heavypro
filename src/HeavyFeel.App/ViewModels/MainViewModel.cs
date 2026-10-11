@@ -433,18 +433,17 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         get
         {
             var phase = FlightPhaseResolver.Resolve(_snap);
-            var kg = _snap.TotalWeightPounds * 0.45359237;
+            var follow = Math.Abs(_snap.YokeY - _lastCmd.OutPitch) < 0.08 ? "reported follows sent" : "reported differs — may be overwritten";
             return
                 $"Aircraft  {_snap.Aircraft.DisplayName}\n" +
                 $"Category  {AircraftCatalog.DisplayName(_snap.Class)}   profile {_lastCmd.ProfileName}\n" +
-                $"Weight    {kg:0} kg   MOI P {_snap.PitchMoi:0}\n" +
+                $"Scale     {CommunityProfile.TravelScale():0.00}   conn {ConnectionLabel}\n" +
                 $"State     {(_snap.OnGround ? "GROUND" : "AIR")}   phase {phase}   AP {_snap.AutopilotLabel}\n" +
-                $"IAS       {_snap.AirspeedIndicatedKnots:0.0} kt   AGL {_snap.AltitudeAglFeet:0} ft\n" +
-                $"Input     {_snap.InputSource}  yokeY={_snap.YokeY:+0.00;-0.00;0} apY={_snap.YokeYWithAp:+0.00;-0.00;0} indY={_snap.YokeYIndicator:+0.00;-0.00;0}\n" +
-                $"RAW       E {_lastCmd.RawPitch:+0.00;-0.00;0}  A {_lastCmd.RawRoll:+0.00;-0.00;0}  R {_lastCmd.RawYaw:+0.00;-0.00;0}\n" +
-                $"FILTERED E {_lastCmd.FilteredPitch:+0.00;-0.00;0}  A {_lastCmd.FilteredRoll:+0.00;-0.00;0}  R {_lastCmd.FilteredYaw:+0.00;-0.00;0}\n" +
-                $"FINAL     E {_lastCmd.OutPitch:+0.00;-0.00;0}  A {_lastCmd.OutRoll:+0.00;-0.00;0}  R {_lastCmd.OutYaw:+0.00;-0.00;0}\n" +
-                $"GRAPH     raw {Bar(_lastCmd.RawPitch)} out {Bar(_lastCmd.OutPitch)}\n" +
+                $"RAW PHYS  yokeY={_snap.YokeY:+0.00;-0.00;0} apY={_snap.YokeYWithAp:+0.00;-0.00;0} indY={_snap.YokeYIndicator:+0.00;-0.00;0}\n" +
+                $"RECEIVED  E {_lastCmd.RawPitch:+0.00;-0.00;0}  A {_lastCmd.RawRoll:+0.00;-0.00;0}  R {_lastCmd.RawYaw:+0.00;-0.00;0}\n" +
+                $"SENT      E {_lastCmd.OutPitch:+0.00;-0.00;0}  A {_lastCmd.OutRoll:+0.00;-0.00;0}  R {_lastCmd.OutYaw:+0.00;-0.00;0}\n" +
+                $"REPORTED  yokeY={_snap.YokeY:+0.00;-0.00;0}  {follow}\n" +
+                $"Status    EXPERIMENTAL — SimConnect write is not verified interception\n" +
                 $"{_lastCmd.Reason}";
         }
     }
@@ -538,13 +537,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _lastCmd = cmd;
         _client.SetFeelGain(cmd.Mix > 0 ? cmd.Mix : 0.55);
         _client.ApplyInfluence(cmd);
-        var payloadBoost = _snap.MaxGrossWeightPounds > 300000
-            ? 80000
-            : _snap.MaxGrossWeightPounds >= 8000 ? 18000 : 0;
-        var extra = _settings.MasterEnable && !_snap.Aircraft.IsFenixA320
-            ? _settings.Inertia / 100.0 * payloadBoost
-            : 0;
-        _client.ApplyPayloadBoost(extra);
         if (!_settings.CompanionMode && _settings.ViewCue)
             _client.ApplyViewCue(_viewCue.Step(_settings, snap));
         if (refreshUi && (WriteStatus != cmd.Reason || cmd.Reason.Contains("NO EFFECT")))

@@ -1,4 +1,5 @@
 using HeavyFeel.Core.Models;
+using HeavyFeel.Core.Services;
 
 namespace HeavyFeel.Core.Physics;
 
@@ -67,7 +68,7 @@ public sealed class InertiaEngine
             FilteredYaw = frame.FilteredRudder,
             OutYaw = frame.FinalRudder,
             AirspeedFactor = frame.AirspeedFactor,
-            Reason = $"{phase} · {frame.Profile} · {frame.Compatibility} · P {frame.PitchSeconds:0.00}s R {frame.RollSeconds:0.00}s Y {frame.YawSeconds:0.00}s"
+            Reason = $"EXPERIMENTAL · not verified interception · {phase} · {frame.Profile} · scale {CommunityProfile.TravelScale():0.00} · P {frame.PitchSeconds:0.00}s R {frame.RollSeconds:0.00}s Y {frame.YawSeconds:0.00}s"
         };
     }
 

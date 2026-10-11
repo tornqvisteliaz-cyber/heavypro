@@ -12,7 +12,7 @@ This is the honest map for HeavyFeel. No invented APIs.
 - Read Fenix FCU locals in a separate packet: `L:S_FCU_AP1`, `L:S_FCU_AP2`, `L:I_FCU_AP1`, `L:I_FCU_AP2`.
 - Read mass and inertia: TOTAL WEIGHT, EMPTY WEIGHT, MAX GROSS WEIGHT, fuel weight, pitch/roll/yaw MOI.
 - Read configuration: flaps, gear, spoilers, throttle, N1, yoke, pedals, surface positions, trim.
-- Write (Master Enable, while an input is deflected or settling): `AXIS_ELEVATOR_SET` / `AXIS_AILERONS_SET` / `AXIS_RUDDER_SET`.
+- Write (Master Enable, experimental): `AXIS_ELEVATOR_SET` / `AXIS_AILERONS_SET` / `AXIS_RUDDER_SET`, and `YOKE X/Y POSITION`. SimConnect accepting the write is not proof that physical joystick input was intercepted. MSFS or the aircraft can overwrite the value every frame. This path is experimental until verified in MSFS 2024.
 - Write (registered but **disabled** in the inertia engine): `ROTATION VELOCITY BODY X/Y/Z` — left off because continuous rate writes fight the sim and Fenix FBW.
 - Read physical control axes, apply HeavyPro's time-based input dynamics, and send the resulting axes through the official SimConnect events.
 - Detect aircraft family from title/model and choose a configurable starting dynamics profile.
@@ -30,7 +30,7 @@ This is the honest map for HeavyFeel. No invented APIs.
 - Replacing the MSFS flight model (lift, drag, ground effect, flap aerodynamics).
 - Applying a documented, stable external force/moment to every aircraft.
 - Changing Fenix fly-by-wire laws.
-- Editing mass so the sim integrates a different weight (Fenix payload/fuel owns that; writing TOTAL WEIGHT breaks the addon).
+- Editing mass so the sim integrates a different weight. Payload station writes were removed. HeavyPro must not change payload or total weight to fake inertia.
 - Making reverse thrust, spoilers and brakes “interact” beyond what the aircraft already does.
 - Camera-free “physical turbulence” that is actually new aerodynamics.
 - One binary that rewrites every aircraft’s .cfg / WASM.

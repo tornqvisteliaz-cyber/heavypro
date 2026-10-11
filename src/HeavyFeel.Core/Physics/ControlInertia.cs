@@ -24,7 +24,9 @@ public static class ControlInertia
     {
         raw = Sanitize(raw);
         dt = Numeric.Clamp(dt, 0.001, 0.05);
-        var time = Numeric.Clamp(fullTravelSeconds * 2.4, 1.8, 6.0);
+        var size = Math.Abs(target - state.Position);
+        var scaled = fullTravelSeconds * (0.35 + 0.65 * Numeric.Clamp(size, 0, 1));
+        var time = Numeric.Clamp(scaled, 0.2, 4.0);
         var target = raw;
         var error = target - state.Position;
         var rate = 1.0 / time;
@@ -53,11 +55,11 @@ public static class ControlInertia
         if (IsValid(moi))
         {
             var reference = moi < 50000 ? 1800.0 : 1200000.0;
-            return Numeric.Clamp(baseSeconds * Math.Sqrt(moi / reference) * 2.6, 1.6, 6.0);
+            return Numeric.Clamp(baseSeconds * Math.Sqrt(moi / reference) * 1.2, 0.3, 3.2);
         }
         if (IsValid(weightPounds) && weightPounds > 500)
-            return Numeric.Clamp(baseSeconds * Math.Sqrt(weightPounds / 2450.0) * 2.6, 1.6, 6.0);
-        return Numeric.Clamp(ClassSeconds(aircraftClass) * 2.6, 1.6, 6.0);
+            return Numeric.Clamp(baseSeconds * Math.Sqrt(weightPounds / 2450.0) * 1.2, 0.3, 3.2);
+        return Numeric.Clamp(ClassSeconds(aircraftClass), 0.3, 3.2);
     }
 
     public static double PhaseScale(FlightPhase phase) => phase switch
