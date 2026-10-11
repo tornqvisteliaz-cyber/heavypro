@@ -24,7 +24,7 @@ public static class ControlInertia
     {
         raw = Sanitize(raw);
         dt = Numeric.Clamp(dt, 0.001, 0.05);
-        var time = Numeric.Clamp(fullTravelSeconds * 1.6, 0.45, 6.0);
+        var time = Numeric.Clamp(fullTravelSeconds * 2.4, 1.8, 6.0);
         var target = raw;
         var error = target - state.Position;
         var rate = 1.0 / time;
@@ -62,10 +62,10 @@ public static class ControlInertia
 
     public static double PhaseScale(FlightPhase phase) => phase switch
     {
-        FlightPhase.Ground => 0.62,
-        FlightPhase.Takeoff => 0.8,
-        FlightPhase.Approach or FlightPhase.Landing => 0.78,
-        FlightPhase.Climb or FlightPhase.Descent => 0.9,
+        FlightPhase.Ground => 0.9,
+        FlightPhase.Takeoff => 1.0,
+        FlightPhase.Approach or FlightPhase.Landing => 0.95,
+        FlightPhase.Climb or FlightPhase.Descent => 1.0,
         _ => 1.0
     };
 
@@ -91,11 +91,11 @@ public static class ControlInertia
 
     private static double ClassSeconds(AircraftClass aircraftClass) => aircraftClass switch
     {
-        AircraftClass.LightGa => 0.35,
-        AircraftClass.Regional => 0.8,
-        AircraftClass.NarrowBody => 1.5,
-        AircraftClass.WideBody or AircraftClass.HeavyWide => 2.2,
-        _ => 0.7
+        AircraftClass.LightGa => 1.6,
+        AircraftClass.Regional => 2.4,
+        AircraftClass.NarrowBody => 3.2,
+        AircraftClass.WideBody or AircraftClass.HeavyWide => 4.5,
+        _ => 2.0
     };
 
     private static bool IsValid(double value) => !double.IsNaN(value) && !double.IsInfinity(value) && value > 0;
