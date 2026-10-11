@@ -53,11 +53,11 @@ public static class ControlInertia
         if (IsValid(moi))
         {
             var reference = moi < 50000 ? 1800.0 : 1200000.0;
-            return Numeric.Clamp(baseSeconds * Math.Sqrt(moi / reference) * 1.45, 0.2, 4.5);
+            return Numeric.Clamp(baseSeconds * Math.Sqrt(moi / reference) * 2.6, 1.6, 6.0);
         }
         if (IsValid(weightPounds) && weightPounds > 500)
-            return Numeric.Clamp(baseSeconds * Math.Sqrt(weightPounds / 2450.0) * 1.45, 0.2, 4.5);
-        return Numeric.Clamp(ClassSeconds(aircraftClass) * 1.45, 0.2, 4.5);
+            return Numeric.Clamp(baseSeconds * Math.Sqrt(weightPounds / 2450.0) * 2.6, 1.6, 6.0);
+        return Numeric.Clamp(ClassSeconds(aircraftClass) * 2.6, 1.6, 6.0);
     }
 
     public static double PhaseScale(FlightPhase phase) => phase switch
