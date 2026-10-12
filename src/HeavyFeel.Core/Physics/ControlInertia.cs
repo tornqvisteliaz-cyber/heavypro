@@ -52,15 +52,33 @@ public static class ControlInertia
     public static double TravelSeconds(double moi, double weightPounds, double profileSeconds, AircraftClass aircraftClass)
     {
         var baseSeconds = profileSeconds > 0.05 ? profileSeconds : ClassSeconds(aircraftClass);
+        var weightScale = WeightScale(weightPounds, aircraftClass);
         if (IsValid(moi))
         {
             var reference = moi < 50000 ? 1800.0 : 1200000.0;
-            return Numeric.Clamp(baseSeconds * Math.Sqrt(moi / reference) * 1.2, 0.3, 3.2);
+            return Numeric.Clamp(baseSeconds * Math.Sqrt(moi / reference) * 1.2 * weightScale, 0.3, 3.2);
         }
         if (IsValid(weightPounds) && weightPounds > 500)
-            return Numeric.Clamp(baseSeconds * Math.Sqrt(weightPounds / 2450.0) * 1.2, 0.3, 3.2);
+            return Numeric.Clamp(baseSeconds * Math.Sqrt(weightPounds / WeightReference(aircraftClass)) * 1.2, 0.3, 3.2);
         return Numeric.Clamp(ClassSeconds(aircraftClass), 0.3, 3.2);
     }
+
+    private static double WeightScale(double weightPounds, AircraftClass aircraftClass)
+    {
+        if (!IsValid(weightPounds) || weightPounds < 500)
+            return 1.0;
+        return Numeric.Clamp(Math.Sqrt(weightPounds / WeightReference(aircraftClass)), 0.75, 1.5);
+    }
+
+    private static double WeightReference(AircraftClass aircraftClass) => aircraftClass switch
+    {
+        AircraftClass.LightGa => 2450.0,
+        AircraftClass.Regional => 70000.0,
+        AircraftClass.NarrowBody => 145000.0,
+        AircraftClass.WideBody => 500000.0,
+        AircraftClass.HeavyWide => 650000.0,
+        _ => 145000.0
+    };
 
     public static double PhaseScale(FlightPhase phase) => phase switch
     {

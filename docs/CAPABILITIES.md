@@ -15,6 +15,7 @@ This is the honest map for HeavyFeel. No invented APIs.
 - Write (Master Enable, experimental): `AXIS_ELEVATOR_SET` / `AXIS_AILERONS_SET` / `AXIS_RUDDER_SET`, and `YOKE X/Y POSITION`. SimConnect accepting the write is not proof that physical joystick input was intercepted. MSFS or the aircraft can overwrite the value every frame. This path is experimental until verified in MSFS 2024.
 - Write (registered but **disabled** in the inertia engine): `ROTATION VELOCITY BODY X/Y/Z` — left off because continuous rate writes fight the sim and Fenix FBW.
 - Read physical control axes, apply HeavyPro's time-based input dynamics, and send the resulting axes through the official SimConnect events.
+- Live aircraft weight scales control travel time alongside moment of inertia, so a heavier load produces a slower, more noticeable control response. This changes only HeavyPro's axis filtering; the simulator's actual aircraft weight is untouched.
 - Detect aircraft family from title/model and choose a configurable starting dynamics profile.
 
 ## Partially possible

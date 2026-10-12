@@ -22,6 +22,16 @@ public class ControlInertiaTests
         Assert.Equal(weight, moi, 2);
     }
 
+    [Fact]
+    public void Higher_live_weight_slows_controls_even_when_moi_is_available()
+    {
+        var light = ControlInertia.TravelSeconds(1_200_000, 110_000, 1.0, AircraftClass.NarrowBody);
+        var heavy = ControlInertia.TravelSeconds(1_200_000, 170_000, 1.0, AircraftClass.NarrowBody);
+
+        Assert.True(heavy > light);
+        Assert.True(heavy / light > 1.15);
+    }
+
     [Theory]
     [InlineData(1.0)]
     [InlineData(1.4)]
