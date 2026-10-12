@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<SimBase.Document Type="InGamePanels" version="1,0">
+  <Filename>heavypro-panel.spb</Filename>
+  <InGamePanels.InGamePanelDefinition id="PANEL_HEAVYPRO" Name="HeavyPro" url="html_UI/InGamePanels/HeavyProPanel/HeavyProPanel.html" resizeDirections="Both" minWidth="14" minHeight="26" defaultWidth="16" defaultHeight="34" defaultTop="20" defaultRight="2" icon="ICON_TOOLBAR_HEAVYPRO" buttonVisible="true">
+  </InGamePanels.InGamePanelDefinition>
+</SimBase.Document>

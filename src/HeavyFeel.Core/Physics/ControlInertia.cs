@@ -20,33 +20,55 @@ public sealed class AxisDynamicsState
 /// </summary>
 public static class ControlInertia
 {
+    private const double SubStep = 1.0 / 240.0;
+
+    /// <summary>
+    /// Critically-damped follower: the output chases the physical stick with a
+    /// bounded speed, accelerates and brakes smoothly, and never overshoots or
+    /// chatters around the target, independent of the sim frame rate.
+    /// </summary>
     public static AxisSample Step(AxisDynamicsState state, double raw, double dt, double fullTravelSeconds, double accelScale, double decelScale, double damping)
     {
         raw = Sanitize(raw);
-        dt = Numeric.Clamp(dt, 0.001, 0.05);
-        var target = raw;
-        var size = Math.Abs(target - state.Position);
-        var scaled = fullTravelSeconds * (0.35 + 0.65 * Numeric.Clamp(size, 0, 1));
-        var time = Numeric.Clamp(scaled, 0.2, 4.0);
-        var error = target - state.Position;
-        var rate = 1.0 / time;
-        var desired = Math.Abs(error) < 0.0001 ? 0 : Math.Sign(error) * rate;
-        var accel = rate / 0.18;
-        var deltaV = Numeric.Clamp(desired - state.Velocity, -accel * dt, accel * dt);
-        state.Velocity += deltaV;
-        var step = state.Velocity * dt;
-        if (Math.Abs(step) > Math.Abs(error))
+        dt = Numeric.Clamp(double.IsNaN(dt) ? 0.016 : dt, 0.001, 0.1);
+        var travel = Numeric.Clamp(double.IsNaN(fullTravelSeconds) || double.IsInfinity(fullTravelSeconds) ? 0.35 : fullTravelSeconds, 0.05, 6.0);
+        var maxRate = 1.0 / travel;
+        var lag = Numeric.Clamp(0.12 * travel * Numeric.Clamp(damping, 0.5, 2.5), 0.015, 0.6);
+        var accel = maxRate / (0.22 * travel) * Numeric.Clamp(accelScale, 0.25, 2.0);
+        var decel = maxRate / (0.18 * travel) * Numeric.Clamp(decelScale, 0.25, 2.0);
+        var startVelocity = state.Velocity;
+        var steps = Math.Max(1, (int)Math.Ceiling(dt / SubStep));
+        var h = dt / steps;
+
+        for (var i = 0; i < steps; i++)
         {
-            step = error;
+            var error = raw - state.Position;
+            var speed = Math.Min(maxRate, Math.Min(Math.Abs(error) / lag, Math.Sqrt(2.0 * decel * Math.Abs(error))));
+            var desired = Math.Sign(error) * speed;
+            var speedingUp = Math.Sign(desired) == Math.Sign(state.Velocity) && Math.Abs(desired) > Math.Abs(state.Velocity);
+            var limit = (speedingUp || state.Velocity == 0 ? accel : decel) * h;
+            state.Velocity += Numeric.Clamp(desired - state.Velocity, -limit, limit);
+            var next = state.Position + state.Velocity * h;
+            if (error != 0 && (raw - next) * error < 0)
+            {
+                next = raw;
+                state.Velocity = 0;
+            }
+            state.Position = Numeric.Clamp(next, -1, 1);
+        }
+
+        if (Math.Abs(raw - state.Position) < 0.0002 && Math.Abs(state.Velocity) < 0.002)
+        {
+            state.Position = raw;
             state.Velocity = 0;
         }
-        state.Position = Numeric.Clamp(state.Position + step, -1, 1);
-        if (double.IsNaN(state.Position) || double.IsInfinity(state.Position))
+
+        if (double.IsNaN(state.Position) || double.IsInfinity(state.Position) || double.IsNaN(state.Velocity))
         {
             state.Reset();
             return new AxisSample(raw, raw, raw, 0, 0);
         }
-        return new AxisSample(raw, target, state.Position, state.Velocity, deltaV);
+        return new AxisSample(raw, raw, state.Position, state.Velocity, (state.Velocity - startVelocity) / dt);
     }
 
     public static double TravelSeconds(double moi, double weightPounds, double profileSeconds, AircraftClass aircraftClass)

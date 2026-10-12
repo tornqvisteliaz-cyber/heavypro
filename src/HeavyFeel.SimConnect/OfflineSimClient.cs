@@ -20,6 +20,7 @@ public sealed class OfflineSimClient : ISimClient
     public event EventHandler<FlightSnapshot>? SnapshotReceived;
     public event EventHandler<AircraftIdentity>? AircraftChanged;
     public event EventHandler<string>? StatusMessage;
+    public event EventHandler<ToolbarRequest>? ToolbarRequested;
 
     public void Connect()
     {
@@ -46,6 +47,10 @@ public sealed class OfflineSimClient : ISimClient
     }
 
     public void SetFeelGain(double gain)
+    {
+    }
+
+    public void PublishToolbar(ToolbarStatus status)
     {
     }
 

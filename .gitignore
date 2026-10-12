@@ -6,3 +6,7 @@ obj/
 lib/Microsoft.FlightSimulator.SimConnect.dll
 lib/SimConnect.dll
 *.log
+
+# MSFS toolbar build output
+community/heavypro-toolbar/Packages/
+community/heavypro-toolbar/_PackageInt/

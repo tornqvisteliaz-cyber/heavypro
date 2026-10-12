@@ -63,6 +63,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _client.StatusMessage += (_, msg) => Dispatch(() => Status = msg);
         _client.AircraftChanged += (_, id) => Dispatch(() => ApplyIdentity(id));
         _client.SnapshotReceived += (_, snap) => Dispatch(() => ApplySnapshot(snap));
+        _client.ToolbarRequested += (_, req) => Dispatch(() => ApplyToolbar(req));
         _logger.LineWritten += (_, line) => Dispatch(() => AppendLog(line));
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
@@ -433,7 +434,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         get
         {
             var phase = FlightPhaseResolver.Resolve(_snap);
-            var follow = Math.Abs(_snap.YokeY - _lastCmd.OutPitch) < 0.08 ? "reported follows sent" : "reported differs — may be overwritten";
+            var follow = Math.Abs(_snap.YokeYWithAp - _lastCmd.OutPitch) < 0.08 ? "reported follows sent" : "reported differs — may be overwritten";
             return
                 $"Aircraft  {_snap.Aircraft.DisplayName}\n" +
                 $"Category  {AircraftCatalog.DisplayName(_snap.Class)}   profile {_lastCmd.ProfileName}\n" +
@@ -442,8 +443,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 $"RAW PHYS  yokeY={_snap.YokeY:+0.00;-0.00;0} apY={_snap.YokeYWithAp:+0.00;-0.00;0} indY={_snap.YokeYIndicator:+0.00;-0.00;0}\n" +
                 $"RECEIVED  E {_lastCmd.RawPitch:+0.00;-0.00;0}  A {_lastCmd.RawRoll:+0.00;-0.00;0}  R {_lastCmd.RawYaw:+0.00;-0.00;0}\n" +
                 $"SENT      E {_lastCmd.OutPitch:+0.00;-0.00;0}  A {_lastCmd.OutRoll:+0.00;-0.00;0}  R {_lastCmd.OutYaw:+0.00;-0.00;0}\n" +
-                $"REPORTED  yokeY={_snap.YokeY:+0.00;-0.00;0}  {follow}\n" +
-                $"Status    EXPERIMENTAL — SimConnect write is not verified interception\n" +
+                $"REPORTED  yokeY={_snap.YokeYWithAp:+0.00;-0.00;0}  {follow}\n" +
+                $"Path      stick events masked → filtered → single AXIS write per frame\n" +
                 $"{_lastCmd.Reason}";
         }
     }
@@ -543,10 +544,17 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             WriteStatus = cmd.Reason.Contains("NO EFFECT") ? "NO EFFECT DETECTED" : cmd.Reason;
         }
+        if ((now - _lastFollowRefresh).TotalMilliseconds >= 33)
+        {
+            _lastFollowRefresh = now;
+            RaiseFollow();
+        }
         if (refreshUi)
         {
             _lastUiRefresh = now;
             RaiseTelemetry();
+            var mode = cmd.Active ? ToolbarStatus.ModeShaping : snap.StickInputMissing ? ToolbarStatus.ModeNoStick : ToolbarStatus.ModePassThrough;
+            _client.PublishToolbar(new ToolbarStatus(_settings.MasterEnable, CurrentFeel, mode, cmd.RawRoll, cmd.RawPitch, cmd.OutRoll, cmd.OutPitch));
         }
     }
 
@@ -584,6 +592,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         LogLines.Insert(0, line);
         while (LogLines.Count > 300)
             LogLines.RemoveAt(LogLines.Count - 1);
+    }
+
+    private void ApplyToolbar(ToolbarRequest request)
+    {
+        _logger.Info($"Toolbar request: master={request.MasterEnable} feel={request.Feel?.ToString() ?? "unchanged"}");
+        MasterEnable = request.MasterEnable;
+        if (request.Feel is { } level && level != CurrentFeel)
+            ApplyFeel(level);
     }
 
     private void ApplyFeel(FeelLevel level)
@@ -658,6 +674,33 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             _logger.Error("Failed to save settings", ex);
         }
+    }
+
+    private const double PadCentre = 75;
+    private const double PadReach = 64;
+    private DateTime _lastFollowRefresh = DateTime.MinValue;
+
+    public double RawDotLeft => PadCentre + _lastCmd.RawRoll * PadReach - 9;
+    public double RawDotTop => PadCentre + _lastCmd.RawPitch * PadReach - 9;
+    public double OutDotLeft => PadCentre + _lastCmd.OutRoll * PadReach - 6;
+    public double OutDotTop => PadCentre + _lastCmd.OutPitch * PadReach - 6;
+    public double RawRudderLeft => PadCentre + _lastCmd.RawYaw * 68 - 2;
+    public double OutRudderLeft => PadCentre + _lastCmd.OutYaw * 68 - 5;
+    public string FollowMode => _lastCmd.Active ? "SHAPING" : _snap.StickInputMissing && _client.IsConnected ? "NO STICK" : "PASS-THROUGH";
+    public string FollowLag => _lastCmd.Active
+        ? $"Lag  P {_lastCmd.RawPitch - _lastCmd.OutPitch:+0.00;-0.00;0.00}  R {_lastCmd.RawRoll - _lastCmd.OutRoll:+0.00;-0.00;0.00}  Y {_lastCmd.RawYaw - _lastCmd.OutYaw:+0.00;-0.00;0.00}"
+        : "Sim gets your stick unchanged";
+
+    private void RaiseFollow()
+    {
+        OnChanged(nameof(RawDotLeft));
+        OnChanged(nameof(RawDotTop));
+        OnChanged(nameof(OutDotLeft));
+        OnChanged(nameof(OutDotTop));
+        OnChanged(nameof(RawRudderLeft));
+        OnChanged(nameof(OutRudderLeft));
+        OnChanged(nameof(FollowMode));
+        OnChanged(nameof(FollowLag));
     }
 
     private void RaiseTelemetry()

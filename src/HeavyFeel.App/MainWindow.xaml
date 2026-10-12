@@ -9,8 +9,8 @@
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
     <DockPanel LastChildFill="True">
-        <Border DockPanel.Dock="Top" Background="#E7E1D6"
-                BorderBrush="#C9C0B2" BorderThickness="0,0,0,1" Padding="20,12">
+        <Border DockPanel.Dock="Top" Background="{StaticResource BrushBg1}"
+                BorderBrush="{StaticResource BrushLine}" BorderThickness="0,0,0,1" Padding="20,12">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -18,16 +18,18 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Image Source="/HeavyPro;component/Assets/RsgLogo.png" Width="112" Height="43"
-                       Stretch="Uniform" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
-                <Border Grid.Column="1" Width="1" Height="34" Background="#C9C0B2" Margin="18,0"/>
+                <Border Background="#E7E1D6" CornerRadius="8" Padding="8,4" VerticalAlignment="Center">
+                    <Image Source="/HeavyPro;component/Assets/RsgLogo.png" Width="96" Height="36"
+                           Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                </Border>
+                <Border Grid.Column="1" Width="1" Height="34" Background="{StaticResource BrushLine}" Margin="18,0"/>
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="16,0,12,0">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="HeavyPro" FontSize="20" FontWeight="Bold" Foreground="#1C1C1C"/>
-                        <TextBlock Text="  2" Foreground="#8A5A2B"
+                        <TextBlock Text="HeavyPro" FontSize="20" FontWeight="Bold" Foreground="{StaticResource BrushText}"/>
+                        <TextBlock Text="  2" Foreground="{StaticResource BrushAccent}"
                                    FontSize="16" FontWeight="Bold" VerticalAlignment="Center"/>
                     </StackPanel>
-                    <TextBlock Text="CONTROL RESPONSE" Foreground="#6E675E" FontSize="10" FontWeight="Bold" Margin="1,2,0,0"/>
+                    <TextBlock Text="CONTROL RESPONSE" Foreground="{StaticResource BrushMuted}" FontSize="10" FontWeight="Bold" Margin="1,2,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                     <Border Background="{StaticResource BrushBg2}" BorderBrush="{StaticResource BrushLine}"
@@ -282,7 +284,52 @@
                     </Border>
                 </Grid>
 
-                <Border Grid.Row="2" Style="{StaticResource Card}" Padding="14" Margin="0,0,0,12">
+                <Grid Grid.Row="2" Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="230"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,10">
+                            <TextBlock Text="YOKE FOLLOW" Style="{StaticResource SectionText}"/>
+                            <Border HorizontalAlignment="Right" CornerRadius="8" Padding="8,2" Background="{StaticResource BrushBg3}">
+                                <TextBlock Text="{Binding FollowMode}" FontSize="10" FontWeight="Bold" Foreground="{StaticResource BrushAccent}"/>
+                            </Border>
+                        </Grid>
+                        <Border Width="150" Height="150" CornerRadius="10" Background="{StaticResource BrushBg0}"
+                                BorderBrush="{StaticResource BrushLine}" BorderThickness="1" HorizontalAlignment="Center">
+                            <Canvas Width="150" Height="150" ClipToBounds="True">
+                                <Line X1="75" Y1="8" X2="75" Y2="142" Stroke="{StaticResource BrushLine}" StrokeThickness="1"/>
+                                <Line X1="8" Y1="75" X2="142" Y2="75" Stroke="{StaticResource BrushLine}" StrokeThickness="1"/>
+                                <Ellipse Canvas.Left="41" Canvas.Top="41" Width="68" Height="68" Stroke="{StaticResource BrushBg3}" StrokeThickness="1"/>
+                                <Ellipse Canvas.Left="{Binding RawDotLeft}" Canvas.Top="{Binding RawDotTop}" Width="18" Height="18"
+                                         Stroke="{StaticResource BrushMuted}" StrokeThickness="2"/>
+                                <Ellipse Canvas.Left="{Binding OutDotLeft}" Canvas.Top="{Binding OutDotTop}" Width="12" Height="12"
+                                         Fill="{StaticResource BrushAccent}"/>
+                            </Canvas>
+                        </Border>
+                        <TextBlock Text="RUDDER" Style="{StaticResource MutedText}" FontSize="10" Margin="0,12,0,4"/>
+                        <Border Height="16" CornerRadius="8" Background="{StaticResource BrushBg0}" BorderBrush="{StaticResource BrushLine}" BorderThickness="1">
+                            <Canvas Width="150" Height="14" HorizontalAlignment="Center">
+                                <Line X1="75" Y1="2" X2="75" Y2="12" Stroke="{StaticResource BrushLine}"/>
+                                <Rectangle Canvas.Left="{Binding RawRudderLeft}" Canvas.Top="1" Width="4" Height="12" RadiusX="2" RadiusY="2" Fill="{StaticResource BrushMuted}"/>
+                                <Ellipse Canvas.Left="{Binding OutRudderLeft}" Canvas.Top="2" Width="10" Height="10" Fill="{StaticResource BrushAccent}"/>
+                            </Canvas>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Ellipse Width="10" Height="10" Stroke="{StaticResource BrushMuted}" StrokeThickness="2" VerticalAlignment="Center"/>
+                            <TextBlock Text=" Your stick" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,12,0"/>
+                            <Ellipse Width="9" Height="9" Fill="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
+                            <TextBlock Text=" Sent to sim" Style="{StaticResource MutedText}" FontSize="11"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding FollowLag}" Style="{StaticResource ValueText}" FontSize="11" Margin="0,8,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource Card}" Padding="14">
                     <DockPanel>
                         <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
                             <TextBlock Text="LIVE FLIGHT DATA" Style="{StaticResource SectionText}"/>
@@ -323,6 +370,7 @@
                         </ScrollViewer>
                     </DockPanel>
                 </Border>
+                </Grid>
 
                 <Border Grid.Row="3" Style="{StaticResource Card}" Padding="14">
                     <DockPanel>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="/SCSS/common.css" />
+    <link rel="stylesheet" href="HeavyProPanel.css" />
+
+    <script type="text/javascript" src="/JS/coherent.js"></script>
+    <script type="text/javascript" src="/JS/common.js"></script>
+    <script type="text/javascript" src="/JS/simvar.js"></script>
+    <script type="text/javascript" src="/JS/dataStorage.js"></script>
+    <script type="text/javascript" src="/JS/buttons.js"></script>
+    <script type="text/javascript" src="/JS/Services/ToolBarPanels.js"></script>
+
+    <link rel="import" href="/templates/ingameUi/ingameUi.html" />
+    <link rel="import" href="/templates/ingameUiHeader/ingameUiHeader.html" />
+
+    <script type="text/javascript" src="HeavyProPanel.js"></script>
+</head>
+
+<body class="border-box">
+    <heavypro-panel>
+        <ingame-ui id="HeavyProPanel" panel-id="PANEL_HEAVYPRO" title="HeavyPro" class="ingameUiFrame panelInvisible" content-fit="true" min-width="200" min-height="320">
+            <div id="hp-root">
+                <div class="hp-status">
+                    <span id="hp-dot" class="hp-dot"></span>
+                    <span id="hp-status-text">Waiting for HeavyPro app…</span>
+                </div>
+
+                <button id="hp-master" class="hp-master">MASTER OFF</button>
+
+                <div class="hp-label">FEEL</div>
+                <div class="hp-feel">
+                    <button class="hp-feel-btn" data-feel="1">Normal</button>
+                    <button class="hp-feel-btn" data-feel="2">Medium</button>
+                    <button class="hp-feel-btn" data-feel="3">Realistic</button>
+                </div>
+
+                <div class="hp-label">YOKE FOLLOW <span id="hp-mode" class="hp-mode">—</span></div>
+                <div class="hp-pad">
+                    <div class="hp-cross-h"></div>
+                    <div class="hp-cross-v"></div>
+                    <div id="hp-raw" class="hp-raw"></div>
+                    <div id="hp-out" class="hp-out"></div>
+                </div>
+                <div class="hp-legend"><span class="hp-ring"></span> stick &nbsp; <span class="hp-fill"></span> sent to sim</div>
+            </div>
+        </ingame-ui>
+    </heavypro-panel>
+</body>
+</html>
