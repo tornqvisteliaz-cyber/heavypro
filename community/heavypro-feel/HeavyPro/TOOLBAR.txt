@@ -1,6 +1,3 @@
-Toolbar status: incomplete.
-
-HeavyPro.spb is not in this package and was not compiled.
-MSFS 2024 shows a toolbar icon only when a compiled InGamePanels SPB exists.
-The MSFS 2024 SDK Project Editor is not available in this build environment, so no SPB was produced.
-Do not treat the HTML files as a working toolbar.
+The in-game toolbar is a separate MSFS 2024 project: community/heavypro-toolbar in the HeavyPro repo.
+Build it with the MSFS 2024 SDK (build.bat or Dev Mode Project Editor) and copy Packages\heavypro-toolbar
+into your Community folder. See community/heavypro-toolbar/README.md.

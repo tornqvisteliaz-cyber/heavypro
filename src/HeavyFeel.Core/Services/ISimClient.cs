@@ -13,6 +13,7 @@ public interface ISimClient : IDisposable
     event EventHandler<FlightSnapshot>? SnapshotReceived;
     event EventHandler<AircraftIdentity>? AircraftChanged;
     event EventHandler<string>? StatusMessage;
+    event EventHandler<ToolbarRequest>? ToolbarRequested;
 
     void Connect();
     void Disconnect();
@@ -24,6 +25,9 @@ public interface ISimClient : IDisposable
     void ApplyInfluence(InfluenceCommand command);
     void ApplyViewCue(ViewCue cue);
     void SetFeelGain(double gain);
+
+    /// <summary>Mirror app state to the in-game toolbar panel.</summary>
+    void PublishToolbar(ToolbarStatus status);
 }
 
 public interface ISimClientFactory

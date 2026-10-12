@@ -25,7 +25,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         RateWrite = 4,
         Flags = 5,
         YokeSense = 6,
-        YokeWrite = 7
+        YokeWrite = 7,
+        ToolbarRead = 8,
+        ToolbarWrite = 9
     }
 
     private enum Requests : uint
@@ -34,7 +36,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         Flight = 2,
         FenixFcu = 3,
         Flags = 4,
-        YokeSense = 5
+        YokeSense = 5,
+        ToolbarRead = 6
     }
 
     private enum Events : uint
@@ -96,6 +99,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private double _lastPitch;
     private double _lastRoll;
     private bool _stickSeen;
+    private bool _toolbarReady;
+    private double _toolbarSeq = double.NaN;
+    private int _toolbarAlive;
     private readonly Dictionary<Events, int> _lastSent = new();
 
     public OfficialSimClient(AppLogger logger, IntPtr hwnd)
@@ -113,6 +119,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     public event EventHandler<FlightSnapshot>? SnapshotReceived;
     public event EventHandler<AircraftIdentity>? AircraftChanged;
     public event EventHandler<string>? StatusMessage;
+    public event EventHandler<ToolbarRequest>? ToolbarRequested;
 
     public void Connect()
     {
@@ -186,6 +193,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             RegisterYokeSense();
             RegisterYokeWrite();
             RegisterRateWrite();
+            RegisterToolbar();
             MapAxisEvents();
             sender.SubscribeToSystemEvent(Events.AircraftLoaded, "AircraftLoaded");
             sender.SubscribeToSystemEvent(Events.SimStart, "SimStart");
@@ -253,6 +261,25 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 _logger.Warn("Yoke indicator request was not accepted: " + ex.Message);
             }
 
+            if (_toolbarReady)
+            {
+                try
+                {
+                    sender.RequestDataOnSimObject(
+                        Requests.ToolbarRead,
+                        Definitions.ToolbarRead,
+                        Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                        SIMCONNECT_PERIOD.VISUAL_FRAME,
+                        SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
+                        0, 0, 0);
+                }
+                catch (Exception ex)
+                {
+                    _toolbarReady = false;
+                    _logger.Warn("Toolbar LVar request was not accepted: " + ex.Message);
+                }
+            }
+
             SetState(ConnectionState.Connected, "Connected to MSFS 2024. Waiting for aircraft data…");
         }
         catch (Exception ex)
@@ -309,8 +336,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         var raw = unchecked((int)data);
         if (raw > 16384)
             raw -= 65536;
-        if (_controlOutputActive &&
-            _recentAxisWrites.TryGetValue(ev, out var recent) &&
+        if (_recentAxisWrites.TryGetValue(ev, out var recent) &&
             raw == recent.Value && DateTime.UtcNow.Ticks - recent.Tick < TimeSpan.FromMilliseconds(100).Ticks)
             return;
 
@@ -382,6 +408,11 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 case Requests.YokeSense:
                     if (data.dwData[0] is YokeSensePacket ys)
                         _yokeSense = ys;
+                    break;
+
+                case Requests.ToolbarRead:
+                    if (data.dwData[0] is ToolbarReadPacket tb)
+                        HandleToolbar(tb);
                     break;
             }
         }
@@ -502,6 +533,69 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         catch (Exception ex)
         {
             _logger.Warn("Could not register Fenix FCU LVars: " + ex.Message);
+        }
+    }
+
+    private void RegisterToolbar()
+    {
+        try
+        {
+            Add(Definitions.ToolbarRead, "L:HEAVYPRO_REQ_SEQ", "number");
+            Add(Definitions.ToolbarRead, "L:HEAVYPRO_REQ_MASTER", "number");
+            Add(Definitions.ToolbarRead, "L:HEAVYPRO_REQ_FEEL", "number");
+            _sim!.RegisterDataDefineStruct<ToolbarReadPacket>(Definitions.ToolbarRead);
+            foreach (var name in new[] { "ALIVE", "MASTER", "FEEL", "MODE", "RAW_X", "RAW_Y", "OUT_X", "OUT_Y" })
+                Add(Definitions.ToolbarWrite, "L:HEAVYPRO_" + name, "number");
+            _sim.RegisterDataDefineStruct<ToolbarWritePacket>(Definitions.ToolbarWrite);
+            _toolbarReady = true;
+            _logger.Info("Registered toolbar LVar bridge (L:HEAVYPRO_*).");
+        }
+        catch (Exception ex)
+        {
+            _toolbarReady = false;
+            _logger.Warn("Could not register toolbar LVars: " + ex.Message);
+        }
+    }
+
+    private void HandleToolbar(ToolbarReadPacket packet)
+    {
+        // The first packet is whatever was left in the sim; only act on later clicks.
+        if (double.IsNaN(_toolbarSeq) || packet.Seq == _toolbarSeq)
+        {
+            _toolbarSeq = packet.Seq;
+            return;
+        }
+        _toolbarSeq = packet.Seq;
+        ToolbarRequested?.Invoke(this, new ToolbarRequest(packet.Master >= 0.5, ToolbarStatus.Decode(packet.Feel)));
+    }
+
+    public void PublishToolbar(ToolbarStatus status)
+    {
+        if (_sim == null || !_toolbarReady)
+            return;
+        try
+        {
+            _toolbarAlive = (_toolbarAlive + 1) % 100000;
+            _sim.SetDataOnSimObject(
+                Definitions.ToolbarWrite,
+                Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                SIMCONNECT_DATA_SET_FLAG.DEFAULT,
+                new ToolbarWritePacket
+                {
+                    Alive = _toolbarAlive,
+                    Master = status.MasterEnable ? 1 : 0,
+                    Feel = ToolbarStatus.Encode(status.Feel),
+                    Mode = status.Mode,
+                    RawX = status.RawX,
+                    RawY = status.RawY,
+                    OutX = status.OutX,
+                    OutY = status.OutY
+                });
+        }
+        catch (Exception ex)
+        {
+            _toolbarReady = false;
+            _logger.Warn("Toolbar LVar write failed — toolbar status off: " + ex.Message);
         }
     }
 
@@ -831,6 +925,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _controlOutputActive = false;
         _writesDisabled = false;
         _stickSeen = false;
+        _toolbarReady = false;
+        _toolbarSeq = double.NaN;
         _rawPitch = _rawRoll = _rawYaw = 0;
         _lastSent.Clear();
         SetState(ConnectionState.Disconnected, message);
@@ -961,6 +1057,27 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         public double Ap2;
         public double Ap1Light;
         public double Ap2Light;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct ToolbarReadPacket
+    {
+        public double Seq;
+        public double Master;
+        public double Feel;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct ToolbarWritePacket
+    {
+        public double Alive;
+        public double Master;
+        public double Feel;
+        public double Mode;
+        public double RawX;
+        public double RawY;
+        public double OutX;
+        public double OutY;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

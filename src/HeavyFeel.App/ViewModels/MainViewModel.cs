@@ -63,6 +63,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _client.StatusMessage += (_, msg) => Dispatch(() => Status = msg);
         _client.AircraftChanged += (_, id) => Dispatch(() => ApplyIdentity(id));
         _client.SnapshotReceived += (_, snap) => Dispatch(() => ApplySnapshot(snap));
+        _client.ToolbarRequested += (_, req) => Dispatch(() => ApplyToolbar(req));
         _logger.LineWritten += (_, line) => Dispatch(() => AppendLog(line));
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
@@ -552,6 +553,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             _lastUiRefresh = now;
             RaiseTelemetry();
+            var mode = cmd.Active ? ToolbarStatus.ModeShaping : snap.StickInputMissing ? ToolbarStatus.ModeNoStick : ToolbarStatus.ModePassThrough;
+            _client.PublishToolbar(new ToolbarStatus(_settings.MasterEnable, CurrentFeel, mode, cmd.RawRoll, cmd.RawPitch, cmd.OutRoll, cmd.OutPitch));
         }
     }
 
@@ -589,6 +592,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         LogLines.Insert(0, line);
         while (LogLines.Count > 300)
             LogLines.RemoveAt(LogLines.Count - 1);
+    }
+
+    private void ApplyToolbar(ToolbarRequest request)
+    {
+        _logger.Info($"Toolbar request: master={request.MasterEnable} feel={request.Feel?.ToString() ?? "unchanged"}");
+        MasterEnable = request.MasterEnable;
+        if (request.Feel is { } level && level != CurrentFeel)
+            ApplyFeel(level);
     }
 
     private void ApplyFeel(FeelLevel level)

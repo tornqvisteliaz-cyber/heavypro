@@ -1,0 +1,45 @@
+ingame-ui#HeavyProPanel {
+  display: flex;
+  flex-direction: column;
+  width: 100% !important;
+  height: 100% !important;
+}
+#hp-root {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  color: #E8EDF4;
+  font-size: 14px;
+  background: #0D1117;
+  height: 100%;
+}
+.hp-status { display: flex; align-items: center; margin-bottom: 10px; color: #8C98A9; font-size: 12px; }
+.hp-dot { width: 9px; height: 9px; border-radius: 50%; background: #F06C6C; margin-right: 8px; }
+.hp-dot.ok { background: #4CC38A; }
+.hp-master {
+  height: 44px; border-radius: 10px; border: 1px solid #2B3544;
+  background: #1C2430; color: #8C98A9; font-weight: bold; font-size: 15px; letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+.hp-master.on { background: #F2A93B; color: #0D1117; border-color: #F2A93B; }
+.hp-label { color: #8C98A9; font-size: 11px; font-weight: bold; letter-spacing: 1px; margin: 4px 0 6px 0; display: flex; justify-content: space-between; }
+.hp-feel { display: flex; margin-bottom: 12px; }
+.hp-feel-btn {
+  flex: 1; height: 32px; margin-right: 4px; border-radius: 8px; border: 1px solid #2B3544;
+  background: #1C2430; color: #E8EDF4; font-size: 12px;
+}
+.hp-feel-btn:last-child { margin-right: 0; }
+.hp-feel-btn.active { border-color: #F2A93B; color: #F2A93B; background: #3A2A12; }
+.hp-mode { color: #F2A93B; }
+.hp-pad {
+  position: relative; width: 140px; height: 140px; align-self: center;
+  border-radius: 10px; border: 1px solid #2B3544; background: #151B23;
+}
+.hp-cross-h { position: absolute; left: 8px; right: 8px; top: 70px; height: 1px; background: #2B3544; }
+.hp-cross-v { position: absolute; top: 8px; bottom: 8px; left: 70px; width: 1px; background: #2B3544; }
+.hp-raw { position: absolute; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #8C98A9; left: 61px; top: 61px; }
+.hp-out { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #F2A93B; left: 64px; top: 64px; }
+.hp-legend { margin-top: 8px; text-align: center; color: #8C98A9; font-size: 11px; }
+.hp-ring { display: inline-block; width: 8px; height: 8px; border-radius: 50%; border: 2px solid #8C98A9; }
+.hp-fill { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #F2A93B; }
+button:disabled { opacity: 0.4; }
