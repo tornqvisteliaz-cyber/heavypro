@@ -62,7 +62,10 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private enum EventPriority : uint
     {
         Highest = 1,
-        HighestMaskable = 10000000
+        HighestMaskable = 10000000,
+        // Just below HeavyPro's own stick group, so our shaped writes are not
+        // fed back into CaptureStick but still reach every other consumer.
+        BelowHeavyPro = 10000001
     }
 
     private readonly AppLogger _logger;
@@ -82,7 +85,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private bool _cameraDisabled;
     private int _writeLogSkip;
     private double _feelGain = 0.55;
-    private bool _echo;
     private bool _onGround = true;
     private double _ias;
     private double _outPitch;
@@ -93,7 +95,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private double _rawYaw;
     private double _lastPitch;
     private double _lastRoll;
-    private DateTime _rawCaptured = DateTime.MinValue;
+    private bool _stickSeen;
+    private readonly Dictionary<Events, int> _lastSent = new();
 
     public OfficialSimClient(AppLogger logger, IntPtr hwnd)
     {
@@ -301,35 +304,34 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     private void CaptureStick(Microsoft.FlightSimulator.SimConnect.SimConnect sender, Events ev, uint data)
     {
-        if (_echo || _writesDisabled || !_controlOutputActive)
+        if (ev != Events.AxisElevator && ev != Events.AxisAileron && ev != Events.AxisRudder)
             return;
         var raw = unchecked((int)data);
         if (raw > 16384)
             raw -= 65536;
-        if (_recentAxisWrites.TryGetValue(ev, out var recent) &&
-            raw == recent.Value && DateTime.UtcNow.Ticks - recent.Tick < TimeSpan.FromMilliseconds(1500).Ticks)
+        if (_controlOutputActive &&
+            _recentAxisWrites.TryGetValue(ev, out var recent) &&
+            raw == recent.Value && DateTime.UtcNow.Ticks - recent.Tick < TimeSpan.FromMilliseconds(100).Ticks)
             return;
+
         var unit = Numeric.Clamp(raw / 16384.0, -1, 1);
         if (ev == Events.AxisElevator) _rawPitch = unit;
         else if (ev == Events.AxisAileron) _rawRoll = unit;
         else _rawYaw = unit;
-        _rawCaptured = DateTime.UtcNow;
-        var shaped = ev == Events.AxisElevator ? _outPitch : ev == Events.AxisAileron ? _outRoll : _outYaw;
-        var axis = (int)Math.Round(Numeric.Clamp(shaped, -1, 1) * 16384.0);
+        _stickSeen = true;
+
+        // While shaping is active the hardware event is swallowed here and the
+        // filtered value is written once per sim frame by ApplyInfluence.
+        if (_controlOutputActive && !_writesDisabled)
+            return;
+
         try
         {
-            _echo = true;
-            TransmitAxis(ev, axis);
-            if ((_writeLogSkip++ % 90) == 0)
-                _logger.Info($"Owned stick {ev} raw={unit:+0.00;-0.00;0} out={shaped:+0.00;-0.00;0} gain={_feelGain:0.00}");
+            TransmitAxis(ev, raw, force: true);
         }
         catch (Exception ex)
         {
-            _logger.Warn("Owned stick rewrite failed: " + ex.Message);
-        }
-        finally
-        {
-            _echo = false;
+            _logger.Warn("Stick pass-through failed: " + ex.Message);
         }
     }
 
@@ -561,12 +563,12 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _sim!.MapClientEventToSimEvent(Events.AxisElevator, "AXIS_ELEVATOR_SET");
             _sim.MapClientEventToSimEvent(Events.AxisAileron, "AXIS_AILERONS_SET");
             _sim.MapClientEventToSimEvent(Events.AxisRudder, "AXIS_RUDDER_SET");
-            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisElevator, false);
-            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisAileron, false);
-            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisRudder, false);
+            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisElevator, true);
+            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisAileron, true);
+            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisRudder, true);
             _sim.SetNotificationGroupPriority(Groups.Stick, (uint)EventPriority.HighestMaskable);
             _axisWriteReady = true;
-            _logger.Info("HeavyPro owns AXIS events. No other program.");
+            _logger.Info("Stick AXIS events captured (masked) — HeavyPro is the single writer.");
         }
         catch (Exception ex)
         {
@@ -579,9 +581,14 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     {
         if (_sim == null || _writesDisabled)
             return;
+        var wasActive = _controlOutputActive;
         _controlOutputActive = command is { Active: true };
         if (!_controlOutputActive)
+        {
+            if (wasActive)
+                ReleaseToHardware();
             return;
+        }
         _outPitch = command.YokeYOut;
         _outRoll = command.YokeXOut;
         _outYaw = command.RudderOut;
@@ -660,24 +667,37 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         }
     }
 
-    private double ChooseRaw(double captured, double observed, double lastWritten)
+    private void ReleaseToHardware()
     {
-        if ((DateTime.UtcNow - _rawCaptured).TotalMilliseconds < 250)
-            return captured;
-        if (Math.Abs(observed - lastWritten) > 0.03)
-            return observed;
-        return captured;
+        _lastSent.Clear();
+        if (!_stickSeen || !_axisWriteReady || _sim == null)
+            return;
+        try
+        {
+            TransmitAxis(Events.AxisElevator, ToAxis(_rawPitch), force: true);
+            TransmitAxis(Events.AxisAileron, ToAxis(_rawRoll), force: true);
+            TransmitAxis(Events.AxisRudder, ToAxis(_rawYaw), force: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn("Could not hand stick back to hardware: " + ex.Message);
+        }
     }
 
-    private void TransmitAxis(Events ev, int value)
+    private static int ToAxis(double unit) => (int)Math.Round(Numeric.Clamp(unit, -1, 1) * 16384.0);
+
+    private void TransmitAxis(Events ev, int value, bool force = false)
     {
         var clamped = Numeric.Clamp(value, -16383, 16384);
+        if (!force && _lastSent.TryGetValue(ev, out var last) && last == clamped)
+            return;
+        _lastSent[ev] = clamped;
         _recentAxisWrites[ev] = (clamped, DateTime.UtcNow.Ticks);
         _sim!.TransmitClientEvent(
             Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
             ev,
             unchecked((uint)clamped),
-            EventPriority.Highest,
+            EventPriority.BelowHeavyPro,
             SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY);
     }
 
@@ -769,13 +789,16 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             Throttle2Percent = f.Throttle2,
             EngineN1_1 = f.N1_1,
             EngineN1_2 = f.N1_2,
-            YokeX = ChooseRaw(_rawRoll, f.YokeX, _lastRoll),
-            YokeY = ChooseRaw(_rawPitch, f.YokeY, _lastPitch),
-            YokeXWithAp = ChooseRaw(_rawRoll, f.YokeX, _lastRoll),
-            YokeYWithAp = ChooseRaw(_rawPitch, f.YokeY, _lastPitch),
+            // Stick input comes only from captured hardware events; the sim's
+            // yoke position is our own output and must never be read back as input.
+            YokeX = _rawRoll,
+            YokeY = _rawPitch,
+            StickInputMissing = !_stickSeen,
+            YokeXWithAp = f.YokeX,
+            YokeYWithAp = f.YokeY,
             YokeXIndicator = yoke.XIndicator,
             YokeYIndicator = yoke.YIndicator,
-            RudderPedal = f.RudderPedal,
+            RudderPedal = _rawYaw,
             ElevatorPosition = f.ElevatorPos,
             AileronPosition = f.AileronPos,
             RudderPosition = f.RudderPos,
@@ -807,6 +830,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _yokeWriteReady = false;
         _controlOutputActive = false;
         _writesDisabled = false;
+        _stickSeen = false;
+        _rawPitch = _rawRoll = _rawYaw = 0;
+        _lastSent.Clear();
         SetState(ConnectionState.Disconnected, message);
     }
 

@@ -113,4 +113,35 @@ public class ControlInertiaTests
         }
         return t;
     }
+
+    [Fact]
+    public void Follows_slow_moving_stick_without_twitching()
+    {
+        var state = new AxisDynamicsState();
+        var lastVelocity = 0.0;
+        for (var frame = 0; frame < 120; frame++)
+        {
+            var stick = Math.Min(0.6, frame * 0.6 / 90.0);
+            var sample = ControlInertia.Step(state, stick, 1.0 / 30.0, 0.8, 1, 1, 1);
+            Assert.True(sample.Velocity >= -1e-9, $"velocity reversed at frame {frame}");
+            Assert.True(sample.Output <= stick + 1e-9, $"overshoot at frame {frame}");
+            lastVelocity = sample.Velocity;
+        }
+        Assert.Equal(0.6, state.Position, 3);
+        Assert.Equal(0, lastVelocity, 3);
+    }
+
+    [Fact]
+    public void Response_is_frame_rate_independent()
+    {
+        double Run(double fps)
+        {
+            var state = new AxisDynamicsState();
+            var frames = (int)Math.Round(0.4 * fps);
+            for (var i = 0; i < frames; i++)
+                ControlInertia.Step(state, 0.8, 1.0 / fps, 0.8, 1, 1, 1);
+            return state.Position;
+        }
+        Assert.True(Math.Abs(Run(30) - Run(144)) < 0.01);
+    }
 }

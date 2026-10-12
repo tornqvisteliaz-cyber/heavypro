@@ -100,10 +100,17 @@ HeavyFeel/
 | Aircraft-specific input-dynamics presets | Working; illustrative defaults |
 | Per-axis response and rate tuning | Working |
 | Raw / filtered / final input debug values | Working |
-| AXIS writes while input is held or settling | Working (Master Enable) |
+| AXIS writes while Master Enable is on | Working — one write per sim frame, only when the value changes |
 | Body-rate writes | **Disabled** (by design) |
 | View-cue (camera offset) | Optional, off by default |
-| SimConnect axis-event capture and rewrite | Working while HeavyPro output is active |
+| SimConnect axis-event capture and rewrite | Stick events are masked, filtered and re-sent; passed straight through when Master is off or AP is on |
+| Yoke-follow visualiser | Shows your stick (ring) vs what is sent to the sim (dot) |
+
+**How the stick path works:** HeavyPro captures the hardware `AXIS_ELEVATOR_SET` / `AXIS_AILERONS_SET` / `AXIS_RUDDER_SET` events
+as a maskable group, so the sim never sees the raw and the shaped value fighting each other. The filtered value is sent once per
+frame through the AXIS events only (no `YOKE POSITION` writes), and the sim's own yoke position is never read back as input.
+Bind your yoke in MSFS to *Elevator Axis*, *Ailerons Axis* and *Rudder Axis*; until HeavyPro sees one of those events it shows
+**NO STICK** and does not write.
 
 ## Next ideas (not built)
 

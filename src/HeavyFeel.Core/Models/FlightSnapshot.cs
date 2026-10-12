@@ -75,8 +75,10 @@ public sealed class FlightSnapshot
     public double YokeYIndicator { get; init; }
     public double RudderPedal { get; init; }
 
-    public double StickX => Largest(YokeX, YokeXWithAp, YokeXIndicator);
-    public double StickY => Largest(YokeY, YokeYWithAp, YokeYIndicator);
+    public double StickX => YokeX;
+    public double StickY => YokeY;
+    /// <summary>True until the first physical AXIS event has been captured from the hardware.</summary>
+    public bool StickInputMissing { get; init; }
 
     public string InputSource
     {

@@ -34,11 +34,15 @@ public sealed class InertiaEngine
             return InfluenceCommand.Idle("Autopilot on — writes paused");
         }
 
+        if (snap.StickInputMissing)
+        {
+            Reset();
+            return InfluenceCommand.Idle("Waiting for stick — move the yoke (bind axes to Elevator/Aileron/Rudder Axis in MSFS)");
+        }
+
+        // Stay active while enabled so the output never hands back and forth
+        // between the raw hardware stream and the filtered stream.
         var frame = _input.Step(settings, snap, dt);
-        var moving = Math.Abs(frame.FilteredElevator) + Math.Abs(frame.FilteredAileron) + Math.Abs(frame.FilteredRudder) > 0.01;
-        var settling = Math.Abs(frame.FinalElevator) + Math.Abs(frame.FinalAileron) + Math.Abs(frame.FinalRudder) > 0.0005;
-        if (!moving && !settling)
-            return InfluenceCommand.Idle("Stick released / centred — no writes");
 
         var phase = FlightPhaseResolver.Resolve(snap).ToString();
 
@@ -47,7 +51,7 @@ public sealed class InertiaEngine
             Active = true,
             WriteRates = false,
             WriteAxes = true,
-            WriteYoke = true,
+            WriteYoke = false,
             WriteThrottle = false,
             YokeXOut = frame.FinalAileron,
             YokeYOut = frame.FinalElevator,
@@ -68,7 +72,7 @@ public sealed class InertiaEngine
             FilteredYaw = frame.FilteredRudder,
             OutYaw = frame.FinalRudder,
             AirspeedFactor = frame.AirspeedFactor,
-            Reason = $"EXPERIMENTAL · not verified interception · {phase} · {frame.Profile} · scale {CommunityProfile.TravelScale():0.00} · P {frame.PitchSeconds:0.00}s R {frame.RollSeconds:0.00}s Y {frame.YawSeconds:0.00}s"
+            Reason = $"Following stick · {phase} · {frame.Profile} · scale {CommunityProfile.TravelScale():0.00} · P {frame.PitchSeconds:0.00}s R {frame.RollSeconds:0.00}s Y {frame.YawSeconds:0.00}s"
         };
     }
 

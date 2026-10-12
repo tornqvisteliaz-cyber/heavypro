@@ -60,13 +60,40 @@ public class InertiaEngineTests
     }
 
     [Fact]
-    public void Released_stick_does_not_write()
+    public void Released_stick_holds_centre_without_handing_off()
     {
         var engine = new InertiaEngine();
         var snap = FlyingSnap(yokeY: 0, ias: 250, agl: 8000);
         var cmd = engine.Step(Medium(), snap, true);
+        Assert.True(cmd.Active);
+        Assert.True(cmd.WriteAxes);
+        Assert.Equal(0, cmd.ElevatorAxis);
+    }
+
+    [Fact]
+    public void Uses_single_axis_output_path()
+    {
+        var engine = new InertiaEngine();
+        var cmd = engine.Step(Medium(), FlyingSnap(yokeY: 0.5), true);
+        Assert.True(cmd.WriteAxes);
+        Assert.False(cmd.WriteYoke);
+        Assert.False(cmd.WriteRates);
+    }
+
+    [Fact]
+    public void No_writes_until_stick_input_is_seen()
+    {
+        var engine = new InertiaEngine();
+        var snap = new FlightSnapshot { Utc = DateTime.UtcNow, AirspeedIndicatedKnots = 180, AltitudeAglFeet = 3000, YokeY = 0.5, StickInputMissing = true };
+        var cmd = engine.Step(Medium(), snap, true);
         Assert.False(cmd.Active);
-        Assert.Contains("released", cmd.Reason);
+    }
+
+    [Fact]
+    public void Sim_reported_yoke_is_not_treated_as_stick_input()
+    {
+        var snap = new FlightSnapshot { YokeY = 0.1, YokeYWithAp = 0.9, YokeYIndicator = -0.8 };
+        Assert.Equal(0.1, snap.StickY);
     }
 
     [Fact]
