@@ -94,6 +94,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private double _lastPitch;
     private double _lastRoll;
     private DateTime _rawCaptured = DateTime.MinValue;
+    private DateTime _writesPausedUntil = DateTime.MinValue;
 
     public OfficialSimClient(AppLogger logger, IntPtr hwnd)
     {
@@ -276,11 +277,13 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         switch ((Events)data.uEventID)
         {
             case Events.AircraftLoaded:
-                _logger.Info("AircraftLoaded event.");
-                StatusMessage?.Invoke(this, "Aircraft loaded. Refreshing identity…");
+                _writesPausedUntil = DateTime.UtcNow.AddSeconds(8);
+                _logger.Info("AircraftLoaded event. Writes paused while the flight loads.");
+                StatusMessage?.Invoke(this, "Aircraft loaded. Writes paused for 8 seconds.");
                 break;
             case Events.SimStart:
-                SetState(ConnectionState.SimRunning, "Simulator running.");
+                _writesPausedUntil = DateTime.UtcNow.AddSeconds(8);
+                SetState(ConnectionState.SimRunning, "Simulator running. Writes paused while the flight loads.");
                 break;
             case Events.SimStop:
                 SetState(ConnectionState.Connected, "Simulator stopped.");
@@ -301,7 +304,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     private void CaptureStick(Microsoft.FlightSimulator.SimConnect.SimConnect sender, Events ev, uint data)
     {
-        if (_echo || _writesDisabled || !_controlOutputActive)
+        if (_echo || _writesDisabled || !_controlOutputActive || DateTime.UtcNow < _writesPausedUntil)
             return;
         var raw = unchecked((int)data);
         if (raw > 16384)
@@ -579,6 +582,11 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     {
         if (_sim == null || _writesDisabled)
             return;
+        if (DateTime.UtcNow < _writesPausedUntil)
+        {
+            _controlOutputActive = false;
+            return;
+        }
         _controlOutputActive = command is { Active: true };
         if (!_controlOutputActive)
             return;
@@ -610,21 +618,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 TransmitAxis(Events.AxisElevator, command.ElevatorAxis);
                 TransmitAxis(Events.AxisAileron, command.AileronAxis);
                 TransmitAxis(Events.AxisRudder, command.RudderAxis);
-            }
-
-            if (command.WriteYoke && _yokeWriteReady)
-            {
-                var yoke = new YokeWritePacket
-                {
-                    X = command.YokeXOut,
-                    Y = command.YokeYOut,
-                    Rudder = command.RudderOut
-                };
-                _sim.SetDataOnSimObject(
-                    Definitions.YokeWrite,
-                    Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
-                    SIMCONNECT_DATA_SET_FLAG.DEFAULT,
-                    yoke);
             }
 
             if ((_writeLogSkip++ % 120) == 0)
@@ -671,7 +664,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     private void TransmitAxis(Events ev, int value)
     {
-        var clamped = Numeric.Clamp(value, -16383, 16384);
+        var clamped = (int)Numeric.Clamp(value, -16383, 16384);
+        if (_recentAxisWrites.TryGetValue(ev, out var recent) && recent.Value == clamped)
+            return;
         _recentAxisWrites[ev] = (clamped, DateTime.UtcNow.Ticks);
         _sim!.TransmitClientEvent(
             Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,

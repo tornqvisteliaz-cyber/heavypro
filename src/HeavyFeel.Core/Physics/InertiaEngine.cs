@@ -47,7 +47,7 @@ public sealed class InertiaEngine
             Active = true,
             WriteRates = false,
             WriteAxes = true,
-            WriteYoke = true,
+            WriteYoke = false,
             WriteThrottle = false,
             YokeXOut = frame.FinalAileron,
             YokeYOut = frame.FinalElevator,
