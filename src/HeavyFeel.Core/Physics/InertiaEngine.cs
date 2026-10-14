@@ -47,7 +47,7 @@ public sealed class InertiaEngine
             Active = true,
             WriteRates = false,
             WriteAxes = true,
-            WriteYoke = false,
+            WriteYoke = true,
             WriteThrottle = false,
             YokeXOut = frame.FinalAileron,
             YokeYOut = frame.FinalElevator,
@@ -68,7 +68,7 @@ public sealed class InertiaEngine
             FilteredYaw = frame.FilteredRudder,
             OutYaw = frame.FinalRudder,
             AirspeedFactor = frame.AirspeedFactor,
-            Reason = $"EXPERIMENTAL · not verified interception · {phase} · {frame.Profile} · scale {CommunityProfile.TravelScale():0.00} · P {frame.PitchSeconds:0.00}s R {frame.RollSeconds:0.00}s Y {frame.YawSeconds:0.00}s"
+            Reason = $"WRITING shaped stick · {phase} · {frame.Profile} · scale {CommunityProfile.TravelScale():0.00} · P {frame.PitchSeconds:0.00}s"
         };
     }
 

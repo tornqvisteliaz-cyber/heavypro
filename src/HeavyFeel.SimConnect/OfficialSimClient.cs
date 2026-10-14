@@ -610,6 +610,21 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 TransmitAxis(Events.AxisRudder, command.RudderAxis);
             }
 
+            if (command.WriteYoke && _yokeWriteReady)
+            {
+                var yoke = new YokeWritePacket
+                {
+                    X = command.YokeXOut,
+                    Y = command.YokeYOut,
+                    Rudder = command.RudderOut
+                };
+                _sim.SetDataOnSimObject(
+                    Definitions.YokeWrite,
+                    Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                    SIMCONNECT_DATA_SET_FLAG.DEFAULT,
+                    yoke);
+            }
+
             if ((_writeLogSkip++ % 120) == 0)
                 _logger.Info("Write " + command.Reason);
         }
@@ -662,8 +677,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
             ev,
             unchecked((uint)clamped),
-            EventPriority.Highest,
-            SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY);
+            1900000000u,
+            SIMCONNECT_EVENT_FLAG.DEFAULT);
     }
 
     private void AddInt(Definitions def, string name)
