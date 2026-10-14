@@ -202,7 +202,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 Requests.Flight,
                 Definitions.Flight,
                 Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
-                SIMCONNECT_PERIOD.VISUAL_FRAME,
+                SIMCONNECT_PERIOD.SIM_FRAME,
                 SIMCONNECT_DATA_REQUEST_FLAG.DEFAULT,
                 0, 0, 0);
 
@@ -212,7 +212,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                     Requests.FenixFcu,
                     Definitions.FenixFcu,
                     Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
-                    SIMCONNECT_PERIOD.VISUAL_FRAME,
+                    SIMCONNECT_PERIOD.SIM_FRAME,
                     SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
                     0, 0, 0);
             }
@@ -227,7 +227,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                     Requests.Flags,
                     Definitions.Flags,
                     Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
-                    SIMCONNECT_PERIOD.VISUAL_FRAME,
+                    SIMCONNECT_PERIOD.SIM_FRAME,
                     SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
                     0, 0, 0);
             }
@@ -242,7 +242,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                     Requests.YokeSense,
                     Definitions.YokeSense,
                     Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
-                    SIMCONNECT_PERIOD.VISUAL_FRAME,
+                    SIMCONNECT_PERIOD.SIM_FRAME,
                     SIMCONNECT_DATA_REQUEST_FLAG.DEFAULT,
                     0, 0, 0);
             }
@@ -290,12 +290,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 break;
             case Events.Pause:
                 _logger.Info($"Pause event data={data.dwData}");
-                break;
-            case Events.AxisElevator:
-            case Events.AxisAileron:
-            case Events.AxisRudder:
-            case Events.AxisThrottle:
-                CaptureStick(sender, (Events)data.uEventID, data.dwData);
                 break;
         }
     }
@@ -564,12 +558,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _sim!.MapClientEventToSimEvent(Events.AxisElevator, "AXIS_ELEVATOR_SET");
             _sim.MapClientEventToSimEvent(Events.AxisAileron, "AXIS_AILERONS_SET");
             _sim.MapClientEventToSimEvent(Events.AxisRudder, "AXIS_RUDDER_SET");
-            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisElevator, false);
-            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisAileron, false);
-            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisRudder, false);
-            _sim.SetNotificationGroupPriority(Groups.Stick, (uint)EventPriority.HighestMaskable);
             _axisWriteReady = true;
-            _logger.Info("HeavyPro owns AXIS events. No other program.");
+            _logger.Info("AXIS events mapped for sending only. Not intercepting the physical stick.");
         }
         catch (Exception ex)
         {

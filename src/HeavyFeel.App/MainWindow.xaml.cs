@@ -46,7 +46,7 @@ public partial class MainWindow : Window
         _vm.Start();
 
         var welcome = new WelcomeWindow { Owner = this };
-        welcome.ShowDialog();
+        welcome.Show();
     }
 
     private void OnClosed(object? sender, EventArgs e)
