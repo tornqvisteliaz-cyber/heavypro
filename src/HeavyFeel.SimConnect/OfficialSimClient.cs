@@ -691,7 +691,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
             ev,
             unchecked((uint)clamped),
-            1900000000u,
+            EventPriority.Standard,
             SIMCONNECT_EVENT_FLAG.DEFAULT);
     }
 
