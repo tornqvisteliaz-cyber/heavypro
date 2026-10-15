@@ -438,6 +438,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 $"Aircraft  {_snap.Aircraft.DisplayName}\n" +
                 $"Category  {AircraftCatalog.DisplayName(_snap.Class)}   profile {_lastCmd.ProfileName}\n" +
                 $"Scale     {CommunityProfile.TravelScale():0.00}   conn {ConnectionLabel}\n" +
+                $"Route     {_client.RouteStatus}  {_client.RouteDetail}\n" +
                 $"State     {(_snap.OnGround ? "GROUND" : "AIR")}   phase {phase}   AP {_snap.AutopilotLabel}\n" +
                 $"RAW PHYS  yokeY={_snap.YokeY:+0.00;-0.00;0} apY={_snap.YokeYWithAp:+0.00;-0.00;0} indY={_snap.YokeYIndicator:+0.00;-0.00;0}\n" +
                 $"RECEIVED  E {_lastCmd.RawPitch:+0.00;-0.00;0}  A {_lastCmd.RawRoll:+0.00;-0.00;0}  R {_lastCmd.RawYaw:+0.00;-0.00;0}\n" +

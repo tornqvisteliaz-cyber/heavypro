@@ -45,6 +45,9 @@ public sealed class OfflineSimClient : ISimClient
     {
     }
 
+    public InputRouteStatus RouteStatus => InputRouteStatus.Unavailable;
+    public string RouteDetail => "Offline. No input route.";
+
     public void SetFeelGain(double gain)
     {
     }

@@ -65,7 +65,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         HighestMaskable = 10000000
     }
 
-    private readonly AppLogger _logger;
+    private readonly InputOwnershipManager _route = new();
+    public InputRouteStatus RouteStatus => _route.Status;
+    public string RouteDetail => _route.Detail;
     private readonly IntPtr _hwnd;
     private readonly Dictionary<Events, (int Value, long Tick)> _recentAxisWrites = new();
     private Microsoft.FlightSimulator.SimConnect.SimConnect? _sim;
@@ -291,43 +293,50 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             case Events.Pause:
                 _logger.Info($"Pause event data={data.dwData}");
                 break;
+            case Events.AxisElevator:
+            case Events.AxisAileron:
+            case Events.AxisRudder:
+                NoteMaskedAxis((Events)data.uEventID, data.dwData);
+                break;
         }
     }
 
     public void SetFeelGain(double gain) => _feelGain = Numeric.Clamp(gain, 0.35, 1.0);
 
-    private void CaptureStick(Microsoft.FlightSimulator.SimConnect.SimConnect sender, Events ev, uint data)
+    private void NoteMaskedAxis(Events ev, uint data)
     {
-        if (_echo || _writesDisabled || !_controlOutputActive || DateTime.UtcNow < _writesPausedUntil)
+        if (_echo)
             return;
         var raw = unchecked((int)data);
         if (raw > 16384)
             raw -= 65536;
-        if (_recentAxisWrites.TryGetValue(ev, out var recent) &&
-            raw == recent.Value && DateTime.UtcNow.Ticks - recent.Tick < TimeSpan.FromMilliseconds(1500).Ticks)
-            return;
         var unit = Numeric.Clamp(raw / 16384.0, -1, 1);
         if (ev == Events.AxisElevator) _rawPitch = unit;
         else if (ev == Events.AxisAileron) _rawRoll = unit;
         else _rawYaw = unit;
         _rawCaptured = DateTime.UtcNow;
-        var shaped = ev == Events.AxisElevator ? _outPitch : ev == Events.AxisAileron ? _outRoll : _outYaw;
-        var axis = (int)Math.Round(Numeric.Clamp(shaped, -1, 1) * 16384.0);
-        try
+        _route.NoteMaskedAxis();
+        if (!_controlOutputActive || DateTime.UtcNow < _writesPausedUntil)
         {
-            _echo = true;
-            TransmitAxis(ev, axis);
-            if ((_writeLogSkip++ % 90) == 0)
-                _logger.Info($"Owned stick {ev} raw={unit:+0.00;-0.00;0} out={shaped:+0.00;-0.00;0} gain={_feelGain:0.00}");
+            try
+            {
+                _echo = true;
+                TransmitAxis(ev, raw);
+            }
+            catch (Exception ex)
+            {
+                _route.Fault(ex.Message);
+            }
+            finally
+            {
+                _echo = false;
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.Warn("Owned stick rewrite failed: " + ex.Message);
-        }
-        finally
-        {
-            _echo = false;
-        }
+    }
+
+    private void CaptureStick(Microsoft.FlightSimulator.SimConnect.SimConnect sender, Events ev, uint data)
+    {
+        NoteMaskedAxis(ev, data);
     }
 
     private void OnSimObjectData(Microsoft.FlightSimulator.SimConnect.SimConnect sender, SIMCONNECT_RECV_SIMOBJECT_DATA data)
@@ -558,8 +567,13 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _sim!.MapClientEventToSimEvent(Events.AxisElevator, "AXIS_ELEVATOR_SET");
             _sim.MapClientEventToSimEvent(Events.AxisAileron, "AXIS_AILERONS_SET");
             _sim.MapClientEventToSimEvent(Events.AxisRudder, "AXIS_RUDDER_SET");
+            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisElevator, true);
+            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisAileron, true);
+            _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisRudder, true);
+            _sim.SetNotificationGroupPriority(Groups.Stick, 10000000u);
             _axisWriteReady = true;
-            _logger.Info("AXIS events mapped for sending only. Not intercepting the physical stick.");
+            _route.Begin();
+            _logger.Info("AXIS events mapped maskable at priority 10000000. Waiting for a joystick event.");
         }
         catch (Exception ex)
         {

@@ -24,6 +24,8 @@ public interface ISimClient : IDisposable
     void ApplyInfluence(InfluenceCommand command);
     void ApplyViewCue(ViewCue cue);
     void SetFeelGain(double gain);
+    InputRouteStatus RouteStatus { get; }
+    string RouteDetail { get; }
 }
 
 public interface ISimClientFactory
