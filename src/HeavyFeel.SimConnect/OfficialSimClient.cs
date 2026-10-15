@@ -62,9 +62,11 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private enum EventPriority : uint
     {
         Highest = 1,
-        HighestMaskable = 10000000
+        HighestMaskable = 10000000,
+        Standard = 1900000000
     }
 
+    private readonly AppLogger _logger;
     private readonly InputOwnershipManager _route = new();
     public InputRouteStatus RouteStatus => _route.Status;
     public string RouteDetail => _route.Detail;
