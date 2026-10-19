@@ -433,14 +433,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         get
         {
             var phase = FlightPhaseResolver.Resolve(_snap);
-            var follow = Math.Abs(_snap.YokeY - _lastCmd.OutPitch) < 0.08 ? "reported follows sent" : "reported differs — may be overwritten";
+            // AXIS events and the YOKE simvar can use opposite signs, so compare magnitude.
+            var follow = Math.Abs(Math.Abs(_snap.YokeY) - Math.Abs(_lastCmd.OutPitch)) < 0.08 ? "reported follows sent" : "reported differs — may be overwritten";
             return
                 $"Aircraft  {_snap.Aircraft.DisplayName}\n" +
                 $"Category  {AircraftCatalog.DisplayName(_snap.Class)}   profile {_lastCmd.ProfileName}\n" +
                 $"Scale     {CommunityProfile.TravelScale():0.00}   conn {ConnectionLabel}\n" +
                 $"Route     {_client.RouteStatus}  {_client.RouteDetail}\n" +
                 $"State     {(_snap.OnGround ? "GROUND" : "AIR")}   phase {phase}   AP {_snap.AutopilotLabel}\n" +
-                $"RAW PHYS  yokeY={_snap.YokeY:+0.00;-0.00;0} apY={_snap.YokeYWithAp:+0.00;-0.00;0} indY={_snap.YokeYIndicator:+0.00;-0.00;0}\n" +
+                $"PHYSICAL  E {Axis(_snap.CapturedPitch)}  A {Axis(_snap.CapturedRoll)}  R {Axis(_snap.CapturedYaw)}   source {_snap.InputSource}\n" +
                 $"RECEIVED  E {_lastCmd.RawPitch:+0.00;-0.00;0}  A {_lastCmd.RawRoll:+0.00;-0.00;0}  R {_lastCmd.RawYaw:+0.00;-0.00;0}\n" +
                 $"SENT      E {_lastCmd.OutPitch:+0.00;-0.00;0}  A {_lastCmd.OutRoll:+0.00;-0.00;0}  R {_lastCmd.OutYaw:+0.00;-0.00;0}\n" +
                 $"REPORTED  yokeY={_snap.YokeY:+0.00;-0.00;0}  {follow}\n" +
@@ -448,6 +449,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 $"{_lastCmd.Reason}";
         }
     }
+
+    private static string Axis(double? value) => value.HasValue ? value.Value.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture) : "n/a";
 
     private static string Bar(double value)
     {
@@ -540,9 +543,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _client.ApplyInfluence(cmd);
         if (!_settings.CompanionMode && _settings.ViewCue)
             _client.ApplyViewCue(_viewCue.Step(_settings, snap));
-        if (refreshUi && (WriteStatus != cmd.Reason || cmd.Reason.Contains("NO EFFECT")))
+        if (refreshUi)
         {
-            WriteStatus = cmd.Reason.Contains("NO EFFECT") ? "NO EFFECT DETECTED" : cmd.Reason;
+            WriteStatus = cmd.Active && _client.RouteStatus != InputRouteStatus.Active
+                ? "Waiting for a masked stick event — move the stick (bind it to the Elevator/Aileron/Rudder axes in MSFS)"
+                : cmd.Reason;
         }
         if (refreshUi)
         {

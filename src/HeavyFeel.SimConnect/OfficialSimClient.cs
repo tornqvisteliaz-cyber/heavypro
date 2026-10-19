@@ -11,7 +11,10 @@ namespace HeavyFeel.SimConnect;
 
 /// <summary>
 /// Official SimConnect client. Reads telemetry every frame.
-/// When Master Enable is on, writes body rates and AXIS_*_SET commands.
+/// Stick and rudder AXIS_*_SET events are captured through a maskable
+/// notification group. While shaping is armed the captured value goes to the
+/// input dynamics engine and only the shaped value is sent on; otherwise the
+/// physical value is passed straight through.
 /// </summary>
 public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 {
@@ -72,6 +75,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     public string RouteDetail => _route.Detail;
     private readonly IntPtr _hwnd;
     private readonly Dictionary<Events, (int Value, long Tick)> _recentAxisWrites = new();
+    private readonly Dictionary<Events, int> _physicalAxis = new();
     private Microsoft.FlightSimulator.SimConnect.SimConnect? _sim;
     private ConnectionState _state = ConnectionState.Disconnected;
     private AircraftIdentity _identity = new();
@@ -81,24 +85,19 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private bool _rateWriteReady;
     private bool _axisWriteReady;
     private bool _yokeWriteReady;
-    private bool _controlOutputActive;
+    private bool _shapingArmed;
     private bool _writesDisabled;
     private bool _cameraDisabled;
     private int _writeLogSkip;
     private double _feelGain = 0.55;
-    private bool _echo;
-    private bool _onGround = true;
-    private double _ias;
-    private double _outPitch;
-    private double _outRoll;
-    private double _outYaw;
-    private double _rawPitch;
-    private double _rawRoll;
-    private double _rawYaw;
-    private double _lastPitch;
-    private double _lastRoll;
-    private DateTime _rawCaptured = DateTime.MinValue;
+    private DateTime _lastInfluence = DateTime.MinValue;
     private DateTime _writesPausedUntil = DateTime.MinValue;
+
+    // If the engine stops stepping (no flight frames), hand the stick back.
+    private static readonly TimeSpan ArmedTimeout = TimeSpan.FromMilliseconds(300);
+    // Our own transmissions should not come back through the group, but if they
+    // do, ignore an identical value seen this soon after sending it.
+    private static readonly TimeSpan EchoWindow = TimeSpan.FromMilliseconds(200);
 
     public OfficialSimClient(AppLogger logger, IntPtr hwnd)
     {
@@ -305,41 +304,54 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     public void SetFeelGain(double gain) => _feelGain = Numeric.Clamp(gain, 0.35, 1.0);
 
+    private bool ShapingOwnsInput =>
+        _shapingArmed
+        && DateTime.UtcNow - _lastInfluence < ArmedTimeout
+        && DateTime.UtcNow >= _writesPausedUntil;
+
     private void NoteMaskedAxis(Events ev, uint data)
     {
-        if (_echo)
-            return;
         var raw = unchecked((int)data);
         if (raw > 16384)
             raw -= 65536;
-        var unit = Numeric.Clamp(raw / 16384.0, -1, 1);
-        if (ev == Events.AxisElevator) _rawPitch = unit;
-        else if (ev == Events.AxisAileron) _rawRoll = unit;
-        else _rawYaw = unit;
-        _rawCaptured = DateTime.UtcNow;
+        raw = (int)Numeric.Clamp(raw, -16383, 16383);
+        if (_recentAxisWrites.TryGetValue(ev, out var sent)
+            && sent.Value == raw
+            && DateTime.UtcNow.Ticks - sent.Tick < EchoWindow.Ticks)
+            return;
+
+        _physicalAxis[ev] = raw;
         _route.NoteMaskedAxis();
-        if (!_controlOutputActive || DateTime.UtcNow < _writesPausedUntil)
+        if (ShapingOwnsInput)
+            return;
+
+        try
         {
-            try
-            {
-                _echo = true;
-                TransmitAxis(ev, raw);
-            }
-            catch (Exception ex)
-            {
-                _route.Fault(ex.Message);
-            }
-            finally
-            {
-                _echo = false;
-            }
+            TransmitAxis(ev, raw);
+        }
+        catch (Exception ex)
+        {
+            _route.Fault(ex.Message);
+            _logger.Error("Axis pass-through failed", ex);
         }
     }
 
-    private void CaptureStick(Microsoft.FlightSimulator.SimConnect.SimConnect sender, Events ev, uint data)
+    /// <summary>Send the last physical stick values so the sim matches the hardware again.</summary>
+    private void ReleaseToPhysical()
     {
-        NoteMaskedAxis(ev, data);
+        try
+        {
+            foreach (var axis in _physicalAxis.ToList())
+                TransmitAxis(axis.Key, axis.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Could not restore physical stick position", ex);
+        }
     }
+
+    private double? Captured(Events ev) =>
+        _physicalAxis.TryGetValue(ev, out var raw) ? raw / 16384.0 : null;
 
     private void OnSimObjectData(Microsoft.FlightSimulator.SimConnect.SimConnect sender, SIMCONNECT_RECV_SIMOBJECT_DATA data)
     {
@@ -369,8 +381,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                     if (data.dwData[0] is FlightPacket f)
                     {
                         var snap = MapFlight(f, _identity, _fenixFcu, _flags, _yokeSense);
-                        _onGround = snap.OnGround;
-                        _ias = snap.AirspeedIndicatedKnots;
                         SnapshotReceived?.Invoke(this, snap);
                     }
                     break;
@@ -586,21 +596,17 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     public void ApplyInfluence(InfluenceCommand command)
     {
-        if (_sim == null || _writesDisabled)
+        if (_sim == null)
             return;
-        if (DateTime.UtcNow < _writesPausedUntil)
-        {
-            _controlOutputActive = false;
+
+        var now = DateTime.UtcNow;
+        var armed = command.Armed && !_writesDisabled && now >= _writesPausedUntil;
+        if (_shapingArmed && !armed)
+            ReleaseToPhysical();
+        _shapingArmed = armed;
+        _lastInfluence = now;
+        if (!armed || !command.Active)
             return;
-        }
-        _controlOutputActive = command is { Active: true };
-        if (!_controlOutputActive)
-            return;
-        _outPitch = command.YokeYOut;
-        _outRoll = command.YokeXOut;
-        _outYaw = command.RudderOut;
-        _lastPitch = command.YokeYOut;
-        _lastRoll = command.YokeXOut;
 
         try
         {
@@ -619,11 +625,16 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                     packet);
             }
 
+            // Only axes captured through the masked route are written. Writing an
+            // axis the hardware still drives directly would fight it.
             if (command.WriteAxes && _axisWriteReady)
             {
-                TransmitAxis(Events.AxisElevator, command.ElevatorAxis);
-                TransmitAxis(Events.AxisAileron, command.AileronAxis);
-                TransmitAxis(Events.AxisRudder, command.RudderAxis);
+                if (_physicalAxis.ContainsKey(Events.AxisElevator))
+                    TransmitAxis(Events.AxisElevator, command.ElevatorAxis);
+                if (_physicalAxis.ContainsKey(Events.AxisAileron))
+                    TransmitAxis(Events.AxisAileron, command.AileronAxis);
+                if (_physicalAxis.ContainsKey(Events.AxisRudder))
+                    TransmitAxis(Events.AxisRudder, command.RudderAxis);
             }
 
             if (command.WriteYoke && _yokeWriteReady)
@@ -647,6 +658,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         catch (Exception ex)
         {
             _writesDisabled = true;
+            _shapingArmed = false;
+            ReleaseToPhysical();
             _logger.Error("Influence write failed — further writes disabled this session", ex);
             StatusMessage?.Invoke(this, "Write failed. Master writes paused. See log.");
         }
@@ -674,18 +687,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         }
     }
 
-    private double ChooseRaw(double captured, double observed, double lastWritten)
-    {
-        if ((DateTime.UtcNow - _rawCaptured).TotalMilliseconds < 250)
-            return captured;
-        if (Math.Abs(observed - lastWritten) > 0.03)
-            return observed;
-        return captured;
-    }
-
     private void TransmitAxis(Events ev, int value)
     {
-        var clamped = (int)Numeric.Clamp(value, -16383, 16384);
+        var clamped = (int)Numeric.Clamp(value, -16383, 16383);
         if (_recentAxisWrites.TryGetValue(ev, out var recent) && recent.Value == clamped)
             return;
         _recentAxisWrites[ev] = (clamped, DateTime.UtcNow.Ticks);
@@ -785,10 +789,13 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             Throttle2Percent = f.Throttle2,
             EngineN1_1 = f.N1_1,
             EngineN1_2 = f.N1_2,
-            YokeX = ChooseRaw(_rawRoll, f.YokeX, _lastRoll),
-            YokeY = ChooseRaw(_rawPitch, f.YokeY, _lastPitch),
-            YokeXWithAp = ChooseRaw(_rawRoll, f.YokeX, _lastRoll),
-            YokeYWithAp = ChooseRaw(_rawPitch, f.YokeY, _lastPitch),
+            YokeX = f.YokeX,
+            YokeY = f.YokeY,
+            YokeXWithAp = f.YokeXAp,
+            YokeYWithAp = f.YokeYAp,
+            CapturedPitch = Captured(Events.AxisElevator),
+            CapturedRoll = Captured(Events.AxisAileron),
+            CapturedYaw = Captured(Events.AxisRudder),
             YokeXIndicator = yoke.XIndicator,
             YokeYIndicator = yoke.YIndicator,
             RudderPedal = f.RudderPedal,
@@ -821,8 +828,12 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _rateWriteReady = false;
         _axisWriteReady = false;
         _yokeWriteReady = false;
-        _controlOutputActive = false;
+        _shapingArmed = false;
         _writesDisabled = false;
+        _writesPausedUntil = DateTime.MinValue;
+        _physicalAxis.Clear();
+        _recentAxisWrites.Clear();
+        _route.Reset();
         SetState(ConnectionState.Disconnected, message);
     }
 

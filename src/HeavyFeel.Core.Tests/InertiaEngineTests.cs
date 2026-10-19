@@ -70,6 +70,32 @@ public class InertiaEngineTests
     }
 
     [Fact]
+    public void Centred_stick_keeps_shaping_armed()
+    {
+        var engine = new InertiaEngine();
+        var cmd = engine.Step(Medium(), FlyingSnap(yokeY: 0, ias: 250, agl: 8000), true);
+        Assert.False(cmd.Active);
+        Assert.True(cmd.Armed);
+    }
+
+    [Fact]
+    public void Master_off_and_autopilot_disarm_shaping()
+    {
+        Assert.False(new InertiaEngine().Step(Medium(), FlyingSnap(yokeY: 0.5), false).Armed);
+        Assert.False(new InertiaEngine().Step(Medium(), FlyingSnap(ap: true, yokeY: 0.5), true).Armed);
+    }
+
+    [Fact]
+    public void Writes_axis_events_only()
+    {
+        var cmd = new InertiaEngine().Step(Medium(), FlyingSnap(yokeY: 0.5, ias: 250, agl: 8000), true);
+        Assert.True(cmd.Armed);
+        Assert.True(cmd.WriteAxes);
+        Assert.False(cmd.WriteYoke);
+        Assert.False(cmd.WriteRates);
+    }
+
+    [Fact]
     public void Cruise_handfly_writes_axes_not_rates()
     {
         var engine = new InertiaEngine();

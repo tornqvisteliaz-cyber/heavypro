@@ -38,16 +38,17 @@ public sealed class InertiaEngine
         var moving = Math.Abs(frame.FilteredElevator) + Math.Abs(frame.FilteredAileron) + Math.Abs(frame.FilteredRudder) > 0.01;
         var settling = Math.Abs(frame.FinalElevator) + Math.Abs(frame.FinalAileron) + Math.Abs(frame.FinalRudder) > 0.0005;
         if (!moving && !settling)
-            return InfluenceCommand.Idle("Stick released / centred — no writes");
+            return InfluenceCommand.Idle("Stick released / centred — no writes") with { Armed = true };
 
         var phase = FlightPhaseResolver.Resolve(snap).ToString();
 
         return new InfluenceCommand
         {
             Active = true,
+            Armed = true,
             WriteRates = false,
             WriteAxes = true,
-            WriteYoke = true,
+            WriteYoke = false,
             WriteThrottle = false,
             YokeXOut = frame.FinalAileron,
             YokeYOut = frame.FinalElevator,
