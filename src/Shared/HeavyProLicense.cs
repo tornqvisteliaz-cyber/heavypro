@@ -15,12 +15,36 @@ internal static class HeavyProLicense
     public const string Product = "heavypro";
     public static readonly TimeSpan OfflineGrace = TimeSpan.FromDays(14);
 
+    // The server compares product ids exactly. The website's product is
+    // "rotaidem-heavypro" (slug of "Rotaidem HeavyPro", used by the admin panel's
+    // licence form); the licence generator defaults to "heavypro". Accept both.
+    // A wrong product is rejected before an activation is recorded, so trying the
+    // next id costs nothing.
+    private static readonly string[] ProductIds = { "rotaidem-heavypro", Product };
+
     // Render's free tier sleeps after ~15 idle minutes and takes 30-60 s to wake.
     // The library's own 15 s timeout reported that as "could not reach the server".
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(90) };
 
-    public static LicenseClient Client() => new(ServerUrl, Product, Http);
     public static LicenseStore Store() => new(Product);
+
+    public static Task<LicenseResult> ActivateAsync(string key) =>
+        FirstMatchingProduct(client => client.ActivateAsync(key));
+
+    public static Task<LicenseResult> CheckAsync() =>
+        FirstMatchingProduct(client => client.CheckAsync(Store(), OfflineGrace));
+
+    private static async Task<LicenseResult> FirstMatchingProduct(Func<LicenseClient, Task<LicenseResult>> call)
+    {
+        LicenseResult? result = null;
+        foreach (var id in ProductIds)
+        {
+            result = await call(new LicenseClient(ServerUrl, id, Http));
+            if (result.Status != LicenseStatus.WrongProduct)
+                return result;
+        }
+        return result!;
+    }
 
     /// <summary>
     /// Start waking the server while the user is still typing their key.

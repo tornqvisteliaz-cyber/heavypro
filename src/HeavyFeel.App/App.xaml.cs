@@ -82,7 +82,7 @@ public partial class App : System.Windows.Application
         string? reason = null;
         if (saved != null)
         {
-            var result = await HeavyProLicense.Client().CheckAsync(store, HeavyProLicense.OfflineGrace);
+            var result = await HeavyProLicense.CheckAsync();
             if (result.IsValid)
                 return false;
             reason = result.Message;
@@ -95,7 +95,7 @@ public partial class App : System.Windows.Application
 
     private async Task RecheckInBackgroundAsync()
     {
-        var result = await HeavyProLicense.Client().CheckAsync(HeavyProLicense.Store(), HeavyProLicense.OfflineGrace);
+        var result = await HeavyProLicense.CheckAsync();
         switch (result.Status)
         {
             case LicenseStatus.Valid:

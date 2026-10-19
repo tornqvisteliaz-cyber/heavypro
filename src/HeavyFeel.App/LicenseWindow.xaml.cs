@@ -34,7 +34,7 @@ public partial class LicenseWindow : Window
         ShowMessage("Contacting the licence server. This can take up to a minute.");
         try
         {
-            var result = await HeavyProLicense.Client().ActivateAsync(KeyBox.Text);
+            var result = await HeavyProLicense.ActivateAsync(KeyBox.Text);
             if (!result.IsValid)
             {
                 ShowMessage(result.Message);
