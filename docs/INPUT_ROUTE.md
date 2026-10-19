@@ -12,7 +12,15 @@ The previous code passed `false` for the maskable flag, so it did not mask. It a
 
 This proof of concept sets the maskable flag, does not rewrite inside the callback, and sends the processed value at standard priority. Status stays `INITIALIZING` until a masked axis event arrives, then `ACTIVE`.
 
-Limitation: this only sees axes that MSFS emits as `AXIS_ELEVATOR_SET`, `AXIS_AILERONS_SET`, or `AXIS_RUDDER_SET`. If the WinWing is bound another way, the route stays `UNAVAILABLE` and the physical input bypasses HeavyPro. Not tested in MSFS 2024 here.
+Limitation: this only sees axes that MSFS emits as `AXIS_ELEVATOR_SET`, `AXIS_AILERONS_SET`, or `AXIS_RUDDER_SET`. If the WinWing is bound another way, the route stays `UNAVAILABLE` and the physical input bypasses HeavyPro.
+
+Tested in MSFS 2024 1.9.18 (L-39, on the ground) by a second SimConnect client sending `AXIS_ELEVATOR_SET` at `HIGHEST` priority, which reaches every maskable group before the sim:
+
+- HeavyPro not running: `YOKE Y POSITION` jumps to the commanded value in one frame.
+- HeavyPro, Master off: identical — the event passes straight through.
+- HeavyPro, Master on: the raw event is masked; `YOKE Y POSITION` ramps to the shaped value over ~1 s and returns to exactly 0 on release.
+
+Not yet confirmed with a physical joystick as the event source.
 
 ### B. Virtual controller
 

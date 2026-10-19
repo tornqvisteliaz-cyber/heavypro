@@ -29,6 +29,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private int _frameCount;
     private DateTime _lastLog = DateTime.MinValue;
     private DateTime _lastUiRefresh = DateTime.MinValue;
+    private DateTime _lastMeterRefresh = DateTime.MinValue;
     private DateTime _lastFpsSample = DateTime.UtcNow;
     private int _framesInSample;
     private double _dataHz;
@@ -147,6 +148,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             }
             OnChanged(nameof(PhaseNote));
             OnChanged();
+            RaiseMeters();
             ScheduleSave();
         }
     }
@@ -445,10 +447,41 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 $"RECEIVED  E {_lastCmd.RawPitch:+0.00;-0.00;0}  A {_lastCmd.RawRoll:+0.00;-0.00;0}  R {_lastCmd.RawYaw:+0.00;-0.00;0}\n" +
                 $"SENT      E {_lastCmd.OutPitch:+0.00;-0.00;0}  A {_lastCmd.OutRoll:+0.00;-0.00;0}  R {_lastCmd.OutYaw:+0.00;-0.00;0}\n" +
                 $"REPORTED  yokeY={_snap.YokeY:+0.00;-0.00;0}  {follow}\n" +
-                $"Status    EXPERIMENTAL — SimConnect write is not verified interception\n" +
                 $"{_lastCmd.Reason}";
         }
     }
+
+    // Live meters: where the stick is versus what the sim is being sent.
+    public double MeterPitchIn => _snap.CapturedPitch ?? _lastCmd.RawPitch;
+    public double MeterPitchOut => _lastCmd.Active ? _lastCmd.OutPitch : MeterPitchIn;
+    public double MeterRollIn => _snap.CapturedRoll ?? _lastCmd.RawRoll;
+    public double MeterRollOut => _lastCmd.Active ? _lastCmd.OutRoll : MeterRollIn;
+    public double MeterYawIn => _snap.CapturedYaw ?? _lastCmd.RawYaw;
+    public double MeterYawOut => _lastCmd.Active ? _lastCmd.OutYaw : MeterYawIn;
+
+    /// <summary>One word for the header: is HeavyPro actually shaping right now?</summary>
+    public string RouteBadge
+    {
+        get
+        {
+            if (!_client.IsConnected) return "OFFLINE";
+            if (_client.RouteStatus == InputRouteStatus.Fault) return "FAULT";
+            if (!MasterEnable) return "PASS-THROUGH";
+            if (_snap.AutopilotMaster) return "AP ON · PAUSED";
+            if (_client.RouteStatus != InputRouteStatus.Active) return "MOVE STICK";
+            return "SHAPING";
+        }
+    }
+
+    public string RouteHint => RouteBadge switch
+    {
+        "OFFLINE" => "Start MSFS 2024 and load a flight. HeavyPro connects on its own.",
+        "FAULT" => "SimConnect refused a stick write. Disconnect and connect again.",
+        "PASS-THROUGH" => "Your stick goes to the sim untouched. Turn on Master Enable to add weight.",
+        "AP ON · PAUSED" => "Autopilot is flying. HeavyPro hands the stick back until you disconnect it.",
+        "MOVE STICK" => "Move the stick once. It must be bound to Elevator, Aileron and Rudder Axis in MSFS.",
+        _ => "The gold bar is what the aircraft gets. The white tick is your stick."
+    };
 
     private static string Axis(double? value) => value.HasValue ? value.Value.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture) : "n/a";
 
@@ -545,14 +578,18 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _client.ApplyViewCue(_viewCue.Step(_settings, snap));
         if (refreshUi)
         {
-            WriteStatus = cmd.Active && _client.RouteStatus != InputRouteStatus.Active
-                ? "Waiting for a masked stick event — move the stick (bind it to the Elevator/Aileron/Rudder axes in MSFS)"
-                : cmd.Reason;
+            WriteStatus = cmd.Reason;
         }
         if (refreshUi)
         {
             _lastUiRefresh = now;
             RaiseTelemetry();
+        }
+        else if ((now - _lastMeterRefresh).TotalMilliseconds >= 33)
+        {
+            // Meters refresh at ~30 Hz so the lag is visible; text stays at 10 Hz.
+            _lastMeterRefresh = now;
+            RaiseMeters();
         }
     }
 
@@ -583,6 +620,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         };
         Status = _client.StatusText;
         OnChanged(nameof(ConnectionLabel));
+        RaiseMeters();
     }
 
     private void AppendLog(string line)
@@ -704,6 +742,19 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnChanged(nameof(RollRateLimit));
         OnChanged(nameof(YawRateLimit));
         OnChanged(nameof(PhaseNote));
+        RaiseMeters();
+    }
+
+    private void RaiseMeters()
+    {
+        OnChanged(nameof(MeterPitchIn));
+        OnChanged(nameof(MeterPitchOut));
+        OnChanged(nameof(MeterRollIn));
+        OnChanged(nameof(MeterRollOut));
+        OnChanged(nameof(MeterYawIn));
+        OnChanged(nameof(MeterYawOut));
+        OnChanged(nameof(RouteBadge));
+        OnChanged(nameof(RouteHint));
     }
 
     private static string F(string format, params object[] args) => string.Format(CultureInfo.InvariantCulture, format, args);

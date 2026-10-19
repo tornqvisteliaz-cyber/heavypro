@@ -1,6 +1,48 @@
 # HeavyPro (HeavyFeel)
 
-Windows desktop app for **Microsoft Flight Simulator 2024**.
+Windows desktop app for **Microsoft Flight Simulator 2024** that makes your stick feel like it is moving real control surfaces on a heavy aircraft: the sim follows your stick with weight, momentum and a damped return instead of snapping instantly.
+
+## Install (players)
+
+1. Run `HeavyProSetup.exe` and point it at your MSFS 2024 Community folder.
+2. In MSFS, bind your stick and pedals to **Elevator Axis**, **Aileron Axis** and **Rudder Axis** (the defaults for most sticks).
+3. Start HeavyPro, load a flight, tick **MASTER ENABLE** and move the stick once.
+
+The header badge tells you what is happening:
+
+| Badge | Meaning |
+|-------|---------|
+| `SHAPING` (green) | Working. The gold bar in **Stick → Aircraft** is what the aircraft gets, the white tick is your stick. |
+| `MOVE STICK` | Connected, waiting for the first stick event. If it stays, check the MSFS axis bindings above. |
+| `PASS-THROUGH` | Master Enable is off. Your stick reaches the sim untouched. |
+| `AP ON · PAUSED` | Autopilot engaged. HeavyPro hands the stick back until you disconnect it. |
+| `OFFLINE` | MSFS is not running yet. HeavyPro connects on its own. |
+
+## Licensing
+
+HeavyPro needs a licence key (`HPRO-XXXX-XXXX-XXXX`), issued with the Rotaidem licence generator.
+
+- **Installer:** asks for the key and activates it online before installing. A key already saved on the PC is filled in.
+- **App:** with no saved key it opens an **Activate HeavyPro** window (this also covers the installer running as a different Windows user). A key confirmed within the last 14 days starts at once and is re-checked in the background. If the server says the key is revoked or removed from this PC, HeavyPro closes and asks for a key next time. Offline it keeps working for 14 days, and warns only in the last 3.
+- **Server:** `https://rotaidem.onrender.com`, set in [src/Shared/HeavyProLicense.cs](src/Shared/HeavyProLicense.cs). Change it to `https://rotaidem.com` once that domain points at Render.
+- **Debug builds skip the check** so Visual Studio F5 works without a key. The installer always ships a Release build.
+- `src/Rotaidem.Licensing` is copied from `rsg.com` (`licensing/`, branch `claude/lucid-tesla-liazv2`, commit `ac4a0d7`), with its own `Directory.Build.props` so it doesn't inherit this repo's x64 settings.
+
+Keys are saved in `%LOCALAPPDATA%\Rotaidem\heavypro\license.json`. To move a licence to another PC, remove the old computer under Admin → Licences on the website.
+
+## What's new in 0.3.0
+
+Tested against a live MSFS 2024 (1.9.18) session:
+
+- **Fixed: shaping never ran.** Two SimVars (`IS ON GROUND`, and `DYNAMIC PRESSURE` with an invalid unit) were rejected by MSFS 2024. SimConnect drops a rejected field, which shifted every later value. "Autopilot" ended up reading height above ground, so HeavyPro thought AP was on and paused itself. Weight, yoke and surface readouts were wrong too. HeavyPro now names any rejected SimVar in the log and refuses to use a misaligned packet.
+- **Fixed: second launch crashed** on the locked log file. HeavyPro is now single-instance; launching it again brings the open window forward.
+- **Fixed: blank window** while MSFS holds the GPU. The panel now draws on the CPU (`HeavyPro.exe --gpu-render` opts back in).
+- **Fixed:** after the stick is released the exact stick value is sent again, so the yoke no longer rests a few counts off centre.
+- **Fixed:** the Curve / Stick release / Aircraft drop-downs rendered white-on-white.
+- **New:** header status badge and live **Stick → Aircraft** meters.
+- Crashes are written to `%AppData%\HeavyFeel\logs\crash.log`.
+
+Measured on the L-39 with the Realistic preset: a 0 → 73 % pitch step reaches the sim over ~1.0 s instead of 0.2 s, and returns to exactly centre on release. With Master off the same step passes straight through.
 
 - Connects to MSFS 2024 with the official SimConnect SDK
 - Detects the loaded aircraft and selects a tunable input-dynamics preset (Fenix A320, PMDG 737/777, ASOBO 787, generic GA/airliner)
@@ -108,7 +150,7 @@ HeavyFeel/
 | AXIS writes while input is held or settling | Working (Master Enable), captured axes only |
 | Body-rate writes | **Disabled** (by design) |
 | View-cue (camera offset) | Optional, off by default |
-| SimConnect axis-event capture and rewrite | Working for axes bound to Elevator/Aileron/Rudder Axis; pass-through when not shaping |
+| SimConnect axis-event capture and rewrite | Working for axes bound to Elevator/Aileron/Rudder Axis; pass-through when not shaping. Verified in MSFS 2024 with injected AXIS events |
 | Unit tests (`dotnet test src/HeavyFeel.Core.Tests`) | Run in CI |
 
 ## Next ideas (not built)

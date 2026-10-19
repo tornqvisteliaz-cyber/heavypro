@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string] $DotNet = "dotnet",
     [string] $Configuration = "Release"
 )
@@ -13,14 +13,15 @@ $archive = Join-Path $PSScriptRoot "HeavyProAppPayload.zip"
 if ($LASTEXITCODE -ne 0) { throw "HeavyPro build failed with exit code $LASTEXITCODE." }
 if (-not (Test-Path (Join-Path $output "HeavyPro.exe"))) { throw "Build output not found: $output" }
 
-Add-Type -AssemblyName System.IO.Compression.FileSystem
+Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 if (Test-Path $archive) { Remove-Item -LiteralPath $archive -Force }
 $zip = [System.IO.Compression.ZipFile]::Open($archive, [System.IO.Compression.ZipArchiveMode]::Create)
 try {
     Get-ChildItem -LiteralPath $output -File -Recurse | Where-Object {
         $_.Extension -ne ".pdb"
     } | ForEach-Object {
-        $relative = [System.IO.Path]::GetRelativePath($output, $_.FullName).Replace("\", "/")
+        # Substring instead of Path.GetRelativePath so Windows PowerShell 5.1 works too.
+        $relative = $_.FullName.Substring($output.Length).TrimStart("\").Replace("\", "/")
         [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
             $zip, $_.FullName, $relative, [System.IO.Compression.CompressionLevel]::Optimal
         ) | Out-Null

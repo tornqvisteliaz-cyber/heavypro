@@ -76,6 +76,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private readonly IntPtr _hwnd;
     private readonly Dictionary<Events, (int Value, long Tick)> _recentAxisWrites = new();
     private readonly Dictionary<Events, int> _physicalAxis = new();
+    private readonly Dictionary<uint, string> _sentNames = new();
     private Microsoft.FlightSimulator.SimConnect.SimConnect? _sim;
     private ConnectionState _state = ConnectionState.Disconnected;
     private AircraftIdentity _identity = new();
@@ -86,6 +87,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private bool _axisWriteReady;
     private bool _yokeWriteReady;
     private bool _shapingArmed;
+    private bool _flightLayoutBroken;
+    private bool _wasWriting;
     private bool _writesDisabled;
     private bool _cameraDisabled;
     private int _writeLogSkip;
@@ -271,7 +274,16 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     private void OnException(Microsoft.FlightSimulator.SimConnect.SimConnect sender, SIMCONNECT_RECV_EXCEPTION data)
     {
-        _logger.Error($"SimConnect exception dwException={data.dwException} sendId={data.dwSendID} index={data.dwIndex}");
+        _sentNames.TryGetValue(data.dwSendID, out var what);
+        _logger.Error($"SimConnect exception dwException={data.dwException} sendId={data.dwSendID} index={data.dwIndex} {what}");
+        // A rejected field is dropped from its definition, which shifts every
+        // later field. Never trust a packet whose layout no longer matches.
+        if (what != null && what.StartsWith(nameof(Definitions.Flight) + " ", StringComparison.Ordinal))
+        {
+            _flightLayoutBroken = true;
+            SetState(ConnectionState.Error, "MSFS rejected a flight variable (" + what + "). Telemetry disabled — see log.");
+            return;
+        }
         StatusMessage?.Invoke(this, $"SimConnect exception {data.dwException} (index {data.dwIndex}). See log.");
     }
 
@@ -378,7 +390,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                     break;
 
                 case Requests.Flight:
-                    if (data.dwData[0] is FlightPacket f)
+                    if (data.dwData[0] is FlightPacket f && !_flightLayoutBroken)
                     {
                         var snap = MapFlight(f, _identity, _fenixFcu, _flags, _yokeSense);
                         SnapshotReceived?.Invoke(this, snap);
@@ -417,11 +429,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _sim!.RegisterDataDefineStruct<IdentityPacket>(Definitions.Identity);
     }
 
-    private int _flightFieldIndex;
-
     private void RegisterFlight()
     {
-        _flightFieldIndex = 0;
         Add(Definitions.Flight, "AIRSPEED INDICATED", "knots");
         Add(Definitions.Flight, "AIRSPEED TRUE", "knots");
         Add(Definitions.Flight, "AIRSPEED MACH", "mach");
@@ -445,7 +454,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         Add(Definitions.Flight, "VELOCITY BODY X", "feet per second");
         Add(Definitions.Flight, "VELOCITY BODY Y", "feet per second");
         Add(Definitions.Flight, "VELOCITY BODY Z", "feet per second");
-        Add(Definitions.Flight, "DYNAMIC PRESSURE", "pounds per square foot");
+        Add(Definitions.Flight, "DYNAMIC PRESSURE", "psf");
         Add(Definitions.Flight, "SIM ON GROUND", "number");
         Add(Definitions.Flight, "TOTAL WEIGHT", "pounds");
         Add(Definitions.Flight, "EMPTY WEIGHT", "pounds");
@@ -477,7 +486,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         Add(Definitions.Flight, "RUDDER DEFLECTION PCT", "percent over 100");
         Add(Definitions.Flight, "ELEVATOR TRIM PCT", "percent over 100");
         Add(Definitions.Flight, "AUTOPILOT MASTER", "number");
-        Add(Definitions.Flight, "IS ON GROUND", "number");
         Add(Definitions.Flight, "PLANE ALT ABOVE GROUND", "feet");
         Add(Definitions.Flight, "RADIO HEIGHT", "feet");
         Add(Definitions.Flight, "AUTOPILOT FLIGHT DIRECTOR ACTIVE", "number");
@@ -490,7 +498,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     {
         try
         {
-            AddInt(Definitions.Flags, "IS ON GROUND");
             AddInt(Definitions.Flags, "SIM ON GROUND");
             AddInt(Definitions.Flags, "AUTOPILOT MASTER");
             _sim!.RegisterDataDefineStruct<FlagsPacket>(Definitions.Flags);
@@ -606,7 +613,15 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _shapingArmed = armed;
         _lastInfluence = now;
         if (!armed || !command.Active)
+        {
+            // Shaped output has settled: send the exact stick value once so the
+            // sim is not left a few counts off centre.
+            if (armed && _wasWriting)
+                ReleaseToPhysical();
+            _wasWriting = false;
             return;
+        }
+        _wasWriting = true;
 
         try
         {
@@ -698,20 +713,27 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             ev,
             unchecked((uint)clamped),
             EventPriority.Standard,
-            SIMCONNECT_EVENT_FLAG.DEFAULT);
+            // Without this flag SimConnect reads the priority as a group ID,
+            // rejects the event, and the masked stick never reaches the sim.
+            SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY);
     }
 
     private void AddInt(Definitions def, string name)
     {
         _sim!.AddToDataDefinition(def, name, "bool", SIMCONNECT_DATATYPE.INT32, 0.0f, Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_UNUSED);
-        _logger.Info($"DefineINT32 {name}");
+        Track($"{def} {name} (bool)");
     }
 
     private void Add(Definitions def, string name, string units)
     {
-        _flightFieldIndex++;
-        _logger.Info($"Define[{_flightFieldIndex}] {name} ({units})");
         _sim!.AddToDataDefinition(def, name, units, SIMCONNECT_DATATYPE.FLOAT64, 0.0f, Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_UNUSED);
+        Track($"{def} {name} ({units})");
+    }
+
+    private void Track(string what)
+    {
+        var id = _sim!.GetLastSentPacketID();
+        _sentNames[id] = what;
     }
 
     private void AddString(Definitions def, string name)
@@ -722,12 +744,12 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private FlightSnapshot MapFlight(FlightPacket f, AircraftIdentity identity, FenixFcuPacket fenix, FlagsPacket flags, YokeSensePacket yoke)
     {
         var onGround = FlightStateResolver.ResolveOnGround(
-            f.IsOnGround,
+            0,
             f.OnGround,
             f.AltitudeAgl,
             f.RadioHeight,
             f.AirspeedIndicated,
-            flags.IsOnGround,
+            0,
             flags.SimOnGround);
         var ap = FlightStateResolver.ResolveAutopilot(
             f.Autopilot,
@@ -829,6 +851,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _axisWriteReady = false;
         _yokeWriteReady = false;
         _shapingArmed = false;
+        _flightLayoutBroken = false;
+        _wasWriting = false;
+        _sentNames.Clear();
         _writesDisabled = false;
         _writesPausedUntil = DateTime.MinValue;
         _physicalAxis.Clear();
@@ -924,7 +949,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         public double RudderDefl;
         public double ElevatorTrim;
         public double Autopilot;
-        public double IsOnGround;
         public double AltitudeAgl;
         public double RadioHeight;
         public double FlightDirector;
@@ -950,7 +974,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     private struct FlagsPacket
     {
-        public int IsOnGround;
         public int SimOnGround;
         public int AutopilotMaster;
     }
