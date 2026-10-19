@@ -54,7 +54,7 @@ public sealed class AppLogger : IDisposable
         _writer?.Dispose();
         _currentDate = date;
         var path = Path.Combine(_logDirectory, $"heavyfeel-{date}.log");
-        _writer = new StreamWriter(new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read), Encoding.UTF8)
+        _writer = new StreamWriter(new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite), Encoding.UTF8)
         {
             AutoFlush = true
         };

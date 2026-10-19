@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using HeavyPro.Licensing;
+using Rotaidem.Licensing;
 
 namespace HeavyPro.Setup;
 
@@ -21,12 +23,14 @@ static class Program
 sealed class SetupForm : Form
 {
     private readonly TextBox _path = new() { Width = 420 };
+    private readonly TextBox _key = new() { Width = 260, PlaceholderText = "HPRO-XXXX-XXXX-XXXX", CharacterCasing = CharacterCasing.Upper };
+    private readonly Button _install = new() { Text = "Install", Width = 120 };
 
     public SetupForm()
     {
         Text = "HeavyPro";
         Width = 560;
-        Height = 220;
+        Height = 290;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
@@ -47,12 +51,56 @@ sealed class SetupForm : Form
             if (dialog.ShowDialog() == DialogResult.OK)
                 _path.Text = dialog.SelectedPath;
         };
-        var install = new Button { Text = "Install", Left = 16, Top = 88, Width = 120 };
-        install.Click += (_, _) => Install();
+        var keyLabel = new Label
+        {
+            Text = "Licence key (from your purchase email)",
+            Left = 16,
+            Top = 86,
+            Width = 500
+        };
+        _key.Left = 16;
+        _key.Top = 112;
+        // Reinstalling on a computer that is already activated should not ask again.
+        if (HeavyProLicense.Store().Load() is { } saved)
+            _key.Text = saved.Key;
+        _install.Left = 16;
+        _install.Top = 160;
+        _install.Click += async (_, _) => await ActivateThenInstall();
         Controls.Add(label);
         Controls.Add(_path);
         Controls.Add(browse);
-        Controls.Add(install);
+        Controls.Add(keyLabel);
+        Controls.Add(_key);
+        Controls.Add(_install);
+    }
+
+    private async Task ActivateThenInstall()
+    {
+        if (!LicenseKey.IsWellFormed(_key.Text, LicenseKey.HeavyProPrefix))
+        {
+            MessageBox.Show(this, "That licence key has a typo. It should look like HPRO-XXXX-XXXX-XXXX.", "HeavyPro");
+            return;
+        }
+
+        _install.Enabled = false;
+        _install.Text = "Checking key…";
+        try
+        {
+            var result = await HeavyProLicense.Client().ActivateAsync(_key.Text);
+            if (!result.IsValid)
+            {
+                MessageBox.Show(this, result.Message, "HeavyPro");
+                return;
+            }
+            HeavyProLicense.Store().Save(_key.Text, DateTimeOffset.UtcNow);
+        }
+        finally
+        {
+            _install.Enabled = true;
+            _install.Text = "Install";
+        }
+
+        Install();
     }
 
     public void SetPath(string path) => _path.Text = path;

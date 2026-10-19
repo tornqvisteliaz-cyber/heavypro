@@ -15,4 +15,8 @@
   <ItemGroup>
     <EmbeddedResource Include="$(PayloadZipPath)" LogicalName="HeavyProPayload.zip" Condition="'$(PayloadZipPath)' != '' and Exists('$(PayloadZipPath)')" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Rotaidem.Licensing\Rotaidem.Licensing.csproj" />
+    <Compile Include="..\Shared\HeavyProLicense.cs" Link="HeavyProLicense.cs" />
+  </ItemGroup>
 </Project>

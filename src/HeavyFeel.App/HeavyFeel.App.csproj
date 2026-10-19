@@ -14,6 +14,9 @@
     <ProjectReference Include="..\HeavyFeel.Core\HeavyFeel.Core.csproj" />
     <ProjectReference Include="..\HeavyFeel.Logging\HeavyFeel.Logging.csproj" />
     <ProjectReference Include="..\HeavyFeel.SimConnect\HeavyFeel.SimConnect.csproj" />
+    <ProjectReference Include="..\Rotaidem.Licensing\Rotaidem.Licensing.csproj" />
+    <Compile Include="..\Shared\HeavyProLicense.cs" Link="HeavyProLicense.cs" />
+    <Reference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\RsgLogo.png" />
