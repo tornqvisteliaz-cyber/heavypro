@@ -75,13 +75,25 @@ public sealed class FlightSnapshot
     public double YokeYIndicator { get; init; }
     public double RudderPedal { get; init; }
 
-    public double StickX => Largest(YokeX, YokeXWithAp, YokeXIndicator);
-    public double StickY => Largest(YokeY, YokeYWithAp, YokeYIndicator);
+    // Physical stick values captured from masked AXIS_*_SET events, in AXIS
+    // event units scaled to -1..1. Null when that axis has not been captured;
+    // the reported yoke simvars are then the only source. Once an axis is
+    // captured the simvars reflect HeavyPro's own output and must not be read
+    // back as pilot input.
+    public double? CapturedPitch { get; init; }
+    public double? CapturedRoll { get; init; }
+    public double? CapturedYaw { get; init; }
+
+    public double StickX => CapturedRoll ?? Largest(YokeX, YokeXWithAp, YokeXIndicator);
+    public double StickY => CapturedPitch ?? Largest(YokeY, YokeYWithAp, YokeYIndicator);
+    public double RudderInput => CapturedYaw ?? RudderPedal;
 
     public string InputSource
     {
         get
         {
+            if (CapturedPitch.HasValue || CapturedRoll.HasValue || CapturedYaw.HasValue)
+                return "masked AXIS";
             if (Math.Abs(YokeYWithAp) >= Math.Abs(YokeY) && Math.Abs(YokeYWithAp) >= Math.Abs(YokeYIndicator) && Math.Abs(YokeYWithAp) > 0.04)
                 return "yoke+AP";
             if (Math.Abs(YokeYIndicator) > Math.Abs(YokeY) && Math.Abs(YokeYIndicator) > 0.04)

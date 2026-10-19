@@ -20,18 +20,46 @@ public sealed class AxisDynamicsState
 /// </summary>
 public static class ControlInertia
 {
-    public static AxisSample Step(AxisDynamicsState state, double raw, double dt, double fullTravelSeconds, double accelScale, double decelScale, double damping)
+    /// <param name="accelScale">Multiplier on how quickly the axis speeds up (1 = default).</param>
+    /// <param name="decelScale">Multiplier on how quickly the axis slows down (1 = default).</param>
+    /// <param name="damping">1 = default; higher values take longer to build up speed.</param>
+    /// <param name="returnDelaySeconds">Hold time after the stick is released before returning.</param>
+    /// <param name="returnRateMultiplier">Speed multiplier while returning to centre.</param>
+    public static AxisSample Step(
+        AxisDynamicsState state,
+        double raw,
+        double dt,
+        double fullTravelSeconds,
+        double accelScale,
+        double decelScale,
+        double damping,
+        double returnDelaySeconds = 0,
+        double returnRateMultiplier = 1)
     {
         raw = Sanitize(raw);
         dt = Numeric.Clamp(dt, 0.001, 0.05);
         var target = raw;
+        var returning = target == 0 && Math.Abs(state.Position) > 0.0001;
+        if (returning)
+        {
+            state.ReleaseElapsed += dt;
+            if (state.ReleaseElapsed < returnDelaySeconds)
+                target = state.Position;
+        }
+        else
+            state.ReleaseElapsed = 0;
+
         var size = Math.Abs(target - state.Position);
         var scaled = fullTravelSeconds * (0.35 + 0.65 * Numeric.Clamp(size, 0, 1));
         var time = Numeric.Clamp(scaled, 0.2, 4.0);
         var error = target - state.Position;
         var rate = 1.0 / time;
+        if (returning)
+            rate *= Numeric.Clamp(returnRateMultiplier, 0.1, 2.0);
         var desired = Math.Abs(error) < 0.0001 ? 0 : Math.Sign(error) * rate;
-        var accel = rate / 0.18;
+        var speedingUp = Math.Abs(desired) > Math.Abs(state.Velocity) && desired * state.Velocity >= 0;
+        var accel = rate / (0.18 * Numeric.Clamp(damping, 0.5, 2.0))
+            * Numeric.Clamp(speedingUp ? accelScale : decelScale, 0.25, 2.0);
         var deltaV = Numeric.Clamp(desired - state.Velocity, -accel * dt, accel * dt);
         state.Velocity += deltaV;
         var step = state.Velocity * dt;

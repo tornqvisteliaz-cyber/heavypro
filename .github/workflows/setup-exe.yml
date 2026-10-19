@@ -14,6 +14,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Run unit tests
+        run: dotnet test src/HeavyFeel.Core.Tests/HeavyFeel.Core.Tests.csproj -c Release
       - name: Build app and refresh payload
         shell: pwsh
         run: |

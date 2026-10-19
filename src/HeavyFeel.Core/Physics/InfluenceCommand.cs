@@ -7,6 +7,13 @@ namespace HeavyFeel.Core.Physics;
 public sealed record InfluenceCommand
 {
     public bool Active { get; init; }
+
+    /// <summary>
+    /// Shaping owns the captured stick axes. True whenever Master is on and the
+    /// autopilot is off, even on frames with nothing to write. When false the
+    /// client must pass the physical stick straight through.
+    /// </summary>
+    public bool Armed { get; init; }
     public bool WriteRates { get; init; }
     public bool WriteAxes { get; init; }
     public bool WriteYoke { get; init; }
