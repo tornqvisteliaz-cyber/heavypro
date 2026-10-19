@@ -66,6 +66,7 @@ sealed class SetupForm : Form
         _install.Left = 16;
         _install.Top = 160;
         _install.Click += async (_, _) => await ActivateThenInstall();
+        HeavyProLicense.WakeServer();
         Controls.Add(label);
         Controls.Add(_path);
         Controls.Add(browse);
@@ -83,7 +84,8 @@ sealed class SetupForm : Form
         }
 
         _install.Enabled = false;
-        _install.Text = "Checking key…";
+        _install.Width = 380;
+        _install.Text = "Checking key… can take up to a minute";
         try
         {
             var result = await HeavyProLicense.Client().ActivateAsync(_key.Text);
@@ -97,6 +99,7 @@ sealed class SetupForm : Form
         finally
         {
             _install.Enabled = true;
+            _install.Width = 120;
             _install.Text = "Install";
         }
 
