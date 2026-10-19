@@ -88,7 +88,7 @@ sealed class SetupForm : Form
         _install.Text = "Checking key… can take up to a minute";
         try
         {
-            var result = await HeavyProLicense.Client().ActivateAsync(_key.Text);
+            var result = await HeavyProLicense.ActivateAsync(_key.Text);
             if (!result.IsValid)
             {
                 MessageBox.Show(this, result.Message, "HeavyPro");
