@@ -698,7 +698,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             ev,
             unchecked((uint)clamped),
             EventPriority.Standard,
-            SIMCONNECT_EVENT_FLAG.DEFAULT);
+            // Without this flag SimConnect reads the priority as a group ID,
+            // rejects the event, and the masked stick never reaches the sim.
+            SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY);
     }
 
     private void AddInt(Definitions def, string name)
