@@ -18,6 +18,7 @@ public partial class LicenseWindow : Window
         if (!string.IsNullOrWhiteSpace(reason))
             ShowMessage(reason!);
         Loaded += (_, _) => KeyBox.Focus();
+        HeavyProLicense.WakeServer();
     }
 
     private async void Activate_Click(object sender, RoutedEventArgs e)
@@ -30,6 +31,7 @@ public partial class LicenseWindow : Window
 
         ActivateButton.IsEnabled = false;
         ActivateButton.Content = "Checking…";
+        ShowMessage("Contacting the licence server. This can take up to a minute.");
         try
         {
             var result = await HeavyProLicense.Client().ActivateAsync(KeyBox.Text);
@@ -39,6 +41,7 @@ public partial class LicenseWindow : Window
                 return;
             }
             HeavyProLicense.Store().Save(KeyBox.Text, DateTimeOffset.UtcNow);
+            Message.Visibility = Visibility.Collapsed;
             DialogResult = true;
         }
         finally
