@@ -1,6 +1,10 @@
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
+using System.Windows.Forms;
 using HeavyPro.Licensing;
 using Rotaidem.Licensing;
 
@@ -11,10 +15,13 @@ static class Program
     [STAThread]
     static void Main()
     {
-        ApplicationConfiguration.Initialize();
+        // Hosting providers refuse old TLS versions, which .NET Framework can still default to.
+        System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
         using var setup = new SetupForm();
         var detected = CommunityFinder.Find();
-        if (!string.IsNullOrEmpty(detected))
+        if (detected is { Length: > 0 })
             setup.SetPath(detected);
         System.Windows.Forms.Application.Run(setup);
     }
@@ -23,7 +30,7 @@ static class Program
 sealed class SetupForm : Form
 {
     private readonly TextBox _path = new() { Width = 420 };
-    private readonly TextBox _key = new() { Width = 260, PlaceholderText = "HPRO-XXXX-XXXX-XXXX", CharacterCasing = CharacterCasing.Upper };
+    private readonly TextBox _key = new() { Width = 260, CharacterCasing = CharacterCasing.Upper };
     private readonly Button _install = new() { Text = "Install", Width = 120 };
 
     public SetupForm()
@@ -67,6 +74,7 @@ sealed class SetupForm : Form
         _install.Top = 160;
         _install.Click += async (_, _) => await ActivateThenInstall();
         HeavyProLicense.WakeServer();
+        _key.HandleCreated += (_, _) => SetPlaceholder(_key, "HPRO-XXXX-XXXX-XXXX");
         Controls.Add(label);
         Controls.Add(_path);
         Controls.Add(browse);
@@ -107,6 +115,12 @@ sealed class SetupForm : Form
     }
 
     public void SetPath(string path) => _path.Text = path;
+
+    // TextBox.PlaceholderText does not exist on .NET Framework; Windows' cue banner does the same.
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
+
+    private static void SetPlaceholder(TextBox box, string text) => SendMessage(box.Handle, 0x1501 /* EM_SETCUEBANNER */, (IntPtr)1, text);
 
     private void Install()
     {
@@ -309,18 +323,34 @@ static class PackageInstaller
         </svg>
         """);
 
-        var files = Directory.GetFiles(package, "*", SearchOption.AllDirectories)
-            .Where(file => !file.EndsWith("layout.json", StringComparison.OrdinalIgnoreCase));
-        var layout = new
+        var root = Path.GetFullPath(package).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var layout = new Layout
         {
-            content = files.Select(file => new
-            {
-                path = Path.GetRelativePath(package, file).Replace('\\', '/'),
-                size = new FileInfo(file).Length,
-                date = new FileInfo(file).LastWriteTimeUtc.ToFileTimeUtc()
-            }).ToArray()
+            Content = Directory.GetFiles(package, "*", SearchOption.AllDirectories)
+                .Where(file => !file.EndsWith("layout.json", StringComparison.OrdinalIgnoreCase))
+                .Select(file => new LayoutEntry
+                {
+                    Path = Path.GetFullPath(file).Substring(root.Length).Replace('\\', '/'),
+                    Size = new FileInfo(file).Length,
+                    Date = new FileInfo(file).LastWriteTimeUtc.ToFileTimeUtc()
+                }).ToArray()
         };
-        File.WriteAllText(Path.Combine(package, "layout.json"), System.Text.Json.JsonSerializer.Serialize(layout));
+        using var stream = File.Create(Path.Combine(package, "layout.json"));
+        new DataContractJsonSerializer(typeof(Layout)).WriteObject(stream, layout);
+    }
+
+    [DataContract]
+    private sealed class Layout
+    {
+        [DataMember(Name = "content")] public LayoutEntry[] Content { get; set; } = [];
+    }
+
+    [DataContract]
+    private sealed class LayoutEntry
+    {
+        [DataMember(Name = "path", Order = 0)] public string Path { get; set; } = "";
+        [DataMember(Name = "size", Order = 1)] public long Size { get; set; }
+        [DataMember(Name = "date", Order = 2)] public long Date { get; set; }
     }
 }
 
@@ -354,7 +384,7 @@ static class CommunityFinder
             {
                 if (!line.StartsWith("InstalledPackagesPath", StringComparison.OrdinalIgnoreCase))
                     continue;
-                var value = line.Split(' ', 2).Last().Trim().Trim('"');
+                var value = line.Split(new[] { ' ' }, 2).Last().Trim().Trim('"');
                 var community = Path.Combine(value, "Community");
                 if (Directory.Exists(community))
                     return community;
