@@ -52,8 +52,16 @@ jobs:
           } finally {
             $zip.Dispose()
           }
-      - name: Build standalone setup
-        run: dotnet publish src/HeavyPro.Setup/HeavyPro.Setup.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true "-p:PayloadZipPath=$pwd\packaging\HeavyProAppPayload.zip" -o publish
+      - name: Build setup (.NET Framework 4.8, no bundled runtime)
+        shell: pwsh
+        run: |
+          dotnet build src/HeavyPro.Setup/HeavyPro.Setup.csproj -c Release "-p:PayloadZipPath=$pwd\packaging\HeavyProAppPayload.zip"
+          if ($LASTEXITCODE -ne 0) { throw "Setup build failed." }
+          New-Item -ItemType Directory -Force -Path publish | Out-Null
+          Copy-Item src/HeavyPro.Setup/bin/Release/net48/HeavyProSetup.exe publish/
+          $size = (Get-Item publish/HeavyProSetup.exe).Length
+          Write-Host ("HeavyProSetup.exe is {0:N1} MB" -f ($size / 1MB))
+          if ($size -lt 1MB) { throw "HeavyProSetup.exe is too small; the app payload was probably not embedded." }
       - uses: actions/upload-artifact@v4
         with:
           name: HeavyProSetup
