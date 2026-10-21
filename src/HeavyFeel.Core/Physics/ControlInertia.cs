@@ -51,7 +51,9 @@ public static class ControlInertia
 
         var size = Math.Abs(target - state.Position);
         var scaled = fullTravelSeconds * (0.35 + 0.65 * Numeric.Clamp(size, 0, 1));
-        var time = Numeric.Clamp(scaled, 0.2, 4.0);
+        // Past ~2.5 s to full travel a heavy jet stops feeling heavy and starts
+        // feeling unresponsive; add-ons with their own column model add lag on top.
+        var time = Numeric.Clamp(scaled, 0.2, 2.5);
         var error = target - state.Position;
         var rate = 1.0 / time;
         if (returning)

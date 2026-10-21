@@ -31,10 +31,25 @@ public sealed class AppSettings
     public double YawRateLimit { get; set; }
     public bool AirspeedResponseEnabled { get; set; } = true;
     public double AirspeedResponse { get; set; } = 0.65;
+    public bool RudderLimiter { get; set; } = true;
     public string StickReleaseMode { get; set; } = "Auto";
     public double ReturnDelayMs { get; set; }
 
     public string AircraftProfile { get; set; } = "Auto Detect";
+
+    // Stick input. Direct: HeavyPro reads the stick and is its only source in
+    // MSFS (works with PMDG, iniBuilds, Fenix). Masked: the stick stays bound
+    // in MSFS and its events are intercepted (default aircraft only).
+    public string InputRoute { get; set; } = "Direct";
+    public string StickDevice { get; set; } = "";
+    public string PitchAxis { get; set; } = "Y";
+    public string RollAxis { get; set; } = "X";
+    public bool InvertPitch { get; set; }
+    public bool InvertRoll { get; set; }
+    public string RudderDevice { get; set; } = "";
+    public string RudderAxis { get; set; } = "R";
+    public bool InvertRudder { get; set; }
+    public int SettingsVersion { get; set; }
     public string FeelLevel { get; set; } = "RealisticPlus";
     public double WindowWidth { get; set; } = 1280;
     public double WindowHeight { get; set; } = 800;

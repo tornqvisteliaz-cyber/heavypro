@@ -52,6 +52,12 @@ public sealed class OfflineSimClient : ISimClient
     {
     }
 
+    public bool DirectInput { get; set; }
+
+    public void FeedPhysical(int? elevator, int? aileron, int? rudder)
+    {
+    }
+
     public void Dispose()
     {
     }

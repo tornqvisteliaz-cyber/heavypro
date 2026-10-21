@@ -12,6 +12,7 @@ public sealed class InputDynamicsEngine
     private readonly AxisDynamicsState _elevator = new();
     private readonly AxisDynamicsState _aileron = new();
     private readonly AxisDynamicsState _rudder = new();
+    private bool _seed;
 
     public InputDynamicsFrame Step(AppSettings settings, FlightSnapshot snapshot, double deltaTime)
         => Step(settings, snapshot, deltaTime, CommunityProfile.TravelScale());
@@ -24,7 +25,7 @@ public sealed class InputDynamicsEngine
 
         var profile = InputDynamicsProfile.For(snapshot, settings.AircraftProfile);
         var curve = ParseCurve(settings.InputCurve);
-        var deadzone = Numeric.Clamp(settings.InputDeadzone, 0, 0.25);
+        var deadzone = Numeric.Clamp(settings.InputDeadzone, 0, 0.10);
         var sensitivity = Numeric.Clamp(settings.InputSensitivity, 0.25, 2.0);
         var expoStrength = Numeric.Clamp(settings.ExpoStrength, 0, 1);
 
@@ -35,8 +36,22 @@ public sealed class InputDynamicsEngine
         var shapedAileron = Shape(rawAileron, deadzone, sensitivity, expoStrength, curve);
         var shapedRudder = Shape(rawRudder, deadzone, sensitivity, expoStrength, curve);
 
+        var feel = ControlFeel.For(snapshot);
+        var rudderAuthority = feel.RudderAuthority(settings, snapshot.AirspeedIndicatedKnots);
+        shapedRudder *= rudderAuthority;
+
+        if (_seed)
+        {
+            // Until now the sim had the stick unshaped. Start from that position
+            // so turning shaping on, or the autopilot off, never jumps the yoke.
+            _elevator.Position = shapedElevator;
+            _aileron.Position = shapedAileron;
+            _rudder.Position = shapedRudder;
+            _seed = false;
+        }
+
         var phase = FlightPhaseResolver.Resolve(snapshot);
-        var speedScale = SpeedScale(settings, snapshot.AirspeedIndicatedKnots);
+        var speedScale = feel.SpeedScale(settings, snapshot);
         var scale = ControlInertia.PhaseScale(phase) * speedScale / ResponseScale(settings.ControlResponse);
         var tune = (0.7 + Numeric.Clamp(settings.Inertia, 0, 100) / 140.0) * Numeric.Clamp(travelScale, 0.5, 3);
         if (snapshot.OnGround)
@@ -48,6 +63,9 @@ public sealed class InputDynamicsEngine
         var pitchTime = ControlInertia.TravelSeconds(snapshot.PitchMoi, snapshot.TotalWeightPounds, pitchRate > 0 ? 1.2 / pitchRate : 0.35, snapshot.Class) * scale * tune;
         var rollTime = ControlInertia.TravelSeconds(snapshot.RollMoi, snapshot.TotalWeightPounds, rollRate > 0 ? 1.0 / rollRate : 0.25, snapshot.Class) * scale * tune;
         var yawTime = ControlInertia.TravelSeconds(snapshot.YawMoi, snapshot.TotalWeightPounds, yawRate > 0 ? 1.1 / yawRate : 0.35, snapshot.Class) * scale * tune;
+        pitchTime = Numeric.Clamp(pitchTime, feel.MinTravelSeconds, feel.MaxTravelSeconds);
+        rollTime = Numeric.Clamp(rollTime, feel.MinTravelSeconds, feel.MaxTravelSeconds);
+        yawTime = Numeric.Clamp(yawTime, feel.MinTravelSeconds, feel.MaxTravelSeconds);
 
         var accel = settings.InputAccelerationScale;
         var decel = settings.InputDecelerationScale;
@@ -62,6 +80,8 @@ public sealed class InputDynamicsEngine
         {
             Profile = profile.Name,
             AirspeedFactor = speedScale,
+            Feel = feel.Label,
+            RudderAuthority = rudderAuthority,
             RawElevator = rawElevator,
             FilteredElevator = elevator.Target,
             FinalElevator = elevator.Output,
@@ -89,6 +109,7 @@ public sealed class InputDynamicsEngine
         _elevator.Reset();
         _aileron.Reset();
         _rudder.Reset();
+        _seed = true;
     }
 
     /// <summary>
@@ -125,16 +146,6 @@ public sealed class InputDynamicsEngine
 
     // Damping 50 leaves the acceleration phase unchanged.
     private static double DampingScale(double damping) => (0.8 + Numeric.Clamp(damping, 0, 100) / 100.0) / 1.3;
-
-    // Travel time multiplier from airspeed. The default strength (65 %) gives the
-    // base ControlInertia.SpeedScale curve; 0 % or disabled removes it.
-    private static double SpeedScale(AppSettings settings, double ias)
-    {
-        if (!settings.AirspeedResponseEnabled)
-            return 1.0;
-        var strength = Numeric.Clamp(settings.AirspeedResponse, 0, 1) / 0.65;
-        return Math.Max(0.5, 1.0 + (ControlInertia.SpeedScale(ias) - 1.0) * strength);
-    }
 
     private static (double Delay, double Rate) Release(AppSettings settings, InputAxisProfile axis)
     {
@@ -177,6 +188,8 @@ public sealed record InputDynamicsFrame
 {
     public string Profile { get; init; } = "";
     public double AirspeedFactor { get; init; } = 1;
+    public string Feel { get; init; } = "";
+    public double RudderAuthority { get; init; } = 1;
     public double RawElevator { get; init; }
     public double FilteredElevator { get; init; }
     public double FinalElevator { get; init; }
