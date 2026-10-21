@@ -3,12 +3,15 @@ name: Build installer
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
 jobs:
   setup-exe:
     runs-on: windows-latest
+    permissions:
+      contents: write  # publish the installer on the Releases page
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -62,7 +65,48 @@ jobs:
           $size = (Get-Item publish/HeavyProSetup.exe).Length
           Write-Host ("HeavyProSetup.exe is {0:N1} MB" -f ($size / 1MB))
           if ($size -lt 1MB) { throw "HeavyProSetup.exe is too small; the app payload was probably not embedded." }
+      - name: Add a zip and a checksum for testers
+        shell: pwsh
+        run: |
+          # Some browsers, mail filters and company networks block bare .exe downloads; a zip gets through.
+          Compress-Archive -Path publish/HeavyProSetup.exe -DestinationPath publish/HeavyProSetup.zip -Force
+          $hash = (Get-FileHash publish/HeavyProSetup.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  HeavyProSetup.exe" | Set-Content publish/SHA256SUMS.txt -Encoding ascii
+          Write-Host "SHA-256: $hash"
       - uses: actions/upload-artifact@v4
         with:
           name: HeavyProSetup
           path: publish/HeavyProSetup.exe
+      # Artifacts above need a GitHub login and expire after 90 days, so testers and customers download
+      # from the Releases page instead. Every build of main replaces the files of the "beta" release,
+      # so this link always gives the newest build:
+      #   https://github.com/tornqvisteliaz-cyber/heavypro/releases/download/beta/HeavyProSetup.exe
+      # A tag like v1.0.0 creates a release of its own (the link .../releases/latest/download/... then
+      # points to it).
+      - name: Publish the beta build
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view beta *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create beta --title "HeavyPro beta" --prerelease --notes "Newest test build of HeavyPro, rebuilt from main automatically."
+            if ($LASTEXITCODE -ne 0) { throw "Could not create the beta release." }
+          }
+          gh release upload beta publish/HeavyProSetup.exe publish/HeavyProSetup.zip publish/SHA256SUMS.txt --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Could not upload the installer to the beta release." }
+      - name: Publish a versioned release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title "HeavyPro $tag" --generate-notes --latest
+            if ($LASTEXITCODE -ne 0) { throw "Could not create release $tag." }
+          }
+          gh release upload $tag publish/HeavyProSetup.exe publish/HeavyProSetup.zip publish/SHA256SUMS.txt --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Could not upload the installer to release $tag." }
