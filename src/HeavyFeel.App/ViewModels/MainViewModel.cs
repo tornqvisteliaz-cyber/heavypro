@@ -99,6 +99,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         DeleteProfileCommand = new RelayCommand(DeleteProfile);
         ShareProfileCommand = new RelayCommand(() => _ = ShareProfileAsync());
         GetSharedProfileCommand = new RelayCommand(() => _ = GetSharedProfileAsync());
+        CommunityProfiles = new ObservableCollection<SharedProfileListing>();
+        RefreshCommunityCommand = new RelayCommand(() => _ = RefreshCommunityAsync());
+        GetCommunityProfileCommand = new RelayCommand(() => _ = GetCommunityProfileAsync());
 
         _client.StateChanged += (_, _) => Dispatch(RefreshConnection);
         _client.StatusMessage += (_, msg) => Dispatch(() => Status = msg);
@@ -169,10 +172,59 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _logger.Info("Share profile \"" + profile.Name + "\": " + ProfileStatus);
     }
 
-    /// <summary>Fetches a shared profile by the typed name and adds it to My Profiles.</summary>
-    private async Task GetSharedProfileAsync()
+    // ---------------- Community list ----------------
+    public ObservableCollection<SharedProfileListing> CommunityProfiles { get; }
+    public ICommand RefreshCommunityCommand { get; }
+    public ICommand GetCommunityProfileCommand { get; }
+
+    private SharedProfileListing? _selectedCommunityProfile;
+    public SharedProfileListing? SelectedCommunityProfile
     {
-        var name = NewProfileName.Trim();
+        get => _selectedCommunityProfile;
+        set => Set(ref _selectedCommunityProfile, value);
+    }
+
+    private string _communitySearch = "";
+    public string CommunitySearch
+    {
+        get => _communitySearch;
+        set => Set(ref _communitySearch, value ?? "");
+    }
+
+    private string _communityStatus = "Press Refresh to load everyone's shared profiles.";
+    public string CommunityStatus
+    {
+        get => _communityStatus;
+        private set => Set(ref _communityStatus, value);
+    }
+
+    private async Task RefreshCommunityAsync()
+    {
+        CommunityStatus = "Loading…";
+        var (profiles, message) = await SharedProfiles.ListAsync(CommunitySearch.Trim());
+        CommunityProfiles.Clear();
+        foreach (var p in profiles)
+            CommunityProfiles.Add(p);
+        CommunityStatus = message;
+    }
+
+    private async Task GetCommunityProfileAsync()
+    {
+        var row = SelectedCommunityProfile;
+        if (row == null)
+        {
+            CommunityStatus = "Pick a profile in the list first.";
+            return;
+        }
+        await GetSharedProfileAsync(row.Name);
+        CommunityStatus = ProfileStatus;
+    }
+
+    /// <summary>Fetches a shared profile by the typed name and adds it to My Profiles.</summary>
+    private Task GetSharedProfileAsync() => GetSharedProfileAsync(NewProfileName.Trim());
+
+    private async Task GetSharedProfileAsync(string name)
+    {
         if (name.Length == 0)
         {
             ProfileStatus = "Type the name of the shared profile, then press Get by name.";
@@ -321,6 +373,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (value == null || value.Key == _settings.StickDevice) return;
             _settings.StickDevice = value.Key;
+            if (!value.HasAxis(_settings.PitchAxis)) { _settings.PitchAxis = "Y"; OnChanged(nameof(PitchAxis)); }
+            if (!value.HasAxis(_settings.RollAxis)) { _settings.RollAxis = "X"; OnChanged(nameof(RollAxis)); }
             OnChanged();
             ScheduleSave();
         }
@@ -333,6 +387,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (value == null) return;
             _settings.RudderDevice = value.Key;
+            // Pedals usually put the rudder on Z (X/Y are often the toe brakes).
+            if (value.Id >= 0 && !value.HasAxis(_settings.RudderAxis))
+            {
+                _settings.RudderAxis = value.HasAxis("Z") ? "Z" : "X";
+                OnChanged(nameof(RudderAxis));
+            }
             OnChanged();
             OnChanged(nameof(SetupNote));
             ScheduleSave();
@@ -371,6 +431,21 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         foreach (var d in found)
             RudderDevices.Add(d);
         _lastDeviceScan = DateTime.UtcNow;
+
+        // Settings can name an axis the device does not have (it reads as full
+        // deflection); move it to one that exists.
+        var stick = found.FirstOrDefault(d => d.Key == _settings.StickDevice);
+        if (stick != null && !stick.HasAxis(_settings.PitchAxis)) { _settings.PitchAxis = "Y"; OnChanged(nameof(PitchAxis)); }
+        if (stick != null && !stick.HasAxis(_settings.RollAxis)) { _settings.RollAxis = "X"; OnChanged(nameof(RollAxis)); }
+        var pedals = found.FirstOrDefault(d => d.Key == _settings.RudderDevice);
+        if (pedals != null && !pedals.HasAxis(_settings.RudderAxis))
+        {
+            _logger.Info($"Rudder axis {_settings.RudderAxis} does not exist on {pedals.Name}; using {(pedals.HasAxis("Z") ? "Z" : "X")}.");
+            _settings.RudderAxis = pedals.HasAxis("Z") ? "Z" : "X";
+            OnChanged(nameof(RudderAxis));
+            if (_saveTimer != null) // RefreshDevices also runs from the constructor, before the timer exists
+                ScheduleSave();
+        }
         OnChanged(nameof(SelectedStick));
         OnChanged(nameof(SelectedRudderDevice));
     }
@@ -466,24 +541,33 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
 
-        var pitch = Read(_pitchAxes, _settings.PitchAxis, _settings.InvertPitch);
-        var roll = Read(_pitchAxes, _settings.RollAxis, _settings.InvertRoll);
+        // An axis the device does not have reads as fully deflected: never send it.
+        var missing = new List<string>();
+        double? pitch = stick.HasAxis(_settings.PitchAxis) ? Read(_pitchAxes, _settings.PitchAxis, _settings.InvertPitch) : null;
+        double? roll = stick.HasAxis(_settings.RollAxis) ? Read(_pitchAxes, _settings.RollAxis, _settings.InvertRoll) : null;
+        if (pitch == null) missing.Add("pitch " + _settings.PitchAxis);
+        if (roll == null) missing.Add("roll " + _settings.RollAxis);
         double? yaw = null;
         if (!string.IsNullOrEmpty(_settings.RudderDevice))
         {
             var pedals = RudderDevices.FirstOrDefault(d => d.Key == _settings.RudderDevice);
-            if (pedals != null && JoystickReader.TryRead(pedals.Id, out var pedalAxes))
+            if (pedals != null && !pedals.HasAxis(_settings.RudderAxis))
+                missing.Add("yaw " + _settings.RudderAxis);
+            else if (pedals != null && JoystickReader.TryRead(pedals.Id, out var pedalAxes))
                 yaw = Read(pedalAxes, _settings.RudderAxis, _settings.InvertRudder);
         }
 
         if (IsDirect && _client.IsConnected)
-            _client.FeedPhysical(ToAxisEvent(pitch), ToAxisEvent(roll), yaw.HasValue ? ToAxisEvent(yaw.Value) : null);
+            _client.FeedPhysical(pitch.HasValue ? ToAxisEvent(pitch.Value) : null, roll.HasValue ? ToAxisEvent(roll.Value) : null,
+                yaw.HasValue ? ToAxisEvent(yaw.Value) : null);
 
         if ((now - _lastStickUi).TotalMilliseconds > 100)
         {
             _lastStickUi = now;
-            StickStatus = F("Stick  pitch {0:+0.00;-0.00;0.00}  roll {1:+0.00;-0.00;0.00}", pitch, roll)
-                + (yaw.HasValue ? F("  yaw {0:+0.00;-0.00;0.00}", yaw.Value) : "");
+            StickStatus = missing.Count > 0
+                ? "That device has no axis for " + string.Join(", ", missing) + ". Press Detect and move that control."
+                : F("Stick  pitch {0:+0.00;-0.00;0.00}  roll {1:+0.00;-0.00;0.00}", pitch ?? 0, roll ?? 0)
+                  + (yaw.HasValue ? F("  yaw {0:+0.00;-0.00;0.00}", yaw.Value) : "");
         }
     }
 
