@@ -32,11 +32,26 @@ public sealed class InputOwnershipManager
         Detail = "Maskable AXIS route requested. Waiting for a joystick event.";
     }
 
+    public void BeginDirect()
+    {
+        Status = InputRouteStatus.Initializing;
+        Detail = "Direct route. Waiting for the stick to be read.";
+    }
+
+    public void NoteDirectInput()
+    {
+        if (Status == InputRouteStatus.Active)
+            return;
+        SawMaskedAxis = true;
+        Status = InputRouteStatus.Active;
+        Detail = "Direct route. HeavyPro reads the stick and is its only source in MSFS.";
+    }
+
     public void NoteMaskedAxis()
     {
         SawMaskedAxis = true;
         Status = InputRouteStatus.Active;
-        Detail = "Masked AXIS event received. Processed output is the intended route. Not proven in this environment.";
+        Detail = "Masked route. The stick's MSFS events are held back and re-sent shaped.";
     }
 
     public void Bypass(string reason)

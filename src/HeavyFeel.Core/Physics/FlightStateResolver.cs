@@ -38,12 +38,14 @@ public static class FlightStateResolver
         var flag = IntFlagOn(isOnGroundInt) || FlagOn(isOnGround)
             || IntFlagOn(simOnGroundInt) || FlagOn(simOnGround);
 
-        if (agl > 30)
+        if (agl > 40)
             return false;
+        // Big jets sit 15-20 ft above the ground on their gear, so height alone
+        // cannot tell. Near the ground the sim's own flag is trusted.
+        if (flag)
+            return true;
         if (indicatedKnots > 120 && agl > 12)
             return false;
-        if (agl < 4 && flag)
-            return true;
         if (agl < 8 && indicatedKnots < 40)
             return true;
         if (flag && agl < 18 && indicatedKnots < 90)

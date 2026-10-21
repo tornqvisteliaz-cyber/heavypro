@@ -25,6 +25,19 @@ public interface ISimClient : IDisposable
     void ApplyViewCue(ViewCue cue);
     void SetFeelGain(double gain);
     InputRouteStatus RouteStatus { get; }
+
+    /// <summary>
+    /// Direct route: HeavyPro reads the stick itself and is the only source of
+    /// stick events, sent where hardware enters the event chain. Set before Connect.
+    /// When false, the stick stays bound in MSFS and its events are masked.
+    /// </summary>
+    bool DirectInput { get; set; }
+
+    /// <summary>
+    /// Direct route only: the physical stick in AXIS event units (-16384..16384,
+    /// MSFS sign convention). Null leaves that axis to MSFS.
+    /// </summary>
+    void FeedPhysical(int? elevator, int? aileron, int? rudder);
     string RouteDetail { get; }
 }
 

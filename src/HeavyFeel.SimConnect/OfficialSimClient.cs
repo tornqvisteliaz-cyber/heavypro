@@ -316,6 +316,27 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     public void SetFeelGain(double gain) => _feelGain = Numeric.Clamp(gain, 0.35, 1.0);
 
+    public bool DirectInput { get; set; } = true;
+    private bool _directActive;
+
+    public void FeedPhysical(int? elevator, int? aileron, int? rudder)
+    {
+        if (_sim == null || !_directActive)
+            return;
+        try
+        {
+            if (elevator.HasValue) NotePhysical(Events.AxisElevator, elevator.Value);
+            if (aileron.HasValue) NotePhysical(Events.AxisAileron, aileron.Value);
+            if (rudder.HasValue) NotePhysical(Events.AxisRudder, rudder.Value);
+            _route.NoteDirectInput();
+        }
+        catch (Exception ex)
+        {
+            _route.Fault(ex.Message);
+            _logger.Error("Direct stick send failed", ex);
+        }
+    }
+
     private bool ShapingOwnsInput =>
         _shapingArmed
         && DateTime.UtcNow - _lastInfluence < ArmedTimeout
@@ -332,20 +353,25 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             && DateTime.UtcNow.Ticks - sent.Tick < EchoWindow.Ticks)
             return;
 
-        _physicalAxis[ev] = raw;
         _route.NoteMaskedAxis();
-        if (ShapingOwnsInput)
-            return;
-
         try
         {
-            TransmitAxis(ev, raw);
+            NotePhysical(ev, raw);
         }
         catch (Exception ex)
         {
             _route.Fault(ex.Message);
             _logger.Error("Axis pass-through failed", ex);
         }
+    }
+
+    /// <summary>Record the stick and, when not shaping, hand it straight to the sim.</summary>
+    private void NotePhysical(Events ev, int raw)
+    {
+        raw = (int)Numeric.Clamp(raw, -16383, 16383);
+        _physicalAxis[ev] = raw;
+        if (!ShapingOwnsInput)
+            TransmitAxis(ev, raw);
     }
 
     /// <summary>Send the last physical stick values so the sim matches the hardware again.</summary>
@@ -586,6 +612,17 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _sim!.MapClientEventToSimEvent(Events.AxisElevator, "AXIS_ELEVATOR_SET");
             _sim.MapClientEventToSimEvent(Events.AxisAileron, "AXIS_AILERONS_SET");
             _sim.MapClientEventToSimEvent(Events.AxisRudder, "AXIS_RUDDER_SET");
+            if (DirectInput)
+            {
+                // No notification group at all: measured in MSFS 2024, a client
+                // that holds these events in a maskable group cannot get its own
+                // sends through to add-ons like the PMDG 777.
+                _directActive = true;
+                _axisWriteReady = true;
+                _route.BeginDirect();
+                _logger.Info("Direct route: HeavyPro sends the stick where hardware enters. The stick's axes must be unbound in MSFS.");
+                return;
+            }
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisElevator, true);
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisAileron, true);
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisRudder, true);
@@ -712,7 +749,10 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
             ev,
             unchecked((uint)clamped),
-            EventPriority.Standard,
+            // Direct: enter where hardware does, so add-ons that run their own
+            // control model (PMDG, iniBuilds) take it like the real stick; measured
+            // smooth on the PMDG 777. Masked: below our own masking group.
+            DirectInput ? EventPriority.Highest : EventPriority.Standard,
             // Without this flag SimConnect reads the priority as a group ID,
             // rejects the event, and the masked stick never reaches the sim.
             SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY);
@@ -852,6 +892,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _yokeWriteReady = false;
         _shapingArmed = false;
         _flightLayoutBroken = false;
+        _directActive = false;
         _wasWriting = false;
         _sentNames.Clear();
         _writesDisabled = false;

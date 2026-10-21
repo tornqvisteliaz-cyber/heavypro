@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows.Input;
 using System.Windows.Threading;
+using HeavyFeel.App.Input;
 using HeavyFeel.Core.Models;
 using HeavyFeel.Core.Physics;
 using HeavyFeel.Core.Services;
@@ -38,6 +39,16 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private readonly ViewCueEngine _viewCue = new();
     private string _writeStatus = "Writes idle";
     private InfluenceCommand _lastCmd = InfluenceCommand.Idle("idle");
+    private readonly DispatcherTimer _stickTimer;
+    private DateTime _lastStickUi = DateTime.MinValue;
+    private DateTime _lastDeviceScan = DateTime.MinValue;
+    private double[] _pitchAxes = new double[6];
+    private string _stickStatus = "";
+    private string? _detecting;
+    private DateTime _detectUntil;
+    private Dictionary<string, double[]> _detectBase = new();
+    private readonly Dictionary<string, (double Delta, int Axis, double Sign)> _detectBest = new();
+    private const string NoRudder = "MSFS keeps the rudder";
 
     public MainViewModel(ISimClient client, ISettingsStore settingsStore, AppLogger logger, string backendName)
     {
@@ -47,6 +58,29 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _backend = backendName;
         _settings = settingsStore.Load();
         _settings.MasterEnable = false;
+        if (_settings.SettingsVersion < 3)
+        {
+            // 0.3.x shipped a 25 % deadzone slider and let a profile be pinned;
+            // both made heavy jets feel dead. Start everyone from sane values once.
+            _settings.InputDeadzone = Math.Min(_settings.InputDeadzone, 0.03);
+            _settings.AircraftProfile = "Auto Detect";
+            _settings.InputRoute = "Direct";
+            _settings.SettingsVersion = 3;
+            settingsStore.Save(_settings);
+        }
+        _client.DirectInput = IsDirect;
+        StickDevices = new ObservableCollection<JoystickDevice>();
+        RudderDevices = new ObservableCollection<JoystickDevice>();
+        AxisNames = new ObservableCollection<string>(JoystickReader.AxisNames);
+        InputRoutes = new ObservableCollection<string> { RouteDirectLabel, RouteMaskedLabel };
+        RefreshDevices();
+        DetectPitchCommand = new RelayCommand(() => StartDetect("pitch"));
+        DetectRollCommand = new RelayCommand(() => StartDetect("roll"));
+        DetectRudderCommand = new RelayCommand(() => StartDetect("rudder"));
+        RefreshDevicesCommand = new RelayCommand(RefreshDevices);
+        _stickTimer = new DispatcherTimer(DispatcherPriority.Send) { Interval = TimeSpan.FromMilliseconds(8) };
+        _stickTimer.Tick += (_, _) => PollStick();
+        _stickTimer.Start();
 
         Profiles = new ObservableCollection<string> { "Auto Detect", "Fenix A320", "PMDG 737", "PMDG 777", "ASOBO 787", "Generic GA", "Generic Airliner" };
         InputCurves = new ObservableCollection<string> { "Linear", "Expo", "S-Curve" };
@@ -103,6 +137,227 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ObservableCollection<string> InputCurves { get; }
     public ObservableCollection<string> ReleaseModes { get; }
     public ObservableCollection<string> LogLines { get; }
+
+    // ---------------- Stick setup (direct route) ----------------
+    private const string RouteDirectLabel = "Direct — all aircraft (recommended)";
+    private const string RouteMaskedLabel = "MSFS bindings — default aircraft only";
+    public ObservableCollection<string> InputRoutes { get; }
+    public ObservableCollection<JoystickDevice> StickDevices { get; }
+    public ObservableCollection<JoystickDevice> RudderDevices { get; }
+    public ObservableCollection<string> AxisNames { get; }
+    public ICommand DetectPitchCommand { get; }
+    public ICommand DetectRollCommand { get; }
+    public ICommand DetectRudderCommand { get; }
+    public ICommand RefreshDevicesCommand { get; }
+
+    public bool IsDirect => !string.Equals(_settings.InputRoute, "Masked", StringComparison.OrdinalIgnoreCase);
+
+    public string SelectedInputRoute
+    {
+        get => IsDirect ? RouteDirectLabel : RouteMaskedLabel;
+        set
+        {
+            var direct = value != RouteMaskedLabel;
+            if (direct == IsDirect) return;
+            _settings.InputRoute = direct ? "Direct" : "Masked";
+            _logger.Info("Input route set to " + _settings.InputRoute + ". Reconnecting.");
+            _client.DirectInput = direct;
+            if (_client.IsConnected)
+            {
+                _client.Disconnect();
+                _client.Connect();
+            }
+            OnChanged();
+            OnChanged(nameof(IsDirect));
+            OnChanged(nameof(SetupNote));
+            RaiseMeters();
+            ScheduleSave();
+        }
+    }
+
+    public JoystickDevice? SelectedStick
+    {
+        get => StickDevices.FirstOrDefault(d => d.Key == _settings.StickDevice);
+        set
+        {
+            if (value == null || value.Key == _settings.StickDevice) return;
+            _settings.StickDevice = value.Key;
+            OnChanged();
+            ScheduleSave();
+        }
+    }
+
+    public JoystickDevice? SelectedRudderDevice
+    {
+        get => RudderDevices.FirstOrDefault(d => d.Key == _settings.RudderDevice) ?? RudderDevices.FirstOrDefault();
+        set
+        {
+            if (value == null) return;
+            _settings.RudderDevice = value.Key;
+            OnChanged();
+            OnChanged(nameof(SetupNote));
+            ScheduleSave();
+        }
+    }
+
+    public string PitchAxis { get => _settings.PitchAxis; set { _settings.PitchAxis = value; OnChanged(); ScheduleSave(); } }
+    public string RollAxis { get => _settings.RollAxis; set { _settings.RollAxis = value; OnChanged(); ScheduleSave(); } }
+    public string RudderAxis { get => _settings.RudderAxis; set { _settings.RudderAxis = value; OnChanged(); ScheduleSave(); } }
+    public bool InvertPitch { get => _settings.InvertPitch; set { _settings.InvertPitch = value; OnChanged(); ScheduleSave(); } }
+    public bool InvertRoll { get => _settings.InvertRoll; set { _settings.InvertRoll = value; OnChanged(); ScheduleSave(); } }
+    public bool InvertRudder { get => _settings.InvertRudder; set { _settings.InvertRudder = value; OnChanged(); ScheduleSave(); } }
+
+    public string StickStatus
+    {
+        get => _stickStatus;
+        private set => Set(ref _stickStatus, value);
+    }
+
+    public string SetupNote => IsDirect
+        ? "In MSFS Controls, clear Elevator Axis and Aileron Axis"
+          + (string.IsNullOrEmpty(_settings.RudderDevice) ? "" : " and Rudder Axis")
+          + " for these devices. HeavyPro feeds them itself; a binding left in MSFS fights it and twitches."
+        : "Keep the stick bound to Elevator / Aileron / Rudder Axis in MSFS. Works with default aircraft; PMDG and iniBuilds need Direct.";
+
+    private bool StickConfigured => !string.IsNullOrEmpty(_settings.StickDevice);
+
+    private void RefreshDevices()
+    {
+        var found = JoystickReader.List();
+        StickDevices.Clear();
+        foreach (var d in found)
+            StickDevices.Add(d);
+        RudderDevices.Clear();
+        RudderDevices.Add(new JoystickDevice(-1, "", NoRudder, 0));
+        foreach (var d in found)
+            RudderDevices.Add(d);
+        _lastDeviceScan = DateTime.UtcNow;
+        OnChanged(nameof(SelectedStick));
+        OnChanged(nameof(SelectedRudderDevice));
+    }
+
+    private void StartDetect(string what)
+    {
+        _detectBase = new Dictionary<string, double[]>();
+        foreach (var d in StickDevices)
+            if (JoystickReader.TryRead(d.Id, out var axes))
+                _detectBase[d.Key] = axes;
+        _detectBest.Clear();
+        _detecting = what;
+        _detectUntil = DateTime.UtcNow.AddSeconds(4);
+        StickStatus = what switch
+        {
+            "pitch" => "Detecting: pull the stick fully back and hold it…",
+            "roll" => "Detecting: roll the stick fully right and hold it…",
+            _ => "Detecting: push the right rudder pedal fully and hold it…"
+        };
+    }
+
+    private void FinishDetect()
+    {
+        var what = _detecting!;
+        _detecting = null;
+        var best = _detectBest.OrderByDescending(b => b.Value.Delta).FirstOrDefault();
+        if (best.Key == null || best.Value.Delta < 0.4)
+        {
+            StickStatus = "Nothing moved far enough. Press Detect and move the control to its end.";
+            return;
+        }
+        var device = StickDevices.First(d => d.Key == best.Key);
+        var axis = JoystickReader.AxisNames[best.Value.Axis];
+        // Detection asks for pull back / roll right / right pedal, which must come
+        // out as +1 in HeavyPro's convention; flip the axis when it moved negative.
+        var invert = best.Value.Sign < 0;
+        switch (what)
+        {
+            case "pitch":
+                _settings.StickDevice = device.Key; _settings.PitchAxis = axis; _settings.InvertPitch = invert;
+                OnChanged(nameof(SelectedStick)); OnChanged(nameof(PitchAxis)); OnChanged(nameof(InvertPitch));
+                break;
+            case "roll":
+                _settings.StickDevice = device.Key; _settings.RollAxis = axis; _settings.InvertRoll = invert;
+                OnChanged(nameof(SelectedStick)); OnChanged(nameof(RollAxis)); OnChanged(nameof(InvertRoll));
+                break;
+            default:
+                _settings.RudderDevice = device.Key; _settings.RudderAxis = axis; _settings.InvertRudder = invert;
+                OnChanged(nameof(SelectedRudderDevice)); OnChanged(nameof(RudderAxis)); OnChanged(nameof(InvertRudder));
+                OnChanged(nameof(SetupNote));
+                break;
+        }
+        _logger.Info($"Detected {what}: {device.Name} axis {axis}{(invert ? " inverted" : "")}.");
+        StickStatus = $"{what} → {device.Name}, axis {axis}{(invert ? " (inverted)" : "")}";
+        ScheduleSave();
+    }
+
+    /// <summary>Reads the stick ~120 times a second and, on the direct route, feeds it to the sim.</summary>
+    private void PollStick()
+    {
+        var now = DateTime.UtcNow;
+        if (_detecting != null)
+        {
+            foreach (var d in StickDevices)
+            {
+                if (!_detectBase.TryGetValue(d.Key, out var baseAxes) || !JoystickReader.TryRead(d.Id, out var axes))
+                    continue;
+                for (var i = 0; i < 6; i++)
+                {
+                    var delta = axes[i] - baseAxes[i];
+                    if (!_detectBest.TryGetValue(d.Key, out var best) || Math.Abs(delta) > best.Delta)
+                        _detectBest[d.Key] = (Math.Abs(delta), i, Math.Sign(delta));
+                }
+            }
+            if (now >= _detectUntil)
+                FinishDetect();
+            return;
+        }
+
+        if (!StickConfigured)
+            return;
+        var stick = StickDevices.FirstOrDefault(d => d.Key == _settings.StickDevice);
+        if (stick == null || !JoystickReader.TryRead(stick.Id, out _pitchAxes))
+        {
+            // Unplugged or renumbered: rescan now and then, never every tick.
+            if ((now - _lastDeviceScan).TotalSeconds > 3)
+                RefreshDevices();
+            if ((now - _lastStickUi).TotalMilliseconds > 500)
+            {
+                _lastStickUi = now;
+                StickStatus = "Stick not found. Plug it in or pick it again.";
+            }
+            return;
+        }
+
+        var pitch = Read(_pitchAxes, _settings.PitchAxis, _settings.InvertPitch);
+        var roll = Read(_pitchAxes, _settings.RollAxis, _settings.InvertRoll);
+        double? yaw = null;
+        if (!string.IsNullOrEmpty(_settings.RudderDevice))
+        {
+            var pedals = RudderDevices.FirstOrDefault(d => d.Key == _settings.RudderDevice);
+            if (pedals != null && JoystickReader.TryRead(pedals.Id, out var pedalAxes))
+                yaw = Read(pedalAxes, _settings.RudderAxis, _settings.InvertRudder);
+        }
+
+        if (IsDirect && _client.IsConnected)
+            _client.FeedPhysical(ToAxisEvent(pitch), ToAxisEvent(roll), yaw.HasValue ? ToAxisEvent(yaw.Value) : null);
+
+        if ((now - _lastStickUi).TotalMilliseconds > 100)
+        {
+            _lastStickUi = now;
+            StickStatus = F("Stick  pitch {0:+0.00;-0.00;0.00}  roll {1:+0.00;-0.00;0.00}", pitch, roll)
+                + (yaw.HasValue ? F("  yaw {0:+0.00;-0.00;0.00}", yaw.Value) : "");
+        }
+    }
+
+    private static double Read(double[] axes, string axisName, bool invert)
+    {
+        var i = JoystickReader.AxisIndex(axisName);
+        if (i < 0) return 0;
+        return invert ? -axes[i] : axes[i];
+    }
+
+    // HeavyPro convention: +1 = pull back / roll right / right pedal. MSFS AXIS
+    // events use the opposite sign (measured: full pull = -16384, full right = -16384).
+    private static int ToAxisEvent(double value) => (int)Math.Round(-Numeric.Clamp(value, -1, 1) * 16384.0);
 
     public string Status
     {
@@ -299,7 +554,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public double InputDeadzonePercent
     {
         get => _settings.InputDeadzone * 100;
-        set => SetInputSetting(nameof(InputDeadzonePercent), Numeric.Clamp(value, 0, 25) / 100, v => _settings.InputDeadzone = v);
+        set => SetInputSetting(nameof(InputDeadzonePercent), Numeric.Clamp(value, 0, 10) / 100, v => _settings.InputDeadzone = v);
     }
 
     public double InputSensitivityPercent
@@ -350,6 +605,17 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         set
         {
             _settings.AirspeedResponseEnabled = value;
+            OnChanged();
+            ScheduleSave();
+        }
+    }
+
+    public bool RudderLimiter
+    {
+        get => _settings.RudderLimiter;
+        set
+        {
+            _settings.RudderLimiter = value;
             OnChanged();
             ScheduleSave();
         }
@@ -465,6 +731,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         get
         {
             if (!_client.IsConnected) return "OFFLINE";
+            if (IsDirect && !StickConfigured) return "SET UP STICK";
             if (_client.RouteStatus == InputRouteStatus.Fault) return "FAULT";
             if (!MasterEnable) return "PASS-THROUGH";
             if (_snap.AutopilotMaster) return "AP ON · PAUSED";
@@ -476,10 +743,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public string RouteHint => RouteBadge switch
     {
         "OFFLINE" => "Start MSFS 2024 and load a flight. HeavyPro connects on its own.",
+        "SET UP STICK" => "Pick your stick under Stick setup, or press Detect and move it.",
         "FAULT" => "SimConnect refused a stick write. Disconnect and connect again.",
         "PASS-THROUGH" => "Your stick goes to the sim untouched. Turn on Master Enable to add weight.",
         "AP ON · PAUSED" => "Autopilot is flying. HeavyPro hands the stick back until you disconnect it.",
-        "MOVE STICK" => "Move the stick once. It must be bound to Elevator, Aileron and Rudder Axis in MSFS.",
+        "MOVE STICK" => IsDirect ? "Waiting for the stick. Check it is plugged in." : "Move the stick once. It must be bound to Elevator, Aileron and Rudder Axis in MSFS.",
         _ => "The gold bar is what the aircraft gets. The white tick is your stick."
     };
 
@@ -528,6 +796,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         Persist();
         _reconnectTimer.Stop();
         _saveTimer.Stop();
+        _stickTimer.Stop();
         _client.Dispose();
         _logger.Dispose();
     }

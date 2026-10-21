@@ -5,18 +5,46 @@ Windows desktop app for **Microsoft Flight Simulator 2024** that makes your stic
 ## Install (players)
 
 1. Run `HeavyProSetup.exe` and point it at your MSFS 2024 Community folder.
-2. In MSFS, bind your stick and pedals to **Elevator Axis**, **Aileron Axis** and **Rudder Axis** (the defaults for most sticks).
-3. Start HeavyPro, load a flight, tick **MASTER ENABLE** and move the stick once.
+2. Start HeavyPro. Under **Stick setup** press **Detect** next to Pitch and pull the stick fully back, then **Detect** next to Roll and roll fully right. Do the same for your rudder pedals if you want HeavyPro to shape them.
+3. In MSFS **Controls**, clear **Elevator Axis** and **Aileron Axis** (and **Rudder Axis** if HeavyPro has your pedals) for those devices. HeavyPro now feeds them itself.
+4. Load a flight and tick **MASTER ENABLE**.
+
+The **Direct** route works with every aircraft we tested, including the PMDG 777 and add-ons that run their own control model. The older **MSFS bindings** route (stick stays bound in MSFS, HeavyPro intercepts it) still exists for default aircraft, but PMDG and iniBuilds aircraft fight it.
+
+If you leave an axis bound in MSFS while on the Direct route, MSFS and HeavyPro both drive the yoke and it twitches.
 
 The header badge tells you what is happening:
 
 | Badge | Meaning |
 |-------|---------|
 | `SHAPING` (green) | Working. The gold bar in **Stick → Aircraft** is what the aircraft gets, the white tick is your stick. |
-| `MOVE STICK` | Connected, waiting for the first stick event. If it stays, check the MSFS axis bindings above. |
+| `SET UP STICK` | Direct route, but no stick picked yet. Use **Detect** under Stick setup. |
+| `MOVE STICK` | Connected, waiting for the stick. |
 | `PASS-THROUGH` | Master Enable is off. Your stick reaches the sim untouched. |
 | `AP ON · PAUSED` | Autopilot engaged. HeavyPro hands the stick back until you disconnect it. |
 | `OFFLINE` | MSFS is not running yet. HeavyPro connects on its own. |
+
+## What's new in 0.4.0
+
+Tested live in MSFS 2024 with the PMDG 777-300ER:
+
+- **Fixed: PMDG yoke "does not move", twitches, or sticks at full deflection.** PMDG runs its own control model from a SimConnect group further down the event chain. HeavyPro used to take the stick's events and re-send them below that group, so PMDG never saw them: the sim applied each one for a frame and PMDG put its own value back (measured: ~90 direction changes in 6 s), and PMDG kept the last real stick position (the aileron stayed at full right after the stick was centred). The new **Direct** route reads the stick from Windows and sends where hardware enters. A test client sending that way to the 777 gave zero direction changes; the full Direct route still needs a flight with a real stick to confirm.
+- **Fixed:** turning shaping on, or the autopilot off, with the stick deflected no longer jumps the yoke to centre first.
+- **Fixed:** heavy jets sit 15–20 ft above the ground on their gear, so the 777 on the runway was treated as airborne ("Approach"). The sim's own on-ground flag is now trusted near the ground.
+- **Realistic feel per control system** (see below).
+- Full travel is capped at 2.5 s and the deadzone at 10 %: past that a heavy jet feels dead rather than heavy. Settings from 0.3 are reset once to Auto Detect profile and a 3 % deadzone.
+
+## How the feel is modelled
+
+A desktop stick has a fixed spring, so HeavyPro renders weight as how quickly the aircraft's controls follow your stick. On top of the weight and inertia model it applies the real control system of the aircraft you fly:
+
+| Control system | Aircraft | Real-world feel | In HeavyPro |
+|---|---|---|---|
+| Artificial feel | Boeing yokes (737, 747, 767, 777, 787), A300/A310, E-Jets | A feel unit fed by airspeed (737: tail pitot and stabiliser position) makes the column heavier as speed builds; hydraulic surfaces have a top speed | Stiffens with dynamic pressure: light while taxiing, heavy at cruise. Never faster than 0.4 s to full travel |
+| FBW sidestick | Airbus A320 family, A330, A340, A350, A380, A220 | Same spring at every speed; the stick commands g and roll rate, so the weight is in the aircraft's response | Light shaping only (at most 0.6 s), no airspeed scaling, which avoids pilot-induced oscillation |
+| Mechanical | Light aircraft, most turboprops and bizjets | Stick force grows with dynamic pressure (V²) | Stiffens with dynamic pressure on a light-aircraft scale |
+
+**Jet rudder limiter:** like the 747's rudder ratio changer (about 30° of rudder at low speed down to about 5° near 500 kt), rudder throw shrinks from full at 160 kt to a fifth by 320 kt. It is skipped for PMDG, Fenix, iniBuilds and FlyByWire aircraft, which model it themselves, and can be turned off.
 
 ## Licensing
 
@@ -30,7 +58,7 @@ HeavyPro needs a licence key (`HPRO-XXXX-XXXX-XXXX`), issued with the Rotaidem l
 
 Keys are saved in `%LOCALAPPDATA%\Rotaidem\heavypro\license.json`. To move a licence to another PC, remove the old computer under Admin → Licences on the website.
 
-## What's new in 0.3.0
+## 0.3.0
 
 Tested against a live MSFS 2024 (1.9.18) session:
 

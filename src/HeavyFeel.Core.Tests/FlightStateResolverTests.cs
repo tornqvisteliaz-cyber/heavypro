@@ -46,6 +46,13 @@ public class FlightStateResolverTests
     [Fact]
     public void Fast_and_off_the_runway_is_air()
     {
-        Assert.False(FlightStateResolver.ResolveOnGround(1, 1, 20, 18, indicatedKnots: 155));
+        Assert.False(FlightStateResolver.ResolveOnGround(0, 0, 20, 18, indicatedKnots: 155));
+    }
+
+    [Fact]
+    public void Heavy_jet_on_its_gear_is_ground()
+    {
+        // PMDG 777 on the runway: ~17.5 ft AGL, SIM ON GROUND set, takeoff roll.
+        Assert.True(FlightStateResolver.ResolveOnGround(0, 1, 17.5, 17.5, indicatedKnots: 150, simOnGroundInt: 1));
     }
 }

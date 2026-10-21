@@ -69,7 +69,8 @@ public sealed class InertiaEngine
             FilteredYaw = frame.FilteredRudder,
             OutYaw = frame.FinalRudder,
             AirspeedFactor = frame.AirspeedFactor,
-            Reason = $"WRITING shaped stick · {phase} · {frame.Profile} · scale {CommunityProfile.TravelScale():0.00} · P {frame.PitchSeconds:0.00}s"
+            Reason = $"WRITING shaped stick · {phase} · {frame.Profile} · {frame.Feel} · P {frame.PitchSeconds:0.00}s"
+                + (frame.RudderAuthority < 0.999 ? $" · rudder {frame.RudderAuthority:P0}" : "")
         };
     }
 
