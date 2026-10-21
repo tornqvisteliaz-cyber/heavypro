@@ -50,6 +50,8 @@ public sealed class AppSettings
     public string RudderAxis { get; set; } = "R";
     public bool InvertRudder { get; set; }
     public int SettingsVersion { get; set; }
+
+    public List<CustomProfile> CustomProfiles { get; set; } = new();
     public string FeelLevel { get; set; } = "RealisticPlus";
     public double WindowWidth { get; set; } = 1280;
     public double WindowHeight { get; set; } = 800;

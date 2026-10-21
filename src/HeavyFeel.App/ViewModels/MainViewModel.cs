@@ -93,6 +93,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         SetFeelNormalCommand = new RelayCommand(() => ApplyFeel(FeelLevel.Normal));
         SetFeelMediumCommand = new RelayCommand(() => ApplyFeel(FeelLevel.Medium));
         SetFeelRealisticCommand = new RelayCommand(() => ApplyFeel(FeelLevel.Realistic));
+        CustomProfiles = new ObservableCollection<CustomProfile>(_settings.CustomProfiles);
+        SaveProfileCommand = new RelayCommand(SaveProfile);
+        ApplyProfileCommand = new RelayCommand(ApplyProfile);
+        DeleteProfileCommand = new RelayCommand(DeleteProfile);
 
         _client.StateChanged += (_, _) => Dispatch(RefreshConnection);
         _client.StatusMessage += (_, msg) => Dispatch(() => Status = msg);
@@ -133,6 +137,92 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ICommand SetFeelNormalCommand { get; }
     public ICommand SetFeelMediumCommand { get; }
     public ICommand SetFeelRealisticCommand { get; }
+
+    // ---------------- Custom profiles ----------------
+    public ObservableCollection<CustomProfile> CustomProfiles { get; }
+    public ICommand SaveProfileCommand { get; }
+    public ICommand ApplyProfileCommand { get; }
+    public ICommand DeleteProfileCommand { get; }
+
+    private CustomProfile? _selectedCustomProfile;
+    public CustomProfile? SelectedCustomProfile
+    {
+        get => _selectedCustomProfile;
+        set
+        {
+            if (ReferenceEquals(_selectedCustomProfile, value)) return;
+            Set(ref _selectedCustomProfile, value);
+            if (value != null)
+                NewProfileName = value.Name;
+        }
+    }
+
+    private string _newProfileName = "";
+    public string NewProfileName
+    {
+        get => _newProfileName;
+        set => Set(ref _newProfileName, value ?? "");
+    }
+
+    /// <summary>Saves the current tuning under the typed name; an existing name is overwritten.</summary>
+    private void SaveProfile()
+    {
+        var name = NewProfileName.Trim();
+        if (name.Length == 0)
+            name = "Profile " + (CustomProfiles.Count + 1);
+        var profile = CustomProfile.Capture(name, _settings);
+        var existing = CustomProfiles.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+        {
+            var index = CustomProfiles.IndexOf(existing);
+            CustomProfiles[index] = profile;
+            _logger.Info($"Profile \"{name}\" updated with the current tuning.");
+        }
+        else
+        {
+            CustomProfiles.Add(profile);
+            _logger.Info($"Profile \"{name}\" saved.");
+        }
+        SyncProfiles();
+        SelectedCustomProfile = profile;
+    }
+
+    private void ApplyProfile()
+    {
+        var profile = SelectedCustomProfile;
+        if (profile == null) return;
+        profile.ApplyTo(_settings);
+        foreach (var name in new[]
+        {
+            nameof(Inertia), nameof(PitchDamping), nameof(RollDamping), nameof(YawDamping), nameof(ControlResponse),
+            nameof(GroundInertia), nameof(TurbulenceResponse), nameof(SelectedInputCurve), nameof(InputDeadzonePercent),
+            nameof(InputSensitivityPercent), nameof(ExpoStrengthPercent), nameof(InputAccelerationPercent),
+            nameof(InputDecelerationPercent), nameof(PitchRateLimit), nameof(RollRateLimit), nameof(YawRateLimit),
+            nameof(AirspeedResponseEnabled), nameof(AirspeedResponsePercent), nameof(RudderLimiter), nameof(StickReleaseMode),
+            nameof(ReturnDelayMs), nameof(SelectedProfile), nameof(PreviewTau), nameof(DebugPanel)
+        })
+            OnChanged(name);
+        RaiseFeel();
+        _logger.Info($"Profile \"{profile.Name}\" applied — used on the next write frame.");
+        ScheduleSave();
+    }
+
+    private void DeleteProfile()
+    {
+        var profile = SelectedCustomProfile;
+        if (profile == null) return;
+        CustomProfiles.Remove(profile);
+        SyncProfiles();
+        SelectedCustomProfile = null;
+        NewProfileName = "";
+        _logger.Info($"Profile \"{profile.Name}\" deleted.");
+    }
+
+    private void SyncProfiles()
+    {
+        _settings.CustomProfiles = CustomProfiles.ToList();
+        ScheduleSave();
+    }
     public ObservableCollection<string> Profiles { get; }
     public ObservableCollection<string> InputCurves { get; }
     public ObservableCollection<string> ReleaseModes { get; }
