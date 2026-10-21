@@ -52,7 +52,7 @@ HeavyPro needs a licence key (`HPRO-XXXX-XXXX-XXXX`), issued with the Rotaidem l
 
 - **Installer:** asks for the key and activates it online before installing. A key already saved on the PC is filled in.
 - **App:** with no saved key it opens an **Activate HeavyPro** window (this also covers the installer running as a different Windows user). A key confirmed within the last 14 days starts at once and is re-checked in the background. If the server says the key is revoked or removed from this PC, HeavyPro closes and asks for a key next time. Offline it keeps working for 14 days, and warns only in the last 3.
-- **Server:** `https://rotaidem.onrender.com`, set in [src/Shared/HeavyProLicense.cs](src/Shared/HeavyProLicense.cs). Change it to `https://rotaidem.com` once that domain points at Render.
+- **Server:** `https://rotaidem.com` (the Rotaidem website on STRATO), set in [src/Shared/HeavyProLicense.cs](src/Shared/HeavyProLicense.cs) through `LicenseClient.DefaultBaseUrl`.
 - **Debug builds skip the check** so Visual Studio F5 works without a key. The installer always ships a Release build.
 - `src/Rotaidem.Licensing` is copied from `rsg.com` (`licensing/`, branch `claude/lucid-tesla-liazv2`, commit `309bf51`), with its own `Directory.Build.props` so it doesn't inherit this repo's x64 settings. It has no package dependencies, so the setup compiles its source in.
 - `HeavyProSetup.exe` targets .NET Framework 4.8, which ships with Windows 10 and 11, so it needs no bundled runtime and is about 1.5 MB (it was ~69 MB as a self-contained .NET 8 exe).
