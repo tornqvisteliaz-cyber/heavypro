@@ -13,6 +13,7 @@ public sealed class InputDynamicsEngine
     private readonly AxisDynamicsState _aileron = new();
     private readonly AxisDynamicsState _rudder = new();
     private bool _seed;
+    private double _clock;
 
     public InputDynamicsFrame Step(AppSettings settings, FlightSnapshot snapshot, double deltaTime)
         => Step(settings, snapshot, deltaTime, CommunityProfile.TravelScale());
@@ -52,17 +53,19 @@ public sealed class InputDynamicsEngine
 
         var phase = FlightPhaseResolver.Resolve(snapshot);
         var speedScale = feel.SpeedScale(settings, snapshot);
-        var scale = ControlInertia.PhaseScale(phase) * speedScale / ResponseScale(settings.ControlResponse);
-        var tune = (0.7 + Numeric.Clamp(settings.Inertia, 0, 100) / 140.0) * Numeric.Clamp(travelScale, 0.5, 3);
+        // Each slider is a travel-time multiplier on an exponential scale, 1x at 50,
+        // so moving a slider is always clearly felt in both directions.
+        var scale = ControlInertia.PhaseScale(phase) * speedScale * SliderScale(settings.ControlResponse, 1.8, 0.55);
+        var tune = SliderScale(settings.Inertia, 0.35, 2.8) * Numeric.Clamp(travelScale, 0.5, 3) * feel.BaseScale;
         if (snapshot.OnGround)
-            tune *= 0.85 + Numeric.Clamp(settings.GroundInertia, 0, 100) / 100.0 * 0.3;
+            tune *= SliderScale(settings.GroundInertia, 0.6, 1.7);
 
         var pitchRate = settings.PitchRateLimit > 0 ? settings.PitchRateLimit : profile.Elevator.MaxRate;
         var rollRate = settings.RollRateLimit > 0 ? settings.RollRateLimit : profile.Aileron.MaxRate;
         var yawRate = settings.YawRateLimit > 0 ? settings.YawRateLimit : profile.Rudder.MaxRate;
-        var pitchTime = ControlInertia.TravelSeconds(snapshot.PitchMoi, snapshot.TotalWeightPounds, pitchRate > 0 ? 1.2 / pitchRate : 0.35, snapshot.Class) * scale * tune;
-        var rollTime = ControlInertia.TravelSeconds(snapshot.RollMoi, snapshot.TotalWeightPounds, rollRate > 0 ? 1.0 / rollRate : 0.25, snapshot.Class) * scale * tune;
-        var yawTime = ControlInertia.TravelSeconds(snapshot.YawMoi, snapshot.TotalWeightPounds, yawRate > 0 ? 1.1 / yawRate : 0.35, snapshot.Class) * scale * tune;
+        var pitchTime = ControlInertia.TravelSeconds(snapshot.PitchMoi, snapshot.TotalWeightPounds, pitchRate > 0 ? 1.2 / pitchRate : 0.35, snapshot.Class) * scale * tune * SliderScale(settings.PitchDamping, 0.5, 2.0);
+        var rollTime = ControlInertia.TravelSeconds(snapshot.RollMoi, snapshot.TotalWeightPounds, rollRate > 0 ? 1.0 / rollRate : 0.25, snapshot.Class) * scale * tune * SliderScale(settings.RollDamping, 0.5, 2.0);
+        var yawTime = ControlInertia.TravelSeconds(snapshot.YawMoi, snapshot.TotalWeightPounds, yawRate > 0 ? 1.1 / yawRate : 0.35, snapshot.Class) * scale * tune * SliderScale(settings.YawDamping, 0.5, 2.0);
         pitchTime = Numeric.Clamp(pitchTime, feel.MinTravelSeconds, feel.MaxTravelSeconds);
         rollTime = Numeric.Clamp(rollTime, feel.MinTravelSeconds, feel.MaxTravelSeconds);
         yawTime = Numeric.Clamp(yawTime, feel.MinTravelSeconds, feel.MaxTravelSeconds);
@@ -76,6 +79,16 @@ public sealed class InputDynamicsEngine
         var aileron = ControlInertia.Step(_aileron, shapedAileron, deltaTime, rollTime, accel, decel, DampingScale(settings.RollDamping), rollRelease.Delay, rollRelease.Rate);
         var rudder = ControlInertia.Step(_rudder, shapedRudder, deltaTime, yawTime, accel, decel, DampingScale(settings.YawDamping), yawRelease.Delay, yawRelease.Rate);
 
+        // Turbulence: a gentle buffet on the controls in the air, growing with airspeed.
+        _clock += deltaTime;
+        var buffet = snapshot.OnGround
+            ? 0
+            : Numeric.Clamp(settings.TurbulenceResponse, 0, 100) / 100.0 * 0.03
+              * Numeric.Clamp(ControlFeel.DynamicPressure(snapshot) / feel.ReferenceQ, 0, 1.5);
+        // Only while the pilot is holding the stick off centre: hands off means no writes.
+        var finalElevator = Numeric.Clamp(elevator.Output + buffet * Math.Min(1, Math.Abs(elevator.Target) * 5) * Noise(_clock, 0), -1, 1);
+        var finalAileron = Numeric.Clamp(aileron.Output + buffet * 0.7 * Math.Min(1, Math.Abs(aileron.Target) * 5) * Noise(_clock, 1.7), -1, 1);
+
         return new InputDynamicsFrame
         {
             Profile = profile.Name,
@@ -84,10 +97,10 @@ public sealed class InputDynamicsEngine
             RudderAuthority = rudderAuthority,
             RawElevator = rawElevator,
             FilteredElevator = elevator.Target,
-            FinalElevator = elevator.Output,
+            FinalElevator = finalElevator,
             RawAileron = rawAileron,
             FilteredAileron = aileron.Target,
-            FinalAileron = aileron.Output,
+            FinalAileron = finalAileron,
             RawRudder = rawRudder,
             FilteredRudder = rudder.Target,
             FinalRudder = rudder.Output,
@@ -142,7 +155,13 @@ public sealed class InputDynamicsEngine
     }
 
     // ControlResponse 40 (the default) leaves travel time unchanged.
-    private static double ResponseScale(double response) => (0.5 + Numeric.Clamp(response, 0, 100) / 100.0) / 0.9;
+    /// <summary>Slider 0..100 to a multiplier from <paramref name="at0"/> to <paramref name="at100"/>, geometric so 50 is the midpoint.</summary>
+    public static double SliderScale(double value, double at0, double at100) =>
+        at0 * Math.Pow(at100 / at0, Numeric.Clamp(double.IsNaN(value) ? 50 : value, 0, 100) / 100.0);
+
+    // Smooth, non-repeating-looking wobble in -1..1.
+    private static double Noise(double t, double phase) =>
+        0.55 * Math.Sin(t * 1.9 + phase) + 0.3 * Math.Sin(t * 4.3 + phase * 2.1) + 0.15 * Math.Sin(t * 9.1 + phase * 3.7);
 
     // Damping 50 leaves the acceleration phase unchanged.
     private static double DampingScale(double damping) => (0.8 + Numeric.Clamp(damping, 0, 100) / 100.0) / 1.3;

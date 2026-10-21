@@ -110,358 +110,429 @@
             </Grid>
         </Border>
 
-        <Grid Margin="18,16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300"/>
-                <ColumnDefinition Width="16"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel>
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                        <StackPanel>
-                            <Grid Margin="0,0,0,10">
-                                <TextBlock Text="STICK SETUP" Style="{StaticResource SectionText}"/>
-                                <Button Content="Rescan" Command="{Binding RefreshDevicesCommand}" Padding="8,2" FontSize="10"
-                                        HorizontalAlignment="Right"/>
-                            </Grid>
-                            <ComboBox ItemsSource="{Binding InputRoutes}" SelectedItem="{Binding SelectedInputRoute}" Margin="0,0,0,8"/>
-                            <TextBlock Text="Stick" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"/>
-                            <ComboBox ItemsSource="{Binding StickDevices}" SelectedItem="{Binding SelectedStick}" Margin="0,0,0,8"/>
-                            <Grid Margin="0,0,0,6">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="44"/><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-                                <TextBlock Text="Pitch" VerticalAlignment="Center"/>
-                                <ComboBox Grid.Column="1" ItemsSource="{Binding AxisNames}" SelectedItem="{Binding PitchAxis}" MinHeight="28"/>
-                                <CheckBox Grid.Column="2" Content="Invert" IsChecked="{Binding InvertPitch}" Margin="8,0,0,0"/>
-                                <Button Grid.Column="3" Content="Detect" Command="{Binding DetectPitchCommand}" Padding="8,3"/>
-                                <TextBlock Grid.Row="1" Text="Roll" VerticalAlignment="Center"/>
-                                <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding AxisNames}" SelectedItem="{Binding RollAxis}" MinHeight="28" Margin="0,4,0,0"/>
-                                <CheckBox Grid.Row="1" Grid.Column="2" Content="Invert" IsChecked="{Binding InvertRoll}" Margin="8,4,0,0"/>
-                                <Button Grid.Row="1" Grid.Column="3" Content="Detect" Command="{Binding DetectRollCommand}" Padding="8,3" Margin="0,4,0,0"/>
-                            </Grid>
-                            <TextBlock Text="Rudder pedals" Style="{StaticResource MutedText}" FontSize="11" Margin="0,4,0,4"/>
-                            <ComboBox ItemsSource="{Binding RudderDevices}" SelectedItem="{Binding SelectedRudderDevice}" Margin="0,0,0,6"/>
-                            <Grid Margin="0,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="44"/><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Yaw" VerticalAlignment="Center"/>
-                                <ComboBox Grid.Column="1" ItemsSource="{Binding AxisNames}" SelectedItem="{Binding RudderAxis}" MinHeight="28"/>
-                                <CheckBox Grid.Column="2" Content="Invert" IsChecked="{Binding InvertRudder}" Margin="8,0,0,0"/>
-                                <Button Grid.Column="3" Content="Detect" Command="{Binding DetectRudderCommand}" Padding="8,3"/>
-                            </Grid>
-                            <TextBlock Text="{Binding StickStatus}" FontFamily="Consolas" FontSize="10" TextWrapping="Wrap"
-                                       Foreground="{StaticResource BrushAccent}" Margin="0,0,0,6"/>
-                            <TextBlock Text="{Binding SetupNote}" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                        <StackPanel>
-                            <TextBlock Text="FEEL PROFILE" Style="{StaticResource SectionText}" Margin="0,0,0,10"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Button Content="Normal" Command="{Binding SetFeelNormalCommand}" Margin="0,0,4,0">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource FeelTab}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsFeelNormal}" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-                                                    <Setter Property="Foreground" Value="{StaticResource BrushBg0}"/>
-                                                    <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-                                <Button Grid.Column="1" Content="Medium" Command="{Binding SetFeelMediumCommand}" Margin="2,0">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource FeelTab}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsFeelMedium}" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-                                                    <Setter Property="Foreground" Value="{StaticResource BrushBg0}"/>
-                                                    <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-                                <Button Grid.Column="2" Content="Realistic" Command="{Binding SetFeelRealisticCommand}" Margin="4,0,0,0">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource FeelTab}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsFeelRealistic}" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
-                                                    <Setter Property="Foreground" Value="{StaticResource BrushBg0}"/>
-                                                    <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
-                            </Grid>
-                            <TextBlock Text="{Binding FeelCaption}" TextWrapping="Wrap" Style="{StaticResource MutedText}"
-                                       FontSize="11" Margin="0,10,0,2"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                        <StackPanel>
-                            <TextBlock Text="MY PROFILES" Style="{StaticResource SectionText}" Margin="0,0,0,10"/>
-                            <ComboBox ItemsSource="{Binding CustomProfiles}" SelectedItem="{Binding SelectedCustomProfile}" Margin="0,0,0,8"/>
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                <Button Content="Apply" Command="{Binding ApplyProfileCommand}" Style="{StaticResource PrimaryButton}"/>
-                                <Button Grid.Column="2" Content="Delete" Command="{Binding DeleteProfileCommand}"/>
-                            </Grid>
-                            <TextBlock Text="Name" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <TextBox Text="{Binding NewProfileName, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" MinHeight="32"
-                                         Background="{StaticResource BrushBg2}" Foreground="{StaticResource BrushText}"
-                                         BorderBrush="{StaticResource BrushLine}" CaretBrush="{StaticResource BrushText}"/>
-                                <Button Grid.Column="1" Content="Save current" Command="{Binding SaveProfileCommand}" Margin="8,0,0,0"/>
-                            </Grid>
-                            <Grid Margin="0,8,0,0">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                <Button Content="Share online" Command="{Binding ShareProfileCommand}"
-                                        ToolTip="Publish the selected profile. Anyone with HeavyPro can get it by its name."/>
-                                <Button Grid.Column="2" Content="Get by name" Command="{Binding GetSharedProfileCommand}"
-                                        ToolTip="Download the shared profile whose name is typed above."/>
-                            </Grid>
-                            <TextBlock Text="{Binding ProfileStatus}" FontFamily="Consolas" FontSize="10" TextWrapping="Wrap"
-                                       Foreground="{StaticResource BrushAccent}" Margin="0,6,0,0"/>
-                            <TextBlock Text="Save current keeps the tuning under the name. Share online publishes the selected profile; anyone with HeavyPro can then type that name and press Get by name."
-                                       Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                        <StackPanel>
-                            <TextBlock Text="RESPONSE TUNING" Style="{StaticResource SectionText}" Margin="0,0,0,12"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Inertia"/><TextBlock Text="{Binding Inertia, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Value="{Binding Inertia}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Pitch"/><TextBlock Text="{Binding PitchDamping, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Value="{Binding PitchDamping}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Roll"/><TextBlock Text="{Binding RollDamping, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Value="{Binding RollDamping}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Yaw"/><TextBlock Text="{Binding YawDamping, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Value="{Binding YawDamping}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Response"/><TextBlock Text="{Binding ControlResponse, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Value="{Binding ControlResponse}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Ground"/><TextBlock Text="{Binding GroundInertia, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Value="{Binding GroundInertia}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Turbulence"/><TextBlock Text="{Binding TurbulenceResponse, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Value="{Binding TurbulenceResponse}"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                        <StackPanel>
-                            <TextBlock Text="INPUT DYNAMICS" Style="{StaticResource SectionText}" Margin="0,0,0,10"/>
-                            <TextBlock Text="Curve" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"/>
-                            <ComboBox ItemsSource="{Binding InputCurves}" SelectedItem="{Binding SelectedInputCurve}" Margin="0,0,0,8"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Expo strength (%)"/><TextBlock Text="{Binding ExpoStrengthPercent, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Minimum="0" Maximum="100" Value="{Binding ExpoStrengthPercent}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Deadzone (%)"/><TextBlock Text="{Binding InputDeadzonePercent, StringFormat={}{0:0.0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Minimum="0" Maximum="10" Value="{Binding InputDeadzonePercent}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Sensitivity (%)"/><TextBlock Text="{Binding InputSensitivityPercent, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Minimum="25" Maximum="200" Value="{Binding InputSensitivityPercent}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Acceleration limit (%)"/><TextBlock Text="{Binding InputAccelerationPercent, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Minimum="25" Maximum="200" Value="{Binding InputAccelerationPercent}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Deceleration limit (%)"/><TextBlock Text="{Binding InputDecelerationPercent, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Minimum="25" Maximum="200" Value="{Binding InputDecelerationPercent}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Pitch rate limit (units/s)"/><TextBlock Text="{Binding PitchRateLimit, StringFormat={}{0:0.00}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Minimum="0.1" Maximum="6" Value="{Binding PitchRateLimit}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Roll rate limit (units/s)"/><TextBlock Text="{Binding RollRateLimit, StringFormat={}{0:0.00}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Minimum="0.1" Maximum="6" Value="{Binding RollRateLimit}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Yaw rate limit (units/s)"/><TextBlock Text="{Binding YawRateLimit, StringFormat={}{0:0.00}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Minimum="0.1" Maximum="6" Value="{Binding YawRateLimit}" Margin="0,0,0,7"/>
-                            <CheckBox Content="Airspeed feel (heavier as speed builds)" IsChecked="{Binding AirspeedResponseEnabled}" Margin="0,2,0,4"/>
-                            <CheckBox Content="Jet rudder limiter at speed" IsChecked="{Binding RudderLimiter}" Margin="0,0,0,4"
-                                      ToolTip="Less rudder throw as speed rises, like the 747 ratio changer. Skipped for PMDG, Fenix, iniBuilds and FlyByWire, which model it themselves."/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="High-speed damping (%)"/><TextBlock Text="{Binding AirspeedResponsePercent, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Minimum="0" Maximum="100" Value="{Binding AirspeedResponsePercent}" Margin="0,0,0,7"/>
-                            <Grid Margin="0,0,0,2"><TextBlock Text="Release delay (ms)"/><TextBlock Text="{Binding ReturnDelayMs, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
-                            <Slider Minimum="0" Maximum="1500" Value="{Binding ReturnDelayMs}" Margin="0,0,0,7"/>
-                            <TextBlock Text="Stick release" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"/>
-                            <ComboBox ItemsSource="{Binding ReleaseModes}" SelectedItem="{Binding StickReleaseMode}"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,12">
-                        <StackPanel>
-                            <TextBlock Text="AIRCRAFT &amp; APP" Style="{StaticResource SectionText}" Margin="0,0,0,9"/>
-                            <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"/>
-                            <TextBlock Text="{Binding DetectedProfile, StringFormat=Detected: {0}}" Style="{StaticResource MutedText}" FontSize="11" Margin="0,7,0,5"/>
-                            <CheckBox Content="Auto-connect" IsChecked="{Binding AutoConnect}"/>
-                            <CheckBox Content="Log telemetry" IsChecked="{Binding LogTelemetry}"/>
-                            <CheckBox Content="Show debug data" IsChecked="{Binding DebugMode}"/>
-                            <CheckBox Content="Cockpit view cue" IsChecked="{Binding ViewCue}"/>
-                            <TextBlock Text="{Binding WriteStatus}" TextWrapping="Wrap" FontFamily="Consolas"
-                                       FontSize="10" Foreground="{StaticResource BrushAccent}" Margin="0,11,0,0"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <TextBlock Text="SYSTEM NOTES" Style="{StaticResource SectionText}" Margin="0,0,0,8"/>
-                            <TextBlock Text="Aircraft dynamics presets are starting values, not manufacturer data. HeavyPro changes control input only; some add-on aircraft may ignore SimConnect control events."
-                                       Style="{StaticResource MutedText}" TextWrapping="Wrap" FontSize="11"/>
-                            <TextBlock Text="{Binding DebugPanel}" TextWrapping="Wrap" FontFamily="Consolas"
-                                       FontSize="10" Margin="0,10,0,0">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding DebugMode}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-            </ScrollViewer>
-
-            <Grid Grid.Column="2">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="150"/>
-                </Grid.RowDefinitions>
-
-                <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,12" ClipToBounds="True">
-                    <Grid>
-                        <Image Source="/HeavyPro;component/Assets/RsgBanner.png" Opacity="0.075"
-                               Stretch="UniformToFill" HorizontalAlignment="Right" Width="350"
-                               IsHitTestVisible="False"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="ACTIVE AIRCRAFT" Style="{StaticResource SectionText}" Margin="0,0,0,5"/>
-                                <TextBlock Text="{Binding AircraftTitle}" FontSize="23" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{Binding AircraftMeta}" Style="{StaticResource MutedText}" FontSize="10"
-                                           TextTrimming="CharacterEllipsis" Margin="1,3,0,0"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="18,0,0,0">
-                                <TextBlock Text="{Binding DetectedProfile}" Foreground="{StaticResource BrushAccent}"
-                                           FontSize="12" FontWeight="Bold" HorizontalAlignment="Right"/>
-                                <TextBlock Text="{Binding DataRate}" Style="{StaticResource MutedText}" FontFamily="Consolas"
-                                           FontSize="10" HorizontalAlignment="Right" Margin="0,6,0,0"/>
-                            </StackPanel>
-                        </Grid>
-                    </Grid>
-                </Border>
-
-                <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,12">
-                    <StackPanel>
-                        <Grid Margin="0,0,0,10">
-                            <TextBlock Text="STICK → AIRCRAFT" Style="{StaticResource SectionText}"/>
-                            <TextBlock Text="{Binding RouteHint}" Style="{StaticResource MutedText}" FontSize="11"
-                                       HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" Margin="140,0,0,0"/>
-                        </Grid>
-                        <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions><RowDefinition Height="24"/><RowDefinition Height="24"/><RowDefinition Height="24"/></Grid.RowDefinitions>
-                            <TextBlock Text="PITCH" Style="{StaticResource MutedText}" FontSize="11" VerticalAlignment="Center"/>
-                            <c:AxisMeter Grid.Column="1" Input="{Binding MeterPitchIn}" Output="{Binding MeterPitchOut}"
-                                         BarBrush="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Row="1" Text="ROLL" Style="{StaticResource MutedText}" FontSize="11" VerticalAlignment="Center"/>
-                            <c:AxisMeter Grid.Row="1" Grid.Column="1" Input="{Binding MeterRollIn}" Output="{Binding MeterRollOut}"
-                                         BarBrush="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Row="2" Text="YAW" Style="{StaticResource MutedText}" FontSize="11" VerticalAlignment="Center"/>
-                            <c:AxisMeter Grid.Row="2" Grid.Column="1" Input="{Binding MeterYawIn}" Output="{Binding MeterYawOut}"
-                                         BarBrush="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
-                        </Grid>
-                    </StackPanel>
-                </Border>
-
-                <Grid Grid.Row="2" Margin="0,0,0,12">
+        <TabControl Margin="14,12,14,10">
+            <TabItem Header="Fly">
+                <Grid Margin="0,14,0,0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/><ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="*"/><ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="*"/><ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="320"/>
+                        <ColumnDefinition Width="16"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Border Style="{StaticResource Card}" Padding="12,10">
-                        <StackPanel><TextBlock Text="AIRSPEED" Style="{StaticResource SectionText}"/><TextBlock Text="{Binding Ias}" FontSize="20" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
-                    </Border>
-                    <Border Grid.Column="2" Style="{StaticResource Card}" Padding="12,10">
-                        <StackPanel><TextBlock Text="ALTITUDE" Style="{StaticResource SectionText}"/><TextBlock Text="{Binding Alt}" FontSize="20" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
-                    </Border>
-                    <Border Grid.Column="4" Style="{StaticResource Card}" Padding="12,10">
-                        <StackPanel><TextBlock Text="VERTICAL SPEED" Style="{StaticResource SectionText}"/><TextBlock Text="{Binding Vs}" FontSize="20" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
-                    </Border>
-                    <Border Grid.Column="6" Style="{StaticResource Card}" Padding="12,10">
-                        <StackPanel><TextBlock Text="G LOAD" Style="{StaticResource SectionText}"/><TextBlock Text="{Binding GLoad}" FontSize="20" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
-                    </Border>
-                </Grid>
-
-                <Border Grid.Row="3" Style="{StaticResource Card}" Padding="14" Margin="0,0,0,12">
-                    <DockPanel>
-                        <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
-                            <TextBlock Text="LIVE FLIGHT DATA" Style="{StaticResource SectionText}"/>
-                            <TextBlock Text="{Binding OnGround}" Style="{StaticResource MutedText}" FontSize="10" HorizontalAlignment="Right"/>
-                        </Grid>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="78"/><ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="78"/><ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="28"/><RowDefinition Height="28"/><RowDefinition Height="28"/>
-                                    <RowDefinition Height="28"/><RowDefinition Height="28"/><RowDefinition Height="28"/>
-                                    <RowDefinition Height="28"/><RowDefinition Height="28"/><RowDefinition Height="28"/>
-                                    <RowDefinition Height="28"/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Grid.Row="0" Text="TAS" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Tas}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="0" Grid.Column="2" Text="MACH" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding Mach}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="1" Text="GROUND SPD" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Gs}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="1" Grid.Column="2" Text="HEADING" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding Hdg}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="2" Text="PITCH" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Pitch}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="2" Grid.Column="2" Text="BANK" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding Bank}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="3" Text="ANGLE OF ATTACK" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AoA}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="3" Grid.Column="2" Text="SIDESLIP" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding Beta}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="4" Text="AUTOPILOT" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Ap}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="4" Grid.Column="2" Text="DYNAMIC PRESSURE" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding QBar}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="5" Text="WEIGHT" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Weight}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Row="5" Grid.Column="2" Text="FUEL" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding Fuel}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="6" Text="MOMENT OF INERTIA" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Moi}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Row="6" Grid.Column="2" Text="CONFIG" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="6" Grid.Column="3" Text="{Binding Config}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Row="7" Text="THRUST" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding Thrust}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Row="7" Grid.Column="2" Text="CONTROLS" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="7" Grid.Column="3" Text="{Binding Controls}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Row="8" Text="SURFACES" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding Surfaces}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Row="8" Grid.Column="2" Text="POSITION" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="8" Grid.Column="3" Text="{Binding LatLon}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Row="9" Text="ROTATION X" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding RotX}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
-                            </Grid>
-                        </ScrollViewer>
-                    </DockPanel>
-                </Border>
-
-                <Border Grid.Row="4" Style="{StaticResource Card}" Padding="14">
-                    <DockPanel>
-                        <Button DockPanel.Dock="Right" Content="Clear" Command="{Binding ClearLogCommand}"
-                                Padding="10,4" Margin="10,0,0,0" VerticalAlignment="Top"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
-                            <TextBlock Text="EVENT LOG" Style="{StaticResource SectionText}" Margin="0,0,0,6"/>
-                            <ListBox ItemsSource="{Binding LogLines}"/>
+                            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="FEEL PROFILE" Style="{StaticResource SectionText}" Margin="0,0,0,10"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Content="Normal" Command="{Binding SetFeelNormalCommand}" Margin="0,0,4,0">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource FeelTab}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsFeelNormal}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+                                                            <Setter Property="Foreground" Value="{StaticResource BrushBg0}"/>
+                                                            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                        <Button Grid.Column="1" Content="Medium" Command="{Binding SetFeelMediumCommand}" Margin="2,0">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource FeelTab}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsFeelMedium}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+                                                            <Setter Property="Foreground" Value="{StaticResource BrushBg0}"/>
+                                                            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                        <Button Grid.Column="2" Content="Realistic" Command="{Binding SetFeelRealisticCommand}" Margin="4,0,0,0">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource FeelTab}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsFeelRealistic}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource BrushAccent}"/>
+                                                            <Setter Property="Foreground" Value="{StaticResource BrushBg0}"/>
+                                                            <Setter Property="BorderBrush" Value="{StaticResource BrushAccent}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                    </Grid>
+                                    <TextBlock Text="{Binding FeelCaption}" TextWrapping="Wrap" Style="{StaticResource MutedText}"
+                                               FontSize="11" Margin="0,10,0,2"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="RESPONSE TUNING" Style="{StaticResource SectionText}" Margin="0,0,0,12"/>
+                                    <Grid Margin="0,0,0,2"><TextBlock Text="Inertia"/><TextBlock Text="{Binding Inertia, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                    <Slider Value="{Binding Inertia}" Margin="0,0,0,7"/>
+                                    <Grid Margin="0,0,0,2"><TextBlock Text="Pitch"/><TextBlock Text="{Binding PitchDamping, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                    <Slider Value="{Binding PitchDamping}" Margin="0,0,0,7"/>
+                                    <Grid Margin="0,0,0,2"><TextBlock Text="Roll"/><TextBlock Text="{Binding RollDamping, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                    <Slider Value="{Binding RollDamping}" Margin="0,0,0,7"/>
+                                    <Grid Margin="0,0,0,2"><TextBlock Text="Yaw"/><TextBlock Text="{Binding YawDamping, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                    <Slider Value="{Binding YawDamping}" Margin="0,0,0,7"/>
+                                    <Grid Margin="0,0,0,2"><TextBlock Text="Response"/><TextBlock Text="{Binding ControlResponse, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                    <Slider Value="{Binding ControlResponse}" Margin="0,0,0,7"/>
+                                    <Grid Margin="0,0,0,2"><TextBlock Text="Ground"/><TextBlock Text="{Binding GroundInertia, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                    <Slider Value="{Binding GroundInertia}" Margin="0,0,0,7"/>
+                                    <Grid Margin="0,0,0,2"><TextBlock Text="Turbulence"/><TextBlock Text="{Binding TurbulenceResponse, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                    <Slider Value="{Binding TurbulenceResponse}"/>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
-                    </DockPanel>
-                </Border>
-            </Grid>
-        </Grid>
+                    </ScrollViewer>
+                    <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <Border Style="{StaticResource Card}" Padding="18" Margin="0,0,0,12" ClipToBounds="True">
+                                <Grid>
+                                    <Image Source="/HeavyPro;component/Assets/RsgBanner.png" Opacity="0.075"
+                                           Stretch="UniformToFill" HorizontalAlignment="Right" Width="350"
+                                           IsHitTestVisible="False"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="ACTIVE AIRCRAFT" Style="{StaticResource SectionText}" Margin="0,0,0,5"/>
+                                            <TextBlock Text="{Binding AircraftTitle}" FontSize="23" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding AircraftMeta}" Style="{StaticResource MutedText}" FontSize="10"
+                                                       TextTrimming="CharacterEllipsis" Margin="1,3,0,0"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="18,0,0,0">
+                                            <TextBlock Text="{Binding DetectedProfile}" Foreground="{StaticResource BrushAccent}"
+                                                       FontSize="12" FontWeight="Bold" HorizontalAlignment="Right"/>
+                                            <TextBlock Text="{Binding DataRate}" Style="{StaticResource MutedText}" FontFamily="Consolas"
+                                                       FontSize="10" HorizontalAlignment="Right" Margin="0,6,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,10">
+                                        <TextBlock Text="STICK → AIRCRAFT" Style="{StaticResource SectionText}"/>
+                                        <TextBlock Text="{Binding RouteHint}" Style="{StaticResource MutedText}" FontSize="11"
+                                                   HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" Margin="140,0,0,0"/>
+                                    </Grid>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions><RowDefinition Height="24"/><RowDefinition Height="24"/><RowDefinition Height="24"/></Grid.RowDefinitions>
+                                        <TextBlock Text="PITCH" Style="{StaticResource MutedText}" FontSize="11" VerticalAlignment="Center"/>
+                                        <c:AxisMeter Grid.Column="1" Input="{Binding MeterPitchIn}" Output="{Binding MeterPitchOut}"
+                                                     BarBrush="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="1" Text="ROLL" Style="{StaticResource MutedText}" FontSize="11" VerticalAlignment="Center"/>
+                                        <c:AxisMeter Grid.Row="1" Grid.Column="1" Input="{Binding MeterRollIn}" Output="{Binding MeterRollOut}"
+                                                     BarBrush="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="2" Text="YAW" Style="{StaticResource MutedText}" FontSize="11" VerticalAlignment="Center"/>
+                                        <c:AxisMeter Grid.Row="2" Grid.Column="1" Input="{Binding MeterYawIn}" Output="{Binding MeterYawOut}"
+                                                     BarBrush="{StaticResource BrushAccent}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/><ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/><ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/><ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Style="{StaticResource Card}" Padding="12,10">
+                                    <StackPanel><TextBlock Text="AIRSPEED" Style="{StaticResource SectionText}"/><TextBlock Text="{Binding Ias}" FontSize="20" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                </Border>
+                                <Border Grid.Column="2" Style="{StaticResource Card}" Padding="12,10">
+                                    <StackPanel><TextBlock Text="ALTITUDE" Style="{StaticResource SectionText}"/><TextBlock Text="{Binding Alt}" FontSize="20" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                </Border>
+                                <Border Grid.Column="4" Style="{StaticResource Card}" Padding="12,10">
+                                    <StackPanel><TextBlock Text="VERTICAL SPEED" Style="{StaticResource SectionText}"/><TextBlock Text="{Binding Vs}" FontSize="20" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                </Border>
+                                <Border Grid.Column="6" Style="{StaticResource Card}" Padding="12,10">
+                                    <StackPanel><TextBlock Text="G LOAD" Style="{StaticResource SectionText}"/><TextBlock Text="{Binding GLoad}" FontSize="20" FontWeight="SemiBold" Margin="0,5,0,0"/></StackPanel>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Setup">
+                <ScrollViewer Margin="0,14,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MaxWidth="460"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*" MaxWidth="420"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border VerticalAlignment="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,10">
+                                    <TextBlock Text="STICK SETUP" Style="{StaticResource SectionText}"/>
+                                    <Button Content="Rescan" Command="{Binding RefreshDevicesCommand}" Padding="8,2" FontSize="10"
+                                            HorizontalAlignment="Right"/>
+                                </Grid>
+                                <ComboBox ItemsSource="{Binding InputRoutes}" SelectedItem="{Binding SelectedInputRoute}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Stick" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"/>
+                                <ComboBox ItemsSource="{Binding StickDevices}" SelectedItem="{Binding SelectedStick}" Margin="0,0,0,8"/>
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44"/><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+                                    <TextBlock Text="Pitch" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Column="1" ItemsSource="{Binding AxisNames}" SelectedItem="{Binding PitchAxis}" MinHeight="28"/>
+                                    <CheckBox Grid.Column="2" Content="Invert" IsChecked="{Binding InvertPitch}" Margin="8,0,0,0"/>
+                                    <Button Grid.Column="3" Content="Detect" Command="{Binding DetectPitchCommand}" Padding="8,3"/>
+                                    <TextBlock Grid.Row="1" Text="Roll" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding AxisNames}" SelectedItem="{Binding RollAxis}" MinHeight="28" Margin="0,4,0,0"/>
+                                    <CheckBox Grid.Row="1" Grid.Column="2" Content="Invert" IsChecked="{Binding InvertRoll}" Margin="8,4,0,0"/>
+                                    <Button Grid.Row="1" Grid.Column="3" Content="Detect" Command="{Binding DetectRollCommand}" Padding="8,3" Margin="0,4,0,0"/>
+                                </Grid>
+                                <TextBlock Text="Rudder pedals" Style="{StaticResource MutedText}" FontSize="11" Margin="0,4,0,4"/>
+                                <ComboBox ItemsSource="{Binding RudderDevices}" SelectedItem="{Binding SelectedRudderDevice}" Margin="0,0,0,6"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44"/><ColumnDefinition Width="64"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Yaw" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Column="1" ItemsSource="{Binding AxisNames}" SelectedItem="{Binding RudderAxis}" MinHeight="28"/>
+                                    <CheckBox Grid.Column="2" Content="Invert" IsChecked="{Binding InvertRudder}" Margin="8,0,0,0"/>
+                                    <Button Grid.Column="3" Content="Detect" Command="{Binding DetectRudderCommand}" Padding="8,3"/>
+                                </Grid>
+                                <TextBlock Text="{Binding StickStatus}" FontFamily="Consolas" FontSize="10" TextWrapping="Wrap"
+                                           Foreground="{StaticResource BrushAccent}" Margin="0,0,0,6"/>
+                                <TextBlock Text="{Binding SetupNote}" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" VerticalAlignment="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="AIRCRAFT &amp; APP" Style="{StaticResource SectionText}" Margin="0,0,0,9"/>
+                                <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}"/>
+                                <TextBlock Text="{Binding DetectedProfile, StringFormat=Detected: {0}}" Style="{StaticResource MutedText}" FontSize="11" Margin="0,7,0,5"/>
+                                <CheckBox Content="Auto-connect" IsChecked="{Binding AutoConnect}"/>
+                                <CheckBox Content="Log telemetry" IsChecked="{Binding LogTelemetry}"/>
+                                <CheckBox Content="Show debug data" IsChecked="{Binding DebugMode}"/>
+                                <CheckBox Content="Cockpit view cue" IsChecked="{Binding ViewCue}"/>
+                                <TextBlock Text="{Binding WriteStatus}" TextWrapping="Wrap" FontFamily="Consolas"
+                                           FontSize="10" Foreground="{StaticResource BrushAccent}" Margin="0,11,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Fine tuning">
+                <ScrollViewer Margin="0,14,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" MaxWidth="520"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <Border VerticalAlignment="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="INPUT DYNAMICS" Style="{StaticResource SectionText}" Margin="0,0,0,10"/>
+                                <TextBlock Text="Curve" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"/>
+                                <ComboBox ItemsSource="{Binding InputCurves}" SelectedItem="{Binding SelectedInputCurve}" Margin="0,0,0,8"/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Expo strength (%)"/><TextBlock Text="{Binding ExpoStrengthPercent, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="0" Maximum="100" Value="{Binding ExpoStrengthPercent}" Margin="0,0,0,7"/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Deadzone (%)"/><TextBlock Text="{Binding InputDeadzonePercent, StringFormat={}{0:0.0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="0" Maximum="10" Value="{Binding InputDeadzonePercent}" Margin="0,0,0,7"/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Sensitivity (%)"/><TextBlock Text="{Binding InputSensitivityPercent, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="25" Maximum="200" Value="{Binding InputSensitivityPercent}" Margin="0,0,0,7"/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Acceleration limit (%)"/><TextBlock Text="{Binding InputAccelerationPercent, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="25" Maximum="200" Value="{Binding InputAccelerationPercent}" Margin="0,0,0,7"/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Deceleration limit (%)"/><TextBlock Text="{Binding InputDecelerationPercent, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="25" Maximum="200" Value="{Binding InputDecelerationPercent}" Margin="0,0,0,7"/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Pitch rate limit (units/s)"/><TextBlock Text="{Binding PitchRateLimit, StringFormat={}{0:0.00}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="0.1" Maximum="6" Value="{Binding PitchRateLimit}" Margin="0,0,0,7"/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Roll rate limit (units/s)"/><TextBlock Text="{Binding RollRateLimit, StringFormat={}{0:0.00}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="0.1" Maximum="6" Value="{Binding RollRateLimit}" Margin="0,0,0,7"/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Yaw rate limit (units/s)"/><TextBlock Text="{Binding YawRateLimit, StringFormat={}{0:0.00}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="0.1" Maximum="6" Value="{Binding YawRateLimit}" Margin="0,0,0,7"/>
+                                <CheckBox Content="Airspeed feel (heavier as speed builds)" IsChecked="{Binding AirspeedResponseEnabled}" Margin="0,2,0,4"/>
+                                <CheckBox Content="Jet rudder limiter at speed" IsChecked="{Binding RudderLimiter}" Margin="0,0,0,4"
+                                          ToolTip="Less rudder throw as speed rises, like the 747 ratio changer. Skipped for PMDG, Fenix, iniBuilds and FlyByWire, which model it themselves."/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="High-speed damping (%)"/><TextBlock Text="{Binding AirspeedResponsePercent, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="0" Maximum="100" Value="{Binding AirspeedResponsePercent}" Margin="0,0,0,7"/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Release delay (ms)"/><TextBlock Text="{Binding ReturnDelayMs, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="0" Maximum="1500" Value="{Binding ReturnDelayMs}" Margin="0,0,0,7"/>
+                                <TextBlock Text="Stick release" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"/>
+                                <ComboBox ItemsSource="{Binding ReleaseModes}" SelectedItem="{Binding StickReleaseMode}"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Profiles">
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MaxWidth="420"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="MY PROFILES" Style="{StaticResource SectionText}" Margin="0,0,0,10"/>
+                                <ComboBox ItemsSource="{Binding CustomProfiles}" SelectedItem="{Binding SelectedCustomProfile}" Margin="0,0,0,8"/>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Button Content="Apply" Command="{Binding ApplyProfileCommand}" Style="{StaticResource PrimaryButton}"/>
+                                    <Button Grid.Column="2" Content="Delete" Command="{Binding DeleteProfileCommand}"/>
+                                </Grid>
+                                <TextBlock Text="Name" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding NewProfileName, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" MinHeight="32"
+                                             Background="{StaticResource BrushBg2}" Foreground="{StaticResource BrushText}"
+                                             BorderBrush="{StaticResource BrushLine}" CaretBrush="{StaticResource BrushText}"/>
+                                    <Button Grid.Column="1" Content="Save current" Command="{Binding SaveProfileCommand}" Margin="8,0,0,0"/>
+                                </Grid>
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Button Content="Share online" Command="{Binding ShareProfileCommand}"
+                                            ToolTip="Publish the selected profile. Anyone with HeavyPro can get it by its name."/>
+                                    <Button Grid.Column="2" Content="Get by name" Command="{Binding GetSharedProfileCommand}"
+                                            ToolTip="Download the shared profile whose name is typed above."/>
+                                </Grid>
+                                <TextBlock Text="{Binding ProfileStatus}" FontFamily="Consolas" FontSize="10" TextWrapping="Wrap"
+                                           Foreground="{StaticResource BrushAccent}" Margin="0,6,0,0"/>
+                                <TextBlock Text="Save current keeps the tuning under the name. Share online publishes the selected profile; anyone with HeavyPro can then type that name and press Get by name."
+                                           Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </ScrollViewer>
+                    <Grid Grid.Column="2">
+                        <Border Style="{StaticResource Card}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top">
+                                    <TextBlock Text="COMMUNITY PROFILES" Style="{StaticResource SectionText}" Margin="0,0,0,10"/>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <TextBox Text="{Binding CommunitySearch, UpdateSourceTrigger=PropertyChanged}" Padding="8,6" MinHeight="32"
+                                                 Background="{StaticResource BrushBg2}" Foreground="{StaticResource BrushText}"
+                                                 BorderBrush="{StaticResource BrushLine}" CaretBrush="{StaticResource BrushText}"
+                                                 ToolTip="Filter by name, then press Refresh"/>
+                                        <Button Grid.Column="1" Content="Refresh" Command="{Binding RefreshCommunityCommand}" Margin="8,0,0,0"/>
+                                    </Grid>
+                                </StackPanel>
+                                <StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
+                                    <Button Content="Get selected profile" Command="{Binding GetCommunityProfileCommand}" Style="{StaticResource PrimaryButton}"/>
+                                    <TextBlock Text="{Binding CommunityStatus}" FontFamily="Consolas" FontSize="10" TextWrapping="Wrap"
+                                               Foreground="{StaticResource BrushAccent}" Margin="0,8,0,0"/>
+                                    <TextBlock Text="Every profile anyone has shared, most downloaded first. Get adds it to My Profiles; Apply it there."
+                                               Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                </StackPanel>
+                                <ListBox ItemsSource="{Binding CommunityProfiles}" SelectedItem="{Binding SelectedCommunityProfile}"
+                                         Style="{StaticResource CommunityList}" MinHeight="160">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <TextBlock Text="{Binding Name}" FontSize="13"/>
+                                                <TextBlock Text="{Binding DownloadsText}" Style="{StaticResource MutedText}" FontSize="11"
+                                                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </DockPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Flight data">
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="340"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="170"/>
+                    </Grid.RowDefinitions>
+                    <Border Style="{StaticResource Card}" Padding="14" Margin="0,0,0,12">
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                                <TextBlock Text="LIVE FLIGHT DATA" Style="{StaticResource SectionText}"/>
+                                <TextBlock Text="{Binding OnGround}" Style="{StaticResource MutedText}" FontSize="10" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/><ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="140"/><ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="28"/><RowDefinition Height="28"/><RowDefinition Height="28"/>
+                                        <RowDefinition Height="28"/><RowDefinition Height="28"/><RowDefinition Height="28"/>
+                                        <RowDefinition Height="28"/><RowDefinition Height="28"/><RowDefinition Height="28"/>
+                                        <RowDefinition Height="28"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="TAS" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Tas}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="MACH" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding Mach}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="1" Text="GROUND SPD" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Gs}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="2" Text="HEADING" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding Hdg}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="2" Text="PITCH" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Pitch}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="2" Text="BANK" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding Bank}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="3" Text="ANGLE OF ATTACK" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AoA}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="2" Text="SIDESLIP" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding Beta}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="4" Text="AUTOPILOT" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Ap}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="2" Text="DYNAMIC PRESSURE" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding QBar}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="5" Text="WEIGHT" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Weight}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="2" Text="FUEL" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding Fuel}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Row="6" Text="MOMENT OF INERTIA" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Moi}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="2" Text="CONFIG" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="6" Grid.Column="3" Text="{Binding Config}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Row="7" Text="THRUST" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding Thrust}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Row="7" Grid.Column="2" Text="CONTROLS" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="7" Grid.Column="3" Text="{Binding Controls}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Row="8" Text="SURFACES" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding Surfaces}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Row="8" Grid.Column="2" Text="POSITION" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="8" Grid.Column="3" Text="{Binding LatLon}" Style="{StaticResource ValueText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Row="9" Text="ROTATION X" Style="{StaticResource MutedText}" VerticalAlignment="Center"/><TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding RotX}" Style="{StaticResource ValueText}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                    <Border Grid.Row="1" Grid.ColumnSpan="3" Style="{StaticResource Card}" Padding="14">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Clear" Command="{Binding ClearLogCommand}"
+                                    Padding="10,4" Margin="10,0,0,0" VerticalAlignment="Top"/>
+                            <StackPanel>
+                                <TextBlock Text="EVENT LOG" Style="{StaticResource SectionText}" Margin="0,0,0,6"/>
+                                <ListBox ItemsSource="{Binding LogLines}"/>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                    <ScrollViewer Grid.Column="2" Margin="0,0,0,12" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="SYSTEM NOTES" Style="{StaticResource SectionText}" Margin="0,0,0,8"/>
+                                <TextBlock Text="Aircraft dynamics presets are starting values, not manufacturer data. HeavyPro changes control input only; some add-on aircraft may ignore SimConnect control events."
+                                           Style="{StaticResource MutedText}" TextWrapping="Wrap" FontSize="11"/>
+                                <TextBlock Text="{Binding DebugPanel}" TextWrapping="Wrap" FontFamily="Consolas"
+                                           FontSize="10" Margin="0,10,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DebugMode}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+        </TabControl>
     </DockPanel>
 </Window>

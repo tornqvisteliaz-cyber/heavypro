@@ -5,6 +5,20 @@ using Rotaidem.Licensing;
 
 namespace HeavyFeel.App;
 
+/// <summary>One row of the community list.</summary>
+public sealed class SharedProfileListing
+{
+    public SharedProfileListing(string name, int downloads)
+    {
+        Name = name;
+        Downloads = downloads;
+    }
+
+    public string Name { get; }
+    public int Downloads { get; }
+    public string DownloadsText => Downloads == 1 ? "1 download" : $"{Downloads} downloads";
+}
+
 /// <summary>
 /// Shares feel profiles through the Rotaidem server: publish one under a name,
 /// fetch someone else's by its name. Both need this computer's activated licence.
@@ -46,6 +60,33 @@ public static class SharedProfiles
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
         {
             return (null, "The server sent a profile HeavyPro could not read.");
+        }
+    }
+
+    /// <summary>Every shared profile, most downloaded first, optionally filtered by name.</summary>
+    public static async Task<(IReadOnlyList<SharedProfileListing> Profiles, string Message)> ListAsync(string search)
+    {
+        if (!TryLicence(out var key, out var problem))
+            return (Array.Empty<SharedProfileListing>(), problem);
+        var payload = new Dictionary<string, object> { ["key"] = key, ["machine_id"] = MachineId.Get(), ["search"] = search ?? "" };
+        var (status, body) = await HeavyProLicense.PostJsonAsync("/api/profiles/list", JsonSerializer.Serialize(payload));
+        if (status != 200)
+            return (Array.Empty<SharedProfileListing>(), Failure(status, body));
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var list = new List<SharedProfileListing>();
+            foreach (var item in doc.RootElement.GetProperty("profiles").EnumerateArray())
+            {
+                list.Add(new SharedProfileListing(
+                    item.GetProperty("name").GetString() ?? "",
+                    item.TryGetProperty("downloads", out var d) && d.ValueKind == JsonValueKind.Number ? d.GetInt32() : 0));
+            }
+            return (list, list.Count == 0 ? "No shared profiles match." : $"{list.Count} shared profile{(list.Count == 1 ? "" : "s")}.");
+        }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            return (Array.Empty<SharedProfileListing>(), "The server sent a list HeavyPro could not read.");
         }
     }
 

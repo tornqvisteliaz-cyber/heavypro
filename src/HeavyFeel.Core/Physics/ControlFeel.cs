@@ -22,10 +22,10 @@ public enum FeelSystem
 /// - Mechanical and artificial feel stiffen with dynamic pressure, so the same
 ///   stick feels light taxiing and heavy at cruise speed.
 /// - Hydraulic surfaces cannot move faster than their actuators, so airliners
-///   get a minimum full-travel time.
+///   never go below a quarter second to full travel.
 /// - An Airbus-style sidestick has the same spring at every speed and commands a
-///   rate, so it gets only light shaping; heavy lag on a rate command invites
-///   pilot-induced oscillation. The weight is in the aircraft's response.
+///   rate, so it starts from half the shaping and no airspeed scaling; the
+///   sliders still take it as heavy as the user wants.
 /// - Jets limit rudder throw as speed rises (747 ratio changer, 737 blowdown /
 ///   pressure reducer); study-level add-ons model that themselves, so it is only
 ///   applied to the others.
@@ -36,7 +36,8 @@ public sealed record ControlFeel(
     double ReferenceQ,
     double MinTravelSeconds,
     double MaxTravelSeconds,
-    bool LimitsRudder)
+    bool LimitsRudder,
+    double BaseScale = 1.0)
 {
     // Dynamic pressure, psf, at a typical working speed: ~110 kt for light
     // aircraft, ~250 kt for airliners. At this q the stick feels "normal heavy".
@@ -50,10 +51,10 @@ public sealed record ControlFeel(
             || ContainsAny(id, "PMDG", "FENIX", "INIBUILDS", "FLYBYWIRE", "A32NX", "A380X", "IFLY", "FSLABS", "MADDOG", "HEADWIND", "LEONARDO");
 
         if (IsSidestickAirbus(id))
-            return new(FeelSystem.Sidestick, "FBW sidestick", AirlinerQ, 0.15, 0.6, !studyLevel);
+            return new(FeelSystem.Sidestick, "FBW sidestick", AirlinerQ, 0.08, 3.0, !studyLevel, BaseScale: 0.5);
         if (snapshot.Class is AircraftClass.NarrowBody or AircraftClass.WideBody or AircraftClass.HeavyWide)
-            return new(FeelSystem.ArtificialFeel, "Artificial feel (hydraulic)", AirlinerQ, 0.4, 2.5, !studyLevel);
-        return new(FeelSystem.Mechanical, "Mechanical", LightAircraftQ, 0.2, 2.5, false);
+            return new(FeelSystem.ArtificialFeel, "Artificial feel (hydraulic)", AirlinerQ, 0.25, 4.0, !studyLevel);
+        return new(FeelSystem.Mechanical, "Mechanical", LightAircraftQ, 0.08, 4.0, false);
     }
 
     /// <summary>

@@ -6,12 +6,22 @@ namespace HeavyFeel.App.Input;
 /// <summary>A game controller Windows knows about. Key is VID:PID, stable across replugging.</summary>
 public sealed class JoystickDevice
 {
-    public JoystickDevice(int id, string key, string name, int axisCount)
+    public JoystickDevice(int id, string key, string name, int axisCount, int axisMask = 0b11)
     {
         Id = id;
         Key = key;
         Name = name;
         AxisCount = axisCount;
+        AxisMask = axisMask;
+    }
+
+    /// <summary>Bit per axis in X, Y, Z, R, U, V order: which axes the device really has.</summary>
+    public int AxisMask { get; }
+
+    public bool HasAxis(string? axisName)
+    {
+        var i = JoystickReader.AxisIndex(axisName);
+        return i >= 0 && (AxisMask & (1 << i)) != 0;
     }
 
     public int Id { get; }
@@ -42,7 +52,7 @@ public static class JoystickReader
             if (joyGetPosEx(id, ref info) != 0 || caps.NumAxes == 0)
                 continue;
             var key = $"{caps.Mid:X4}:{caps.Pid:X4}";
-            list.Add(new JoystickDevice(id, key, FriendlyName(caps.Mid, caps.Pid) ?? $"Controller {key}", caps.NumAxes));
+            list.Add(new JoystickDevice(id, key, FriendlyName(caps.Mid, caps.Pid) ?? $"Controller {key}", caps.NumAxes, AxisMask(caps.Caps)));
         }
         return list;
     }
@@ -64,6 +74,11 @@ public static class JoystickReader
     }
 
     public static int AxisIndex(string? name) => Array.IndexOf(AxisNames, (name ?? "").ToUpperInvariant());
+
+    // X and Y always exist; JOYCAPS_HASZ/HASR/HASU/HASV (1, 2, 4, 8) mark the rest.
+    // A missing axis reads as fully deflected, so it must never be used.
+    private static int AxisMask(int caps) =>
+        0b11 | ((caps & 1) != 0 ? 1 << 2 : 0) | ((caps & 2) != 0 ? 1 << 3 : 0) | ((caps & 4) != 0 ? 1 << 4 : 0) | ((caps & 8) != 0 ? 1 << 5 : 0);
 
     private static double Norm(int value, int min, int max)
     {

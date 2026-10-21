@@ -20,7 +20,7 @@ public class ControlFeelTests
         var feel = ControlFeel.For(Snap("Airbus A320neo", AircraftClass.NarrowBody, 280));
         Assert.Equal(FeelSystem.Sidestick, feel.System);
         Assert.Equal(1.0, feel.SpeedScale(new AppSettings(), Snap("Airbus A320neo", AircraftClass.NarrowBody, 280)));
-        Assert.True(feel.MaxTravelSeconds <= 0.6);
+        Assert.True(feel.BaseScale < 1.0);
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class ControlFeelTests
         var cruise = feel.SpeedScale(settings, Snap("Boeing 787-10", AircraftClass.WideBody, 290));
         Assert.True(taxi < 1.0, $"taxi {taxi}");
         Assert.True(cruise > 1.15, $"cruise {cruise}");
-        Assert.True(feel.MinTravelSeconds >= 0.4);
+        Assert.True(feel.MinTravelSeconds >= 0.25);
     }
 
     [Fact]
