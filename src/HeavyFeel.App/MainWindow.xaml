@@ -229,8 +229,17 @@
                                          BorderBrush="{StaticResource BrushLine}" CaretBrush="{StaticResource BrushText}"/>
                                 <Button Grid.Column="1" Content="Save current" Command="{Binding SaveProfileCommand}" Margin="8,0,0,0"/>
                             </Grid>
-                            <TextBlock Text="Saves every feel and input-dynamics setting under this name. Saving with an existing name updates it."
-                                       Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Button Content="Share online" Command="{Binding ShareProfileCommand}"
+                                        ToolTip="Publish the selected profile. Anyone with HeavyPro can get it by its name."/>
+                                <Button Grid.Column="2" Content="Get by name" Command="{Binding GetSharedProfileCommand}"
+                                        ToolTip="Download the shared profile whose name is typed above."/>
+                            </Grid>
+                            <TextBlock Text="{Binding ProfileStatus}" FontFamily="Consolas" FontSize="10" TextWrapping="Wrap"
+                                       Foreground="{StaticResource BrushAccent}" Margin="0,6,0,0"/>
+                            <TextBlock Text="Save current keeps the tuning under the name. Share online publishes the selected profile; anyone with HeavyPro can then type that name and press Get by name."
+                                       Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
                         </StackPanel>
                     </Border>
 

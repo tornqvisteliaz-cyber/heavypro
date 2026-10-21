@@ -28,6 +28,21 @@ internal static class HeavyProLicense
 
     public static LicenseStore Store() => new(Product);
 
+    /// <summary>POSTs JSON to the licence server and returns the status and reply body; network failures come back as status 0.</summary>
+    public static async Task<(int Status, string Body)> PostJsonAsync(string path, string json)
+    {
+        try
+        {
+            using var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            using var response = await Http.PostAsync(ServerUrl + path, content).ConfigureAwait(false);
+            return ((int)response.StatusCode, await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return (0, "");
+        }
+    }
+
     public static Task<LicenseResult> ActivateAsync(string key) =>
         FirstMatchingProduct(client => client.ActivateAsync(key));
 

@@ -97,6 +97,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         SaveProfileCommand = new RelayCommand(SaveProfile);
         ApplyProfileCommand = new RelayCommand(ApplyProfile);
         DeleteProfileCommand = new RelayCommand(DeleteProfile);
+        ShareProfileCommand = new RelayCommand(() => _ = ShareProfileAsync());
+        GetSharedProfileCommand = new RelayCommand(() => _ = GetSharedProfileAsync());
 
         _client.StateChanged += (_, _) => Dispatch(RefreshConnection);
         _client.StatusMessage += (_, msg) => Dispatch(() => Status = msg);
@@ -143,6 +145,53 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ICommand SaveProfileCommand { get; }
     public ICommand ApplyProfileCommand { get; }
     public ICommand DeleteProfileCommand { get; }
+    public ICommand ShareProfileCommand { get; }
+    public ICommand GetSharedProfileCommand { get; }
+
+    private string _profileStatus = "";
+    public string ProfileStatus
+    {
+        get => _profileStatus;
+        private set => Set(ref _profileStatus, value);
+    }
+
+    /// <summary>Publishes the selected profile online under its name.</summary>
+    private async Task ShareProfileAsync()
+    {
+        var profile = SelectedCustomProfile;
+        if (profile == null)
+        {
+            ProfileStatus = "Pick a saved profile to share, or save the current tuning first.";
+            return;
+        }
+        ProfileStatus = "Sharing…";
+        ProfileStatus = await SharedProfiles.PublishAsync(profile);
+        _logger.Info("Share profile \"" + profile.Name + "\": " + ProfileStatus);
+    }
+
+    /// <summary>Fetches a shared profile by the typed name and adds it to My Profiles.</summary>
+    private async Task GetSharedProfileAsync()
+    {
+        var name = NewProfileName.Trim();
+        if (name.Length == 0)
+        {
+            ProfileStatus = "Type the name of the shared profile, then press Get by name.";
+            return;
+        }
+        ProfileStatus = "Getting…";
+        var (profile, message) = await SharedProfiles.GetAsync(name);
+        ProfileStatus = message;
+        if (profile == null)
+            return;
+        var existing = CustomProfiles.FirstOrDefault(p => string.Equals(p.Name, profile.Name, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+            CustomProfiles[CustomProfiles.IndexOf(existing)] = profile;
+        else
+            CustomProfiles.Add(profile);
+        SyncProfiles();
+        SelectedCustomProfile = profile;
+        _logger.Info("Got shared profile \"" + profile.Name + "\".");
+    }
 
     private CustomProfile? _selectedCustomProfile;
     public CustomProfile? SelectedCustomProfile
