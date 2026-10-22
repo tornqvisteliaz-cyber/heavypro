@@ -74,9 +74,10 @@ public partial class App : System.Windows.Application
         var store = HeavyProLicense.Store();
         var saved = store.Load();
 
-        // A key confirmed within the grace period starts at once, so a slow or
-        // missing internet connection never blocks start-up.
-        if (saved != null && DateTimeOffset.UtcNow - saved.LastValidatedUtc < HeavyProLicense.OfflineGrace)
+        // A saved answer signed by the licence server, for this PC and still within its
+        // lease, starts at once, so a slow or missing internet connection never blocks
+        // start-up. A key without one (older versions) is confirmed online first.
+        if (HeavyProLicense.CheckOffline().IsValid)
             return true;
 
         string? reason = null;
@@ -102,16 +103,15 @@ public partial class App : System.Windows.Application
             case LicenseStatus.Valid:
                 return;
             case LicenseStatus.OfflineGrace:
-                // The server being asleep or offline is normal; only warn near the end.
-                var saved = HeavyProLicense.Store().Load();
-                if (saved != null && HeavyProLicense.OfflineGrace - (DateTimeOffset.UtcNow - saved.LastValidatedUtc) <= TimeSpan.FromDays(3))
+                // The server being asleep or offline is normal; only warn near the end of the lease.
+                if (result.LeaseUntil is { } until && until - DateTimeOffset.UtcNow <= TimeSpan.FromDays(3))
                     MessageBox.Show(MainWindow!, result.Message, "HeavyPro");
                 return;
             default:
-                // Revoked, removed from this PC, or grace ran out: stop now. Keep the
-                // key on disk (never make the customer dig it out again) but mark it
-                // unconfirmed, so the next start checks online and shows the
-                // activation window pre-filled with the server's reason.
+                // Revoked, removed from this PC, not signed by the real server, or the
+                // lease ran out: stop now. Keep the key on disk (never make the customer
+                // dig it out again) but drop the signed answer, so the next start checks
+                // online and shows the activation window pre-filled with the reason.
                 LogLicence($"Background check rejected the saved key: {result.Status} — {result.Message}");
                 var rejected = HeavyProLicense.Store().Load();
                 if (rejected != null)

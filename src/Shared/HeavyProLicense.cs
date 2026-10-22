@@ -1,4 +1,6 @@
+using System.IO;
 using System.Net.Http;
+using System.Reflection;
 using Rotaidem.Licensing;
 
 namespace HeavyPro.Licensing;
@@ -27,6 +29,31 @@ internal static class HeavyProLicense
 
     public static LicenseStore Store() => new(Product);
 
+    /// <summary>
+    /// The licence server's public key, built into the program (packaging/licence-public-key.json,
+    /// fetched from https://rotaidem.com/api/licenses/jwks.json by the build). HeavyPro trusts only
+    /// answers signed with the matching private key, which never leaves the server. Null if missing.
+    /// </summary>
+    public static readonly string? PublicKeyJwk = ReadPublicKey();
+
+    private static string? ReadPublicKey()
+    {
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("HeavyPro.LicensePublicKey.json");
+        if (stream is null)
+            return null;
+        using var reader = new StreamReader(stream);
+        var text = reader.ReadToEnd().Trim();
+        return text.Length > 0 ? text : null;
+    }
+
+    private static LicenseClient Client(string product) => new(ServerUrl, product, Http, PublicKeyJwk);
+
+    /// <summary>Without the network: is the saved signed answer still good here? Used for an instant start.</summary>
+    public static LicenseResult CheckOffline() => Client(Product).CheckOffline(Store(), OfflineGrace);
+
+    /// <summary>Saves the key with the server's signed answer, so the next start can begin offline.</summary>
+    public static void Save(string key, LicenseResult result) => Store().Save(key, DateTimeOffset.UtcNow, result.Token);
+
     /// <summary>POSTs JSON to the licence server and returns the status and reply body; network failures come back as status 0.</summary>
     public static async Task<(int Status, string Body)> PostJsonAsync(string path, string json)
     {
@@ -53,7 +80,7 @@ internal static class HeavyProLicense
         LicenseResult? result = null;
         foreach (var id in ProductIds)
         {
-            result = await call(new LicenseClient(ServerUrl, id, Http));
+            result = await call(Client(id));
             if (result.Status != LicenseStatus.WrongProduct)
                 return result;
         }

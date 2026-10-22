@@ -102,7 +102,7 @@ sealed class SetupForm : Form
                 MessageBox.Show(this, result.Message, "HeavyPro");
                 return;
             }
-            HeavyProLicense.Store().Save(_key.Text, DateTimeOffset.UtcNow);
+            HeavyProLicense.Save(_key.Text, result);
         }
         finally
         {
