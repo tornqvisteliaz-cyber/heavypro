@@ -16,6 +16,9 @@
     <ProjectReference Include="..\HeavyFeel.SimConnect\HeavyFeel.SimConnect.csproj" />
     <ProjectReference Include="..\Rotaidem.Licensing\Rotaidem.Licensing.csproj" />
     <Compile Include="..\Shared\HeavyProLicense.cs" Link="HeavyProLicense.cs" />
+    <!-- The licence server's public key (the build fetches it from rotaidem.com/api/licenses/jwks.json).
+         HeavyPro accepts only licence answers signed with the matching private key. -->
+    <EmbeddedResource Include="..\..\packaging\licence-public-key.json" LogicalName="HeavyPro.LicensePublicKey.json" Condition="Exists('..\..\packaging\licence-public-key.json')" />
     <Reference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>

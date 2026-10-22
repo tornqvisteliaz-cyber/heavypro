@@ -17,6 +17,30 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Built-in licence public key
+        # HeavyPro trusts only licence answers signed by rotaidem.com. Its public key is built in:
+        # packaging/licence-public-key.json if committed, otherwise fetched from the website here.
+        # Builds that publish (main, tags) stop if there is no key; pull request builds only warn.
+        shell: pwsh
+        run: |
+          $file = 'packaging/licence-public-key.json'
+          if (-not (Test-Path $file)) {
+            try {
+              $jwks = Invoke-RestMethod 'https://rotaidem.com/api/licenses/jwks.json' -TimeoutSec 60
+              if ($jwks.keys -and $jwks.keys[0].kty -eq 'RSA' -and $jwks.keys[0].n) {
+                $jwks.keys[0] | ConvertTo-Json -Compress | Set-Content $file -Encoding utf8 -NoNewline
+              } else { Write-Warning 'rotaidem.com/api/licenses/jwks.json did not contain an RSA key.' }
+            } catch { Write-Warning "Could not fetch the licence public key from rotaidem.com: $_" }
+          }
+          if (Test-Path $file) {
+            $key = Get-Content $file -Raw | ConvertFrom-Json
+            if ($key.keys) { $key = $key.keys[0] }
+            Write-Host "Licence public key: $($key.kid)"
+          } elseif ('${{ github.event_name }}' -ne 'pull_request') {
+            throw 'No licence public key. Deploy the website (setup.py deploy creates the key), then run this workflow again.'
+          } else {
+            Write-Warning 'Building without a licence public key: this build will refuse every licence.'
+          }
       - name: Run unit tests
         run: dotnet test src/HeavyFeel.Core.Tests/HeavyFeel.Core.Tests.csproj -c Release
       - name: Build app and refresh payload

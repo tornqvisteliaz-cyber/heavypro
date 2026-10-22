@@ -40,7 +40,7 @@ public partial class LicenseWindow : Window
                 ShowMessage(result.Message);
                 return;
             }
-            HeavyProLicense.Store().Save(KeyBox.Text, DateTimeOffset.UtcNow);
+            HeavyProLicense.Save(KeyBox.Text, result);
             Message.Visibility = Visibility.Collapsed;
             DialogResult = true;
         }
