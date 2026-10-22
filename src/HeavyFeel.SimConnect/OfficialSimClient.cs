@@ -207,7 +207,18 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         if (!_bridgeReady || !_bridgeLoaded || !_directActive)
             return;
         _bridgeShaped[ev] = value;
-        SetBridge(true);
+        // Only while an MSFS binding is really sending: with the axes unbound the
+        // module has nothing to answer and stays out of the way.
+        SetBridge(ForeignInputSeen);
+    }
+
+    private bool ForeignInputSeen
+    {
+        get
+        {
+            var now = DateTime.UtcNow;
+            return _foreign.Any(f => f.Value.Count >= 3 && now - f.Value.Last < ConflictHold);
+        }
     }
 
     private void SetBridge(bool active)

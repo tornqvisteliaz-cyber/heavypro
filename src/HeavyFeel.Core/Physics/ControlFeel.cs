@@ -81,6 +81,30 @@ public sealed record ControlFeel(
         return Numeric.Clamp(1.0 - (indicatedKnots - 160) / 160.0 * 0.8, 0.2, 1.0);
     }
 
+    /// <summary>
+    /// Realistic rudder: pedal travel-time multiplier. Real pedals sit on a feel spring
+    /// that stiffens with dynamic pressure (a q-feel unit on airliners, air load on the
+    /// surface in light aircraft), so they are light taxiing, where the pedals steer the
+    /// nosewheel, and up to about twice as slow at working speed. 1 = unchanged.
+    /// </summary>
+    public double RudderFeelScale(AppSettings settings, FlightSnapshot snapshot)
+    {
+        if (!settings.RealisticRudder)
+            return 1.0;
+        var q = DynamicPressure(snapshot);
+        return Numeric.Clamp(1.0 + 0.9 * Math.Sqrt(q / ReferenceQ), 1.0, 1.9);
+    }
+
+    /// <summary>
+    /// Realistic rudder: softer around centre, so small pedal inputs give fine yaw
+    /// corrections and full rudder takes a deliberate push. Keeps -1, 0 and +1 in place.
+    /// </summary>
+    public static double RudderPedalCurve(double input)
+    {
+        var x = Numeric.Clamp(input, -1, 1);
+        return 0.55 * x + 0.45 * x * x * x;
+    }
+
     /// <summary>Dynamic pressure in psf; falls back to indicated airspeed if the sim gives none.</summary>
     public static double DynamicPressure(FlightSnapshot snapshot)
     {

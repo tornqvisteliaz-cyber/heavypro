@@ -68,6 +68,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _settings.SettingsVersion = 3;
             settingsStore.Save(_settings);
         }
+        if (_settings.SettingsVersion < 4)
+        {
+            // 0.5: ready-made profiles for common aircraft, added once.
+            BuiltInProfiles.AddMissing(_settings.CustomProfiles);
+            _settings.SettingsVersion = 4;
+            settingsStore.Save(_settings);
+        }
         _client.DirectInput = IsDirect;
         StickDevices = new ObservableCollection<JoystickDevice>();
         RudderDevices = new ObservableCollection<JoystickDevice>();
@@ -300,8 +307,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             nameof(GroundInertia), nameof(TurbulenceResponse), nameof(SelectedInputCurve), nameof(InputDeadzonePercent),
             nameof(InputSensitivityPercent), nameof(ExpoStrengthPercent), nameof(InputAccelerationPercent),
             nameof(InputDecelerationPercent), nameof(PitchRateLimit), nameof(RollRateLimit), nameof(YawRateLimit),
-            nameof(AirspeedResponseEnabled), nameof(AirspeedResponsePercent), nameof(RudderLimiter), nameof(StickReleaseMode),
-            nameof(ReturnDelayMs), nameof(SelectedProfile), nameof(PreviewTau), nameof(DebugPanel)
+            nameof(AirspeedResponseEnabled), nameof(AirspeedResponsePercent), nameof(RudderLimiter), nameof(RealisticRudder),
+            nameof(StickReleaseMode), nameof(ReturnDelayMs), nameof(SelectedProfile), nameof(PreviewTau), nameof(DebugPanel)
         })
             OnChanged(name);
         RaiseFeel();
@@ -845,6 +852,18 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    public bool RealisticRudder
+    {
+        get => _settings.RealisticRudder;
+        set
+        {
+            _settings.RealisticRudder = value;
+            _logger.Info("Realistic rudder " + (value ? "on" : "off") + ".");
+            OnChanged();
+            ScheduleSave();
+        }
+    }
+
     public string StickReleaseMode
     {
         get => _settings.StickReleaseMode;
@@ -1062,6 +1081,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         DetectedProfile = id.SuggestedProfile;
         if (_settings.AircraftProfile == "Auto Detect")
             _logger.Info("Auto profile suggestion: " + DetectedProfile);
+        if (!IsDirect && id.NeedsDirectRoute)
+        {
+            _logger.Info(id.DisplayName + " runs its own control model, which only the Direct route reaches. Switching to Direct.");
+            // Later, not inside the SimConnect callback that reported the aircraft.
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() => SelectedInputRoute = RouteDirectLabel));
+        }
         RaiseTelemetry();
     }
 

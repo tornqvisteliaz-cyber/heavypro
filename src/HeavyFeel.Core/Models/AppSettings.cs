@@ -32,6 +32,7 @@ public sealed class AppSettings
     public bool AirspeedResponseEnabled { get; set; } = true;
     public double AirspeedResponse { get; set; } = 0.65;
     public bool RudderLimiter { get; set; } = true;
+    public bool RealisticRudder { get; set; }
     public string StickReleaseMode { get; set; } = "Auto";
     public double ReturnDelayMs { get; set; }
 

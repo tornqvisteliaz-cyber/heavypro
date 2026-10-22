@@ -38,6 +38,8 @@ public sealed class InputDynamicsEngine
         var shapedRudder = Shape(rawRudder, deadzone, sensitivity, expoStrength, curve);
 
         var feel = ControlFeel.For(snapshot);
+        if (settings.RealisticRudder)
+            shapedRudder = ControlFeel.RudderPedalCurve(shapedRudder);
         var rudderAuthority = feel.RudderAuthority(settings, snapshot.AirspeedIndicatedKnots);
         shapedRudder *= rudderAuthority;
 
@@ -68,7 +70,7 @@ public sealed class InputDynamicsEngine
         var yawTime = ControlInertia.TravelSeconds(snapshot.YawMoi, snapshot.TotalWeightPounds, yawRate > 0 ? 1.1 / yawRate : 0.35, snapshot.Class) * scale * tune * SliderScale(settings.YawDamping, 0.5, 2.0);
         pitchTime = Numeric.Clamp(pitchTime, feel.MinTravelSeconds, feel.MaxTravelSeconds);
         rollTime = Numeric.Clamp(rollTime, feel.MinTravelSeconds, feel.MaxTravelSeconds);
-        yawTime = Numeric.Clamp(yawTime, feel.MinTravelSeconds, feel.MaxTravelSeconds);
+        yawTime = Numeric.Clamp(yawTime * feel.RudderFeelScale(settings, snapshot), feel.MinTravelSeconds, feel.MaxTravelSeconds);
 
         var accel = settings.InputAccelerationScale;
         var decel = settings.InputDecelerationScale;

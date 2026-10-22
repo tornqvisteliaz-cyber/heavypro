@@ -27,6 +27,20 @@ public sealed class AircraftIdentity
         }
     }
 
+    /// <summary>
+    /// PMDG and iniBuilds run their own control model, which only the Direct route
+    /// reaches; on the Masked route the yoke does not move at all.
+    /// </summary>
+    public bool NeedsDirectRoute
+    {
+        get
+        {
+            var blob = $"{Title} {AtcModel} {AtcType}".ToUpperInvariant();
+            return IsPmdg777 || blob.Contains("PMDG") || blob.Contains("INIBUILDS")
+                || blob.Contains("A350") || blob.Contains("A359") || blob.Contains("A35K");
+        }
+    }
+
     public string DisplayName
     {
         get
