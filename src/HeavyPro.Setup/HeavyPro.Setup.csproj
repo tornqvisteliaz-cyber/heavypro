@@ -1,14 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
-    <UseWPF>true</UseWPF>
+    <!-- .NET Framework 4.8 ships with Windows 10 and 11, so the setup needs no bundled runtime
+         and stays a few MB instead of a ~69 MB self-contained .NET 8 exe. -->
+    <TargetFramework>net48</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <AssemblyName>HeavyProSetup</AssemblyName>
     <ApplicationIcon>..\HeavyFeel.App\Assets\HeavyPro.ico</ApplicationIcon>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
@@ -17,7 +14,19 @@
     <EmbeddedResource Include="$(PayloadZipPath)" LogicalName="HeavyProPayload.zip" Condition="'$(PayloadZipPath)' != '' and Exists('$(PayloadZipPath)')" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Rotaidem.Licensing\Rotaidem.Licensing.csproj" />
+    <!-- The licensing library has no dependencies, so its source is compiled in and the setup stays one file. -->
+    <Compile Include="..\Rotaidem.Licensing\*.cs" Link="Licensing\%(Filename)%(Extension)" />
     <Compile Include="..\Shared\HeavyProLicense.cs" Link="HeavyProLicense.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Plain references instead of UseWindowsForms, which on .NET Framework only adds these
+         and needs the Windows-only desktop SDK to build. -->
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Runtime.Serialization" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
 </Project>

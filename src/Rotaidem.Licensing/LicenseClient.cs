@@ -1,7 +1,5 @@
 using System.Net.Http;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace Rotaidem.Licensing;
 
@@ -36,9 +34,18 @@ public sealed class LicenseClient
 {
     public const string DefaultBaseUrl = "https://rotaidem.com";
 
-    private static readonly HttpClient SharedHttp = new() { Timeout = TimeSpan.FromSeconds(15) };
+    // Timeouts are applied per attempt below, so the shared client itself never times out.
+    private static readonly HttpClient SharedHttp = new() { Timeout = Timeout.InfiniteTimeSpan };
     private readonly HttpClient _http;
     private readonly string _baseUrl;
+
+    static LicenseClient()
+    {
+#if NETFRAMEWORK
+        // .NET Framework can default to old TLS versions that hosting providers refuse.
+        System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
+#endif
+    }
 
     public LicenseClient(string baseUrl = DefaultBaseUrl, string product = "heavypro", HttpClient? http = null)
     {
@@ -49,14 +56,23 @@ public sealed class LicenseClient
 
     public string Product { get; }
 
+    /// <summary>
+    /// How long one attempt may take. A server on a free hosting plan sleeps when idle and can need
+    /// up to a minute to wake, so activation retries (see <see cref="ActivationAttempts"/>).
+    /// </summary>
+    public TimeSpan AttemptTimeout { get; set; } = TimeSpan.FromSeconds(35);
+
+    /// <summary>Attempts for activate/deactivate, which the user waits for and which must not fail just because the server was asleep.</summary>
+    public int ActivationAttempts { get; set; } = 3;
+
     /// <summary>Activate the key on this computer. Uses up one activation unless this computer is already activated.</summary>
-    public Task<LicenseResult> ActivateAsync(string key, CancellationToken ct = default) => PostAsync("activate", key, ct);
+    public Task<LicenseResult> ActivateAsync(string key, CancellationToken ct = default) => PostAsync("activate", key, ActivationAttempts, ct);
 
     /// <summary>Confirm the key is still valid and already activated on this computer. Does not use an activation.</summary>
-    public Task<LicenseResult> ValidateAsync(string key, CancellationToken ct = default) => PostAsync("validate", key, ct);
+    public Task<LicenseResult> ValidateAsync(string key, CancellationToken ct = default) => PostAsync("validate", key, ActivationAttempts, ct);
 
     /// <summary>Free this computer's activation, e.g. before moving to a new PC.</summary>
-    public Task<LicenseResult> DeactivateAsync(string key, CancellationToken ct = default) => PostAsync("deactivate", key, ct);
+    public Task<LicenseResult> DeactivateAsync(string key, CancellationToken ct = default) => PostAsync("deactivate", key, ActivationAttempts, ct);
 
     /// <summary>
     /// For app start-up: validate the saved key online. If the server cannot be reached and the key was
@@ -68,7 +84,8 @@ public sealed class LicenseClient
         if (saved is null)
             return new LicenseResult(LicenseStatus.NoKey, "No licence key has been entered on this computer.");
 
-        var result = await ValidateAsync(saved.Key, ct).ConfigureAwait(false);
+        // One attempt only: at start-up the offline grace period covers a sleeping or unreachable server.
+        var result = await PostAsync("validate", saved.Key, 1, ct).ConfigureAwait(false);
         if (result.Status == LicenseStatus.Valid)
         {
             store.Save(saved.Key, DateTimeOffset.UtcNow);
@@ -84,38 +101,57 @@ public sealed class LicenseClient
         return result;
     }
 
-    private async Task<LicenseResult> PostAsync(string action, string key, CancellationToken ct)
+    private async Task<LicenseResult> PostAsync(string action, string key, int attempts, CancellationToken ct)
     {
         var normalized = LicenseKey.Normalize(key);
         if (normalized is null)
             return new LicenseResult(LicenseStatus.InvalidFormat, "That is not a valid licence key. Check for typing mistakes.");
 
-        var payload = JsonSerializer.Serialize(new { key = normalized, machine_id = MachineId.Get(), machine_name = MachineId.DisplayName(), product = Product });
-        HttpResponseMessage response;
-        try
+        var payload = Json.Serialize(new LicenseRequest { Key = normalized, MachineId = MachineId.Get(), MachineName = MachineId.DisplayName(), Product = Product });
+        HttpResponseMessage? response = null;
+        var problem = "";
+        for (var attempt = 1; attempt <= Math.Max(1, attempts) && response is null; attempt++)
         {
-            using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-            response = await _http.PostAsync($"{_baseUrl}/api/licenses/{action}", content, ct).ConfigureAwait(false);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(AttemptTimeout);
+            try
+            {
+                using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+                response = await _http.PostAsync($"{_baseUrl}/api/licenses/{action}", content, timeout.Token).ConfigureAwait(false);
+                // Render answers 502/503 while a sleeping service starts; treat that like no answer and try again.
+                if ((int)response.StatusCode is 502 or 503 or 504 && attempt < attempts)
+                {
+                    response.Dispose();
+                    response = null;
+                    problem = "the server is starting up";
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                problem = $"it did not answer within {(int)AttemptTimeout.TotalSeconds} seconds";
+            }
+            catch (HttpRequestException ex)
+            {
+                problem = InnermostMessage(ex);
+            }
+            if (response is null && attempt < attempts)
+                await Task.Delay(TimeSpan.FromSeconds(2), ct).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            return new LicenseResult(LicenseStatus.NetworkError, "Could not reach the licence server. Check your internet connection.");
-        }
+        if (response is null)
+            return new LicenseResult(LicenseStatus.NetworkError,
+                $"Could not reach the licence server ({_baseUrl}): {problem}. Check your internet connection and try again.");
 
         using (response)
         {
-            Reply? reply = null;
-            try
-            {
-                var text = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                reply = JsonSerializer.Deserialize<Reply>(text);
-            }
-            catch (JsonException)
-            {
-            }
+            var reply = Json.Deserialize<LicenseReply>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
 
             if (reply is null)
-                return new LicenseResult(LicenseStatus.ServerError, $"The licence server answered unexpectedly ({(int)response.StatusCode}).");
+                return new LicenseResult(LicenseStatus.ServerError,
+                    $"{_baseUrl} answered, but not like the Rotaidem licence server (HTTP {(int)response.StatusCode}). Check that the server address is right.");
             if (action == "deactivate" && response.IsSuccessStatusCode)
                 return new LicenseResult(LicenseStatus.Valid, "This computer has been deactivated.");
             if (reply.Valid)
@@ -135,12 +171,10 @@ public sealed class LicenseClient
         }
     }
 
-    private sealed class Reply
+    private static string InnermostMessage(Exception ex)
     {
-        [JsonPropertyName("valid")] public bool Valid { get; set; }
-        [JsonPropertyName("reason")] public string? Reason { get; set; }
-        [JsonPropertyName("error")] public string? Error { get; set; }
-        [JsonPropertyName("activations_used")] public int ActivationsUsed { get; set; }
-        [JsonPropertyName("max_activations")] public int MaxActivations { get; set; }
+        while (ex.InnerException is not null)
+            ex = ex.InnerException;
+        return ex.Message.TrimEnd('.');
     }
 }

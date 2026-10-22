@@ -74,8 +74,8 @@ public partial class App : System.Windows.Application
         var store = HeavyProLicense.Store();
         var saved = store.Load();
 
-        // A key confirmed within the grace period starts at once. Render's free
-        // tier can take close to a minute to wake, which must not block start-up.
+        // A key confirmed within the grace period starts at once, so a slow or
+        // missing internet connection never blocks start-up.
         if (saved != null && DateTimeOffset.UtcNow - saved.LastValidatedUtc < HeavyProLicense.OfflineGrace)
             return true;
 
