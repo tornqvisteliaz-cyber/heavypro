@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>HeavyPro</title>
+	<meta charset="utf-8" />
+	<link rel="stylesheet" href="/SCSS/common.css" />
+	<link rel="stylesheet" href="RotaidemHeavyPro.css" />
+	<script type="text/javascript" src="/JS/coherent.js"></script>
+	<script type="text/javascript" src="/JS/common.js"></script>
+	<script type="text/javascript" src="/JS/buttons.js"></script>
+	<script type="text/javascript" src="/JS/dataStorage.js"></script>
+	<script type="text/javascript" src="/JS/simvar.js"></script>
+	<script type="text/javascript" src="/JS/Services/ToolBarPanels.js"></script>
+	<script type="text/javascript" src="/Pages/VCockpit/Instruments/Shared/BaseInstrument.js"></script>
+	<link rel="import" href="/templates/ingameUi/ingameUi.html" />
+	<link rel="import" href="/templates/ingameUiHeader/ingameUiHeader.html" />
+	<script type="text/javascript" src="RotaidemHeavyPro.js"></script>
+</head>
+<body class="border-box">
+	<rotaidem-heavypro>
+		<!-- panel-id must match the id in InGamePanels/rotaidem-heavypro-panel.xml -->
+		<ingame-ui id="RotaidemHeavyProPanel" panel-id="ROTAIDEM_HEAVYPRO_PANEL" title="HeavyPro" class="ingameUiFrame panelInvisible" content-fit="true" min-width="300" min-height="380">
+			<section id="hp-main" class="hp">
+				<div class="hp-head">
+					<svg class="hp-logo" viewBox="0 0 64 64" width="26" height="26">
+						<g transform="translate(8 12) scale(1.3)" fill="#eef0f2">
+							<g transform="translate(2 0) skewX(-14)">
+								<path d="M2 9.2h11.5l-.6 2.6H1.4zM0.6 14.7h11.6l-.6 2.6H0zM2 20.2h9.2l-.6 2.6H1.4z"/>
+								<path fill-rule="evenodd" d="M15 4h12.2a7.3 7.3 0 0 1 2.4 14.2L35 28h-6.4l-4.7-9h-3.6v9H15zm5.3 4.6v5.8h6.3a2.9 2.9 0 0 0 0-5.8z"/>
+							</g>
+						</g>
+					</svg>
+					<div class="hp-brand">HeavyPro <span>by Rotaidem</span></div>
+					<div id="hp-state" class="hp-badge">APP NOT RUNNING</div>
+				</div>
+				<div id="hp-hint" class="hp-hint">Start HeavyPro on your PC. This panel controls it.</div>
+
+				<button type="button" id="hp-master" class="hp-master">MASTER OFF</button>
+
+				<div class="hp-label">FEEL</div>
+				<div class="hp-presets">
+					<button type="button" class="hp-preset" data-preset="1">Normal</button>
+					<button type="button" class="hp-preset" data-preset="2">Medium</button>
+					<button type="button" class="hp-preset" data-preset="3">Realistic</button>
+				</div>
+
+				<div class="hp-label">INERTIA <span id="hp-inertia-value">-</span></div>
+				<div class="hp-steps">
+					<button type="button" class="hp-step" data-step="-10">-10</button>
+					<div class="hp-track"><div id="hp-inertia-fill" class="hp-fill"></div></div>
+					<button type="button" class="hp-step" data-step="10">+10</button>
+				</div>
+
+				<div class="hp-label">STICK TO AIRCRAFT</div>
+				<div class="hp-meter"><span>PITCH</span><div class="hp-bar"><div id="hp-out-p" class="hp-out"></div><div id="hp-in-p" class="hp-in"></div></div></div>
+				<div class="hp-meter"><span>ROLL</span><div class="hp-bar"><div id="hp-out-r" class="hp-out"></div><div id="hp-in-r" class="hp-in"></div></div></div>
+			</section>
+		</ingame-ui>
+	</rotaidem-heavypro>
+</body>
+</html>

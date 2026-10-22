@@ -60,6 +60,14 @@ public sealed class OfflineSimClient : ISimClient
 
     public string? InputConflict => null;
 
+#pragma warning disable CS0067 // never raised offline
+    public event EventHandler<PanelRequest>? PanelRequested;
+#pragma warning restore CS0067
+
+    public void PublishPanelState(PanelState state)
+    {
+    }
+
     public void Dispose()
     {
     }

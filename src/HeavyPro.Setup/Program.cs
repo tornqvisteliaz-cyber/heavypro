@@ -1,9 +1,8 @@
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
-using System.Runtime.Serialization;
-using System.Runtime.Serialization.Json;
 using System.Windows.Forms;
 using HeavyPro.Licensing;
 using Rotaidem.Licensing;
@@ -20,86 +19,115 @@ static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         using var setup = new SetupForm();
-        var detected = CommunityFinder.Find();
-        if (detected is { Length: > 0 })
-            setup.SetPath(detected);
         System.Windows.Forms.Application.Run(setup);
     }
 }
 
 sealed class SetupForm : Form
 {
-    private readonly TextBox _path = new() { Width = 420 };
-    private readonly TextBox _key = new() { Width = 260, CharacterCasing = CharacterCasing.Upper };
-    private readonly Button _install = new() { Text = "Install", Width = 120 };
+    // Rotaidem brand colours, matching rotaidem.com and the app.
+    private static readonly Color Bg = Color.FromArgb(0x11, 0x13, 0x15);
+    private static readonly Color Field = Color.FromArgb(0x1B, 0x1F, 0x22);
+    private static readonly Color Ink = Color.FromArgb(0xEE, 0xF0, 0xF2);
+    private static readonly Color Muted = Color.FromArgb(0x87, 0x8D, 0x94);
+    private static readonly Color Accent = Color.FromArgb(0xAA, 0xB6, 0xC2);
+    private static readonly Color Danger = Color.FromArgb(0xE5, 0x48, 0x4D);
+
+    private readonly TextBox _key = new() { CharacterCasing = CharacterCasing.Upper };
+    private readonly Button _install = new() { Text = "Install HeavyPro" };
+    private readonly Label _status = new();
 
     public SetupForm()
     {
-        Text = "HeavyPro";
-        Width = 560;
-        Height = 290;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
+        Text = "Install HeavyPro";
+        ClientSize = new Size(560, 430);
+        FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
+        BackColor = Bg;
+        ForeColor = Ink;
+        Font = new Font("Segoe UI", 10f);
+        try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch (Exception) { }
 
-        var label = new Label
+        var logo = new PictureBox { Left = 36, Top = 36, Width = 64, Height = 64, SizeMode = PictureBoxSizeMode.Zoom, Image = LoadLogo() };
+        var title = new Label { Text = "HeavyPro", Left = 116, Top = 36, AutoSize = true, Font = new Font("Segoe UI Semibold", 22f), ForeColor = Ink };
+        var by = new Label { Text = "by Rotaidem", Left = 120, Top = 78, AutoSize = true, ForeColor = Muted };
+        var intro = new Label
         {
-            Text = "Where is your community folder?",
-            Left = 16,
-            Top = 16,
-            Width = 500
+            Text = "Makes your stick feel like flying a real aircraft in Microsoft Flight Simulator 2024: "
+                 + "weight, momentum and a smooth return to centre.",
+            Left = 36, Top = 128, Width = 488, Height = 46, ForeColor = Muted
         };
-        _path.Left = 16;
-        _path.Top = 44;
-        var browse = new Button { Text = "Browse", Left = 444, Top = 42, Width = 80 };
-        browse.Click += (_, _) =>
-        {
-            using var dialog = new FolderBrowserDialog { Description = "Where is your community folder?" };
-            if (dialog.ShowDialog() == DialogResult.OK)
-                _path.Text = dialog.SelectedPath;
-        };
-        var keyLabel = new Label
-        {
-            Text = "Licence key (from your purchase email)",
-            Left = 16,
-            Top = 86,
-            Width = 500
-        };
-        _key.Left = 16;
-        _key.Top = 112;
+
+        var keyLabel = new Label { Text = "Licence key", Left = 36, Top = 196, AutoSize = true, ForeColor = Ink, Font = new Font("Segoe UI Semibold", 10f) };
+        _key.SetBounds(36, 222, 488, 32);
+        _key.BackColor = Field;
+        _key.ForeColor = Ink;
+        _key.BorderStyle = BorderStyle.FixedSingle;
+        _key.Font = new Font("Consolas", 13f);
+        var keyHint = new Label { Text = "From your purchase email. It looks like HPRO-XXXX-XXXX-XXXX.", Left = 36, Top = 262, AutoSize = true, ForeColor = Muted, Font = new Font("Segoe UI", 9f) };
+
+        _install.SetBounds(36, 306, 488, 46);
+        _install.FlatStyle = FlatStyle.Flat;
+        _install.FlatAppearance.BorderSize = 0;
+        _install.BackColor = Accent;
+        _install.ForeColor = Color.FromArgb(0x0B, 0x0C, 0x0E);
+        _install.Font = new Font("Segoe UI Semibold", 11f);
+        _install.Cursor = Cursors.Hand;
+        _install.Click += async (_, _) => await ActivateThenInstall();
+        AcceptButton = _install;
+
+        _status.SetBounds(36, 362, 488, 40);
+        _status.ForeColor = Muted;
+        _status.Font = new Font("Segoe UI", 9f);
+        _status.Text = "Installs into your user folder and adds Start menu and desktop shortcuts.";
+
         // Reinstalling on a computer that is already activated should not ask again.
         if (HeavyProLicense.Store().Load() is { } saved)
             _key.Text = saved.Key;
-        _install.Left = 16;
-        _install.Top = 160;
-        _install.Click += async (_, _) => await ActivateThenInstall();
         HeavyProLicense.WakeServer();
         _key.HandleCreated += (_, _) => SetPlaceholder(_key, "HPRO-XXXX-XXXX-XXXX");
-        Controls.Add(label);
-        Controls.Add(_path);
-        Controls.Add(browse);
-        Controls.Add(keyLabel);
-        Controls.Add(_key);
-        Controls.Add(_install);
+        // Open with the cursor after a pre-filled key rather than the whole key selected.
+        Shown += (_, _) => { _key.SelectionStart = _key.Text.Length; _key.SelectionLength = 0; };
+        Controls.AddRange(new Control[] { logo, title, by, intro, keyLabel, _key, keyHint, _install, _status });
+    }
+
+    private static Image? LoadLogo()
+    {
+        using var stream = typeof(SetupForm).Assembly.GetManifestResourceStream("HeavyPro.Setup.Logo.png");
+        return stream == null ? null : Image.FromStream(new MemoryStream(ReadAll(stream)));
+    }
+
+    private static byte[] ReadAll(Stream stream)
+    {
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+        return copy.ToArray();
+    }
+
+    private void ShowStatus(string text, bool problem = false)
+    {
+        _status.ForeColor = problem ? Danger : Muted;
+        _status.Text = text;
     }
 
     private async Task ActivateThenInstall()
     {
         if (!LicenseKey.IsWellFormed(_key.Text, LicenseKey.HeavyProPrefix))
         {
-            MessageBox.Show(this, "That licence key has a typo. It should look like HPRO-XXXX-XXXX-XXXX.", "HeavyPro");
+            ShowStatus("That licence key has a typo. It should look like HPRO-XXXX-XXXX-XXXX.", problem: true);
             return;
         }
 
         _install.Enabled = false;
-        _install.Width = 380;
-        _install.Text = "Checking key… can take up to a minute";
+        _install.Text = "Checking your key…";
+        ShowStatus("Contacting the licence server. This can take up to a minute.");
         try
         {
             var result = await HeavyProLicense.ActivateAsync(_key.Text);
             if (!result.IsValid)
             {
-                MessageBox.Show(this, result.Message, "HeavyPro");
+                ShowStatus(result.Message, problem: true);
                 return;
             }
             HeavyProLicense.Save(_key.Text, result);
@@ -107,14 +135,11 @@ sealed class SetupForm : Form
         finally
         {
             _install.Enabled = true;
-            _install.Width = 120;
-            _install.Text = "Install";
+            _install.Text = "Install HeavyPro";
         }
 
         Install();
     }
-
-    public void SetPath(string path) => _path.Text = path;
 
     // TextBox.PlaceholderText does not exist on .NET Framework; Windows' cue banner does the same.
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
@@ -126,14 +151,7 @@ sealed class SetupForm : Form
     {
         if (!BundleInstaller.HasPayload)
         {
-            MessageBox.Show(this, "This setup file was built without the MSFS-enabled app. Download the MSFS-enabled HeavyPro installer.", "HeavyPro");
-            return;
-        }
-
-        var community = _path.Text.Trim().Trim('"');
-        if (community.Length == 0 || !Directory.Exists(community))
-        {
-            MessageBox.Show(this, "That folder does not exist. Paste the Community folder path.", "HeavyPro");
+            ShowStatus("This setup file was built without the app. Download the HeavyPro installer again.", problem: true);
             return;
         }
 
@@ -144,14 +162,17 @@ sealed class SetupForm : Form
 
         try
         {
+            _install.Enabled = false;
+            ShowStatus("Installing…");
             BundleInstaller.Extract(appDir);
-            PackageInstaller.Install(community);
+            FeelSettings.Install(appDir);
+            var panel = PanelInstaller.Install();
             var appExe = Path.Combine(appDir, "HeavyPro.exe");
-            File.WriteAllText(Path.Combine(appDir, "community.path"), community);
             SimConnectLocator.CreateShortcut(appExe);
 
-            MessageBox.Show(this,
-                "Installed. Opening HeavyPro.\n\nRestart MSFS 2024. The toolbar icon needs InGamePanels/HeavyPro.spb from the MSFS SDK. HTML alone does not add the icon.",
+            MessageBox.Show(this, panel != null
+                ? "HeavyPro is installed and will open now.\n\nIn MSFS 2024, the HeavyPro panel is in the toolbar."
+                : "HeavyPro is installed and will open now.\n\nThe MSFS 2024 Community folder was not found, so the in-game panel was not added. The app works without it.",
                 "HeavyPro");
             DialogResult = DialogResult.OK;
             Close();
@@ -159,9 +180,8 @@ sealed class SetupForm : Form
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this,
-                $"HeavyPro could not be updated. Close HeavyPro and try again.\n\n{ex.Message}",
-                "HeavyPro setup", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            _install.Enabled = true;
+            ShowStatus("HeavyPro could not be installed. Close HeavyPro and try again. " + ex.Message, problem: true);
         }
     }
 
@@ -234,128 +254,146 @@ static class BundleInstaller
     }
 }
 
-static class PackageInstaller
+/// <summary>
+/// Writes the app's feel settings (travel scale) into HeavyPro's own folder and removes the
+/// in-game toolbar package that earlier versions put in the MSFS Community folder.
+/// The app finds the file through community.path, so it works unchanged.
+/// </summary>
+static class FeelSettings
 {
-    public static void Install(string community)
-    {
-        WritePackage(Path.Combine(community, "heavypro-feel"));
-        var sibling = Path.Combine(Path.GetDirectoryName(community) ?? community, "Community2024");
-        if (Directory.Exists(sibling))
-            WritePackage(Path.Combine(sibling, "heavypro-feel"));
-        var appDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HeavyPro");
-        Directory.CreateDirectory(appDir);
-        File.WriteAllText(Path.Combine(appDir, "community.path"), community);
-    }
+    private const string Package = "heavypro-feel";
 
-    private static void WritePackage(string package)
+    public static void Install(string appDir)
     {
-        Directory.CreateDirectory(Path.Combine(package, "html_ui", "InGamePanels", "HeavyPro"));
-        Directory.CreateDirectory(Path.Combine(package, "html_ui", "icons", "toolbar"));
-        File.WriteAllText(Path.Combine(package, "manifest.json"), """
-        {
-          "dependencies": [],
-          "content_type": "MISC",
-          "title": "HeavyPro",
-          "manufacturer": "HeavyPro",
-          "creator": "HeavyPro",
-          "package_version": "1.1.0",
-          "minimum_game_version": "1.0.0",
-          "release_notes": { "neutral": { "LastUpdate": "Community profile for the HeavyPro app", "OlderHistory": "" } }
-        }
-        """);
-        Directory.CreateDirectory(Path.Combine(package, "HeavyPro"));
-        File.WriteAllText(Path.Combine(package, "HeavyPro", "profiles.json"), """
+        var marker = Path.Combine(appDir, "community.path");
+        var oldCommunity = File.Exists(marker) ? File.ReadAllText(marker).Trim() : null;
+        var feelRoot = Path.Combine(appDir, "feel");
+
+        // Keep a travel scale the user already tuned in the old package.
+        var settings = Path.Combine(feelRoot, Package, "HeavyPro", "profiles.json");
+        var existing = new[] { settings, oldCommunity == null ? null : Path.Combine(oldCommunity, Package, "HeavyPro", "profiles.json") }
+            .FirstOrDefault(f => f != null && File.Exists(f));
+        var text = existing != null ? File.ReadAllText(existing) : """
         {
           "travelScale": 1.4,
           "note": "HeavyPro reads this file. 1.0 is normal. 1.4 is heavier. 2.0 is slow. Restart the app after changing it."
         }
-        """);
-        File.WriteAllText(Path.Combine(package, "HeavyPro", "README.txt"),
-            "This package holds the HeavyPro profile. The Windows app reads HeavyPro/profiles.json from here. HTML does not create a toolbar icon. That still needs InGamePanels/HeavyPro.spb from the MSFS SDK.");
-        File.WriteAllText(Path.Combine(package, "html_ui", "InGamePanels", "HeavyPro", "HeavyPro.html"), """
-        <script type="text/html" import-script="/JS/dataStorage.js"></script>
-        <script type="text/html" import-script="/JS/simvar.js"></script>
-        <script type="text/html" import-script="/Pages/VCockpit/Instruments/Shared/BaseInstrument.js"></script>
-        <link rel="stylesheet" href="HeavyPro.css" />
-        <script type="text/javascript" src="HeavyPro.js"></script>
-        <ingamepanel-custom>
-          <ingame-ui id="HeavyPro" panel-id="HeavyPro" title="HeavyPro" class="ingameUiFrame" min-width="320" min-height="180" content-fit="true">
-            <div class="panel">HeavyPro</div>
-          </ingame-ui>
-        </ingamepanel-custom>
-        """);
-        File.WriteAllText(Path.Combine(package, "html_ui", "InGamePanels", "HeavyPro", "HeavyPro.js"), """
-        class IngamePanelHeavyPro extends HTMLElement {
-          connectedCallback() {
-            this.innerHTML = "<div class='panel'>HeavyPro</div>";
-          }
-        }
-        window.customElements.define("ingamepanel-custom", IngamePanelHeavyPro);
-        setTimeout(() => {
-          const panel = document.getElementById("HeavyPro");
-          if (!panel) return;
-          panel.classList.remove("hide");
-          panel.classList.remove("panelInvisible");
-        }, 500);
-        if (typeof checkAutoload === "function") checkAutoload();
-        """);
-        File.WriteAllText(Path.Combine(package, "html_ui", "icons", "toolbar", "ICON_TOOLBAR_HEAVYPRO.svg"), """
-        <?xml version="1.0" encoding="utf-8"?>
-        <svg version="1.1" id="Titre" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-          <title>HeavyPro</title>
-          <g id="HIGHLIGHT">
-            <rect width="64" height="64" rx="8" fill="#2a2a2a"/>
-            <text x="32" y="40" text-anchor="middle" font-size="18" fill="#eeeeee">HP</text>
-          </g>
-        </svg>
-        """);
-        File.WriteAllText(Path.Combine(package, "html_ui", "InGamePanels", "HeavyPro", "HeavyPro.css"), """
-        .panel { color: #eee; background: #1c1c1c; padding: 16px; font: 16px Segoe UI, sans-serif; }
-        """);
-        File.WriteAllText(Path.Combine(package, "html_ui", "icons", "toolbar", "ICON_TOOLBAR_HEAVYPRO.svg"), """
-        <?xml version="1.0" encoding="utf-8"?>
-        <svg version="1.1" id="Titre" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-          <title>HeavyPro</title>
-          <g id="HIGHLIGHT">
-            <rect width="64" height="64" rx="8" fill="#2a2a2a"/>
-            <text x="32" y="40" text-anchor="middle" font-size="18" fill="#eeeeee">HP</text>
-          </g>
-        </svg>
-        """);
+        """;
+        Directory.CreateDirectory(Path.GetDirectoryName(settings)!);
+        File.WriteAllText(settings, text);
+        File.WriteAllText(marker, feelRoot);
 
-        var root = Path.GetFullPath(package).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        var layout = new Layout
+        // No toolbar any more: remove the package earlier versions installed.
+        foreach (var community in new[] { oldCommunity, CommunityFinder.Find() }.Where(c => c != null).Distinct())
         {
-            Content = Directory.GetFiles(package, "*", SearchOption.AllDirectories)
-                .Where(file => !file.EndsWith("layout.json", StringComparison.OrdinalIgnoreCase))
-                .Select(file => new LayoutEntry
-                {
-                    Path = Path.GetFullPath(file).Substring(root.Length).Replace('\\', '/'),
-                    Size = new FileInfo(file).Length,
-                    Date = new FileInfo(file).LastWriteTimeUtc.ToFileTimeUtc()
-                }).ToArray()
-        };
-        using var stream = File.Create(Path.Combine(package, "layout.json"));
-        new DataContractJsonSerializer(typeof(Layout)).WriteObject(stream, layout);
+            RemoveOldPackage(community!);
+            var sibling = Path.Combine(Path.GetDirectoryName(community!) ?? community!, "Community2024");
+            RemoveOldPackage(sibling);
+        }
     }
 
-    [DataContract]
-    private sealed class Layout
+    private static void RemoveOldPackage(string community)
     {
-        [DataMember(Name = "content")] public LayoutEntry[] Content { get; set; } = [];
+        try
+        {
+            var package = Path.Combine(community, Package);
+            var manifest = Path.Combine(package, "manifest.json");
+            // Only ever delete our own package.
+            if (File.Exists(manifest) && File.ReadAllText(manifest).Contains("\"creator\": \"HeavyPro\""))
+                Directory.Delete(package, recursive: true);
+        }
+        catch (Exception)
+        {
+            // A leftover toolbar package is harmless; never fail the install over it.
+        }
     }
+}
 
-    [DataContract]
-    private sealed class LayoutEntry
+/// <summary>
+/// Puts the in-game HeavyPro panel (toolbar panel plus WASM bridge) in the MSFS 2024
+/// Community folder. Never fails the install: the app works without it.
+/// </summary>
+static class PanelInstaller
+{
+    private const string Package = "rotaidem-heavypro-panel";
+
+    public static string? Install()
     {
-        [DataMember(Name = "path", Order = 0)] public string Path { get; set; } = "";
-        [DataMember(Name = "size", Order = 1)] public long Size { get; set; }
-        [DataMember(Name = "date", Order = 2)] public long Date { get; set; }
+        try
+        {
+            var community = CommunityFinder.Find2024();
+            using var stream = typeof(PanelInstaller).Assembly.GetManifestResourceStream("HeavyProPanel.zip");
+            if (community == null || stream == null)
+                return null;
+
+            var target = Path.Combine(community, Package);
+            var manifest = Path.Combine(target, "manifest.json");
+            if (Directory.Exists(target))
+            {
+                // Only ever replace our own package.
+                if (!File.Exists(manifest) || !File.ReadAllText(manifest).Contains("\"creator\": \"Rotaidem\""))
+                    return null;
+                Directory.Delete(target, recursive: true);
+            }
+
+            using var archive = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Read);
+            var root = Path.GetFullPath(community) + Path.DirectorySeparatorChar;
+            foreach (var entry in archive.Entries)
+            {
+                if (entry.FullName.EndsWith("/"))
+                    continue;
+                var file = Path.GetFullPath(Path.Combine(community, entry.FullName));
+                if (!file.StartsWith(root + Package + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Invalid panel package path.");
+                Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+                entry.ExtractToFile(file, true);
+            }
+            return target;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 }
 
 static class CommunityFinder
 {
+    /// <summary>The MSFS 2024 Community folder, from its own UserCfg.opt first.</summary>
+    public static string? Find2024()
+    {
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var appdata = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        foreach (var cfg in new[]
+        {
+            Path.Combine(appdata, "Microsoft Flight Simulator 2024", "UserCfg.opt"),
+            Path.Combine(local, "Packages", "Microsoft.Limitless_8wekyb3d8bbwe", "LocalCache", "UserCfg.opt")
+        })
+        {
+            if (!File.Exists(cfg))
+                continue;
+            foreach (var line in File.ReadLines(cfg))
+            {
+                if (!line.StartsWith("InstalledPackagesPath", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var value = line.Split(new[] { ' ' }, 2).Last().Trim().Trim('"');
+                var community = Path.Combine(value, "Community");
+                if (Directory.Exists(community))
+                    return community;
+            }
+        }
+        foreach (var path in new[]
+        {
+            Path.Combine(appdata, "Microsoft Flight Simulator 2024", "Packages", "Community"),
+            Path.Combine(local, "Packages", "Microsoft.Limitless_8wekyb3d8bbwe", "LocalCache", "Packages", "Community")
+        })
+        {
+            if (Directory.Exists(path))
+                return path;
+        }
+        return null;
+    }
+
     public static string? Find()
     {
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
