@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<SimBase.Document Type="InGamePanels" version="1,0">
+	<Filename>rotaidem-heavypro-panel.spb</Filename>
+	<InGamePanels.InGamePanelDefinition id="ROTAIDEM_HEAVYPRO_PANEL" Name="HeavyPro" url="html_ui/InGamePanels/RotaidemHeavyPro/RotaidemHeavyPro.html" resizeDirections="both" minWidth="22" minHeight="28" defaultWidth="22" defaultHeight="34" defaultTop="30.000" defaultRight="3.000" icon="ICON_TOOLBAR_ROTAIDEM_HEAVYPRO" buttonVisible="true" />
+</SimBase.Document>

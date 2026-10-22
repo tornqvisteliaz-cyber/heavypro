@@ -1,0 +1,32 @@
+/* Rotaidem colours, matching the HeavyPro app and rotaidem.com */
+html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
+rotaidem-heavypro { display: block; width: 100%; height: 100%; }
+rotaidem-heavypro .hp { background: #111315; color: #eef0f2; padding: 14px 16px 16px; font-family: "Segoe UI", Roboto, sans-serif; font-size: 14px; width: 100%; height: 100%; box-sizing: border-box; }
+rotaidem-heavypro .hp-head { display: flex; align-items: center; }
+rotaidem-heavypro .hp-logo { width: 26px; height: 26px; margin-right: 8px; flex-shrink: 0; }
+rotaidem-heavypro .hp-brand { font-size: 18px; font-weight: 600; flex: 1; }
+rotaidem-heavypro .hp-brand span { color: #878d94; font-size: 12px; font-weight: 400; }
+rotaidem-heavypro .hp-badge { border: 1px solid #262a2e; background: #16191c; border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; }
+rotaidem-heavypro .hp-badge.good { border-color: #4cc38a; background: #1b3127; }
+rotaidem-heavypro .hp-badge.bad { border-color: #e5484d; background: #3a1f1f; }
+rotaidem-heavypro .hp-hint { color: #878d94; font-size: 12px; margin: 8px 0 12px; min-height: 30px; }
+rotaidem-heavypro .hp-label { color: #aab6c2; font-size: 11px; font-weight: 600; margin: 12px 0 6px; }
+rotaidem-heavypro .hp-label span { color: #eef0f2; float: right; }
+rotaidem-heavypro button { background: #16191c; color: #eef0f2; border: 1px solid #262a2e; border-radius: 6px; padding: 7px 0; font-size: 13px; font-weight: 600; cursor: pointer; }
+rotaidem-heavypro button:hover { border-color: #aab6c2; }
+rotaidem-heavypro .hp-master { width: 100%; padding: 10px 0; }
+rotaidem-heavypro .hp-master.on { background: #aab6c2; color: #0b0c0e; border-color: #aab6c2; }
+rotaidem-heavypro .hp-presets { display: flex; }
+rotaidem-heavypro .hp-preset { flex: 1; margin-right: 6px; }
+rotaidem-heavypro .hp-preset:last-child { margin-right: 0; }
+rotaidem-heavypro .hp-preset.on { background: #aab6c2; color: #0b0c0e; border-color: #aab6c2; }
+rotaidem-heavypro .hp-steps { display: flex; align-items: center; }
+rotaidem-heavypro .hp-step { width: 48px; }
+rotaidem-heavypro .hp-track { flex: 1; height: 4px; margin: 0 8px; background: #262a2e; border-radius: 2px; position: relative; }
+rotaidem-heavypro .hp-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #aab6c2; border-radius: 2px; }
+rotaidem-heavypro .hp-meter { display: flex; align-items: center; margin: 6px 0; }
+rotaidem-heavypro .hp-meter span { color: #878d94; font-size: 11px; width: 50px; }
+rotaidem-heavypro .hp-bar { flex: 1; height: 12px; background: #16191c; border-radius: 3px; position: relative; overflow: hidden; }
+rotaidem-heavypro .hp-out { position: absolute; top: 2px; bottom: 2px; background: #aab6c2; border-radius: 2px; }
+rotaidem-heavypro .hp-in { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #eef0f2; }
+rotaidem-heavypro.offline button { opacity: 0.45; }

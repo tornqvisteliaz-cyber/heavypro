@@ -44,6 +44,12 @@ public interface ISimClient : IDisposable
     /// sim from an MSFS binding, so MSFS and HeavyPro fight. Null when clean.
     /// </summary>
     string? InputConflict { get; }
+
+    /// <summary>The in-game HeavyPro panel asked for a change.</summary>
+    event EventHandler<PanelRequest>? PanelRequested;
+
+    /// <summary>Shows HeavyPro's state on the in-game panel.</summary>
+    void PublishPanelState(PanelState state);
     string RouteDetail { get; }
 }
 

@@ -107,6 +107,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _client.StatusMessage += (_, msg) => Dispatch(() => Status = msg);
         _client.AircraftChanged += (_, id) => Dispatch(() => ApplyIdentity(id));
         _client.SnapshotReceived += (_, snap) => Dispatch(() => ApplySnapshot(snap));
+        _client.PanelRequested += (_, request) => Dispatch(() => ApplyPanelRequest(request));
         _logger.LineWritten += (_, line) => Dispatch(() => AppendLog(line));
 
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
@@ -976,6 +977,35 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _ => "The gold bar is what the aircraft gets. The white tick is your stick."
     };
 
+    // ---------------- In-game panel ----------------
+    private PanelState CurrentPanelState()
+    {
+        var state = RouteBadge switch
+        {
+            "OFFLINE" => 0,
+            "PASS-THROUGH" => 1,
+            "SHAPING" => 2,
+            "AP ON · PAUSED" => 3,
+            "SET UP STICK" => 4,
+            "UNBIND IN MSFS" => 5,
+            "MOVE STICK" => 6,
+            _ => 7
+        };
+        var preset = CurrentFeel switch { FeelLevel.Normal => 1, FeelLevel.Medium => 2, FeelLevel.Realistic => 3, _ => 0 };
+        return new PanelState(MasterEnable, state, preset, _settings.Inertia, MeterPitchIn, MeterPitchOut, MeterRollIn, MeterRollOut);
+    }
+
+    private void ApplyPanelRequest(PanelRequest request)
+    {
+        if (request.Master == 1) MasterEnable = false;
+        else if (request.Master == 2) MasterEnable = true;
+        if (request.Preset is >= 1 and <= 3)
+            ApplyFeel(request.Preset == 1 ? FeelLevel.Normal : request.Preset == 2 ? FeelLevel.Medium : FeelLevel.Realistic);
+        if (request.Inertia is >= 1 and <= 101)
+            Inertia = request.Inertia - 1;
+        _client.PublishPanelState(CurrentPanelState());
+    }
+
     private static string Axis(double? value) => value.HasValue ? value.Value.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture) : "n/a";
 
     private static string Bar(double value)
@@ -1078,6 +1108,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             _lastUiRefresh = now;
             RaiseTelemetry();
+            _client.PublishPanelState(CurrentPanelState());
         }
         else if ((now - _lastMeterRefresh).TotalMilliseconds >= 33)
         {

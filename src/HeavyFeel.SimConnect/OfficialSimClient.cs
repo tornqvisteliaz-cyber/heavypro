@@ -28,7 +28,11 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         RateWrite = 4,
         Flags = 5,
         YokeSense = 6,
-        YokeWrite = 7
+        YokeWrite = 7,
+        PanelState = 8,
+        PanelRequest = 9,
+        BridgeWrite = 10,
+        BridgeStatus = 11
     }
 
     private enum Requests : uint
@@ -37,7 +41,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         Flight = 2,
         FenixFcu = 3,
         Flags = 4,
-        YokeSense = 5
+        YokeSense = 5,
+        PanelRequest = 6,
+        BridgeStatus = 7
     }
 
     private enum Events : uint
@@ -119,6 +125,142 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     public event EventHandler<FlightSnapshot>? SnapshotReceived;
     public event EventHandler<AircraftIdentity>? AircraftChanged;
     public event EventHandler<string>? StatusMessage;
+    public event EventHandler<PanelRequest>? PanelRequested;
+
+    // ---- In-game panel bridge (L:HEAVYPRO_* variables) ----
+    private bool _panelReady;
+    private double _panelAlive;
+
+    private void RegisterPanel()
+    {
+        try
+        {
+            foreach (var name in new[] { "ALIVE", "MASTER", "STATE", "PRESET", "INERTIA", "IN_P", "OUT_P", "IN_R", "OUT_R" })
+                Add(Definitions.PanelState, "L:HEAVYPRO_" + name, "number");
+            _sim!.RegisterDataDefineStruct<PanelStatePacket>(Definitions.PanelState);
+            foreach (var name in new[] { "REQ_MASTER", "REQ_PRESET", "REQ_INERTIA" })
+                Add(Definitions.PanelRequest, "L:HEAVYPRO_" + name, "number");
+            _sim.RegisterDataDefineStruct<PanelRequestPacket>(Definitions.PanelRequest);
+            _sim.RequestDataOnSimObject(Requests.PanelRequest, Definitions.PanelRequest,
+                Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                SIMCONNECT_PERIOD.SIM_FRAME, SIMCONNECT_DATA_REQUEST_FLAG.CHANGED, 0, 0, 0);
+            _panelReady = true;
+        }
+        catch (Exception ex)
+        {
+            _panelReady = false;
+            _logger.Warn("In-game panel bridge unavailable: " + ex.Message);
+        }
+    }
+
+    // ---- WASM bridge (HeavyProBridge.wasm in the panel package) ----
+    // With the module loaded, HeavyPro writes each value it sends to L:HEAVYPRO_SHAPED_*
+    // first, and the module answers any other stick event (an MSFS binding) with that
+    // value, so the stick can stay bound in MSFS.
+    private bool _bridgeReady;
+    private bool _bridgeLoaded;
+    private double _bridgeOverrides;
+    private DateTime _bridgeLastOverride = DateTime.MinValue;
+    private readonly Dictionary<Events, double> _bridgeShaped = new();
+
+    private void RegisterBridge()
+    {
+        try
+        {
+            foreach (var name in new[] { "SHAPED_ELEV", "SHAPED_AIL", "SHAPED_RUD", "OVERRIDE" })
+                Add(Definitions.BridgeWrite, "L:HEAVYPRO_" + name, "number");
+            _sim!.RegisterDataDefineStruct<BridgeWritePacket>(Definitions.BridgeWrite);
+            Add(Definitions.BridgeStatus, "L:HEAVYPRO_WASM_VERSION", "number");
+            Add(Definitions.BridgeStatus, "L:HEAVYPRO_WASM_OVERRIDES", "number");
+            _sim.RegisterDataDefineStruct<BridgeStatusPacket>(Definitions.BridgeStatus);
+            _sim.RequestDataOnSimObject(Requests.BridgeStatus, Definitions.BridgeStatus,
+                Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                SIMCONNECT_PERIOD.SECOND, SIMCONNECT_DATA_REQUEST_FLAG.CHANGED, 0, 0, 0);
+            _bridgeReady = true;
+        }
+        catch (Exception ex)
+        {
+            _bridgeReady = false;
+            _logger.Warn("WASM bridge variables unavailable: " + ex.Message);
+        }
+    }
+
+    private void OnBridgeStatus(BridgeStatusPacket packet)
+    {
+        var loaded = packet.Version >= 1;
+        if (loaded != _bridgeLoaded)
+            _logger.Info(loaded ? "HeavyPro WASM bridge is loaded in the sim." : "HeavyPro WASM bridge is not loaded.");
+        _bridgeLoaded = loaded;
+        if (packet.Overrides != _bridgeOverrides)
+        {
+            if (_bridgeOverrides > 0 || packet.Overrides > 0)
+                _bridgeLastOverride = DateTime.UtcNow;
+            _bridgeOverrides = packet.Overrides;
+        }
+    }
+
+    /// <summary>True while the module is answering MSFS stick bindings for HeavyPro.</summary>
+    private bool BridgeCovering => _bridgeLoaded && DateTime.UtcNow - _bridgeLastOverride < ConflictHold;
+
+    private void WriteBridge(Events ev, int value)
+    {
+        if (!_bridgeReady || !_bridgeLoaded || !_directActive)
+            return;
+        _bridgeShaped[ev] = value;
+        SetBridge(true);
+    }
+
+    private void SetBridge(bool active)
+    {
+        if (_sim == null || !_bridgeReady)
+            return;
+        _sim.SetDataOnSimObject(Definitions.BridgeWrite,
+            Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+            SIMCONNECT_DATA_SET_FLAG.DEFAULT,
+            new BridgeWritePacket
+            {
+                Elevator = _bridgeShaped.TryGetValue(Events.AxisElevator, out var e) ? e : 0,
+                Aileron = _bridgeShaped.TryGetValue(Events.AxisAileron, out var a) ? a : 0,
+                Rudder = _bridgeShaped.TryGetValue(Events.AxisRudder, out var r) ? r : 0,
+                Override = active ? 1 : 0
+            });
+    }
+
+    public void PublishPanelState(PanelState state)
+    {
+        if (_sim == null || !_panelReady)
+            return;
+        try
+        {
+            _panelAlive = _panelAlive >= 1_000_000 ? 1 : _panelAlive + 1;
+            _sim.SetDataOnSimObject(Definitions.PanelState,
+                Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                SIMCONNECT_DATA_SET_FLAG.DEFAULT,
+                new PanelStatePacket
+                {
+                    Alive = _panelAlive, Master = state.Master ? 1 : 0, State = state.State, Preset = state.Preset,
+                    Inertia = state.Inertia, InP = state.InPitch, OutP = state.OutPitch, InR = state.InRoll, OutR = state.OutRoll
+                });
+        }
+        catch (Exception ex)
+        {
+            _panelReady = false;
+            _logger.Warn("In-game panel bridge stopped: " + ex.Message);
+        }
+    }
+
+    private void OnPanelRequest(PanelRequestPacket packet)
+    {
+        var request = new PanelRequest((int)Math.Round(packet.Master), (int)Math.Round(packet.Preset), (int)Math.Round(packet.Inertia));
+        if (!request.Any)
+            return;
+        // Clear first so a request is applied once, even if handling it is slow.
+        _sim?.SetDataOnSimObject(Definitions.PanelRequest,
+            Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+            SIMCONNECT_DATA_SET_FLAG.DEFAULT, new PanelRequestPacket());
+        _logger.Info($"In-game panel request: master={request.Master} preset={request.Preset} inertia={request.Inertia}");
+        PanelRequested?.Invoke(this, request);
+    }
 
     public void Connect()
     {
@@ -201,6 +343,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             RegisterYokeSense();
             RegisterYokeWrite();
             RegisterRateWrite();
+            RegisterPanel();
+            RegisterBridge();
             MapAxisEvents();
             sender.SubscribeToSystemEvent(Events.AircraftLoaded, "AircraftLoaded");
             sender.SubscribeToSystemEvent(Events.SimStart, "SimStart");
@@ -347,6 +491,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         get
         {
             var now = DateTime.UtcNow;
+            if (BridgeCovering)
+                return null;
             var axes = _foreign.Where(f => f.Value.Count >= 3 && now - f.Value.Last < ConflictHold).Select(f => f.Key).ToList();
             return axes.Count == 0 ? null : string.Join(", ", axes);
         }
@@ -524,6 +670,16 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 case Requests.YokeSense:
                     if (data.dwData[0] is YokeSensePacket ys)
                         _yokeSense = ys;
+                    break;
+
+                case Requests.PanelRequest:
+                    if (data.dwData[0] is PanelRequestPacket panel)
+                        OnPanelRequest(panel);
+                    break;
+
+                case Requests.BridgeStatus:
+                    if (data.dwData[0] is BridgeStatusPacket bridge)
+                        OnBridgeStatus(bridge);
                     break;
             }
         }
@@ -839,6 +995,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         history.Enqueue((clamped, DateTime.UtcNow.Ticks));
         if (history.Count > 400)
             history.Dequeue();
+        WriteBridge(ev, clamped);
         _sim!.TransmitClientEvent(
             Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
             ev,
@@ -984,6 +1141,16 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _sentHistory.Clear();
         try
         {
+            // Hand the stick back to the MSFS binding before letting go.
+            if (_bridgeLoaded)
+                SetBridge(false);
+        }
+        catch (Exception)
+        {
+            // The module also stops on its own once ALIVE stops changing.
+        }
+        try
+        {
             _sim?.Dispose();
         }
         catch (Exception ex)
@@ -997,6 +1164,10 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _yokeWriteReady = false;
         _shapingArmed = false;
         _flightLayoutBroken = false;
+        _panelReady = false;
+        _bridgeReady = false;
+        _bridgeLoaded = false;
+        _bridgeShaped.Clear();
         _directActive = false;
         _wasWriting = false;
         _sentNames.Clear();
@@ -1131,6 +1302,30 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         public double Ap2;
         public double Ap1Light;
         public double Ap2Light;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct PanelStatePacket
+    {
+        public double Alive, Master, State, Preset, Inertia, InP, OutP, InR, OutR;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct BridgeWritePacket
+    {
+        public double Elevator, Aileron, Rudder, Override;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct BridgeStatusPacket
+    {
+        public double Version, Overrides;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct PanelRequestPacket
+    {
+        public double Master, Preset, Inertia;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

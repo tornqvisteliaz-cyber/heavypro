@@ -12,6 +12,8 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Assets\Logo.png" LogicalName="HeavyPro.Setup.Logo.png" />
+    <!-- The in-game panel and WASM bridge, built with the MSFS 2024 SDK from community/heavypro-panel. -->
+    <EmbeddedResource Include="..\..\packaging\HeavyProPanel.zip" LogicalName="HeavyProPanel.zip" Condition="Exists('..\..\packaging\HeavyProPanel.zip')" />
     <EmbeddedResource Include="$(PayloadZipPath)" LogicalName="HeavyProPayload.zip" Condition="'$(PayloadZipPath)' != '' and Exists('$(PayloadZipPath)')" />
   </ItemGroup>
   <ItemGroup>

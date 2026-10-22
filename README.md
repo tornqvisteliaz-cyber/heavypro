@@ -4,7 +4,7 @@ Windows desktop app for **Microsoft Flight Simulator 2024** that makes your stic
 
 ## Install (players)
 
-1. Download [HeavyProSetup.exe](https://github.com/tornqvisteliaz-cyber/heavypro/releases/download/beta/HeavyProSetup.exe) (newest beta; also on [rotaidem.com/downloads](https://rotaidem.com/downloads)), run it, enter your licence key and press Install. Nothing is added to your MSFS Community folder (setup also removes the toolbar package older versions installed there).
+1. Download [HeavyProSetup.exe](https://github.com/tornqvisteliaz-cyber/heavypro/releases/download/beta/HeavyProSetup.exe) (newest beta; also on [rotaidem.com/downloads](https://rotaidem.com/downloads)), run it, enter your licence key and press Install. Setup also adds the HeavyPro panel to your MSFS 2024 Community folder (a white R in the in-game toolbar) and removes the toolbar package older versions installed there.
    Windows may say *"Windows protected your PC"* because the installer is not code-signed yet: click **More info → Run anyway**.
 2. Start HeavyPro. Under **Stick setup** press **Detect** next to Pitch and pull the stick fully back, then **Detect** next to Roll and roll fully right. Do the same for your rudder pedals if you want HeavyPro to shape them.
 3. In MSFS **Controls**, clear **Elevator Axis** and **Aileron Axis** (and **Rudder Axis** if HeavyPro has your pedals) for those devices. HeavyPro now feeds them itself.

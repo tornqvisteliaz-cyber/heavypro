@@ -166,10 +166,14 @@ sealed class SetupForm : Form
             ShowStatus("Installing…");
             BundleInstaller.Extract(appDir);
             FeelSettings.Install(appDir);
+            var panel = PanelInstaller.Install();
             var appExe = Path.Combine(appDir, "HeavyPro.exe");
             SimConnectLocator.CreateShortcut(appExe);
 
-            MessageBox.Show(this, "HeavyPro is installed and will open now.", "HeavyPro");
+            MessageBox.Show(this, panel != null
+                ? "HeavyPro is installed and will open now.\n\nIn MSFS 2024, the HeavyPro panel is in the toolbar."
+                : "HeavyPro is installed and will open now.\n\nThe MSFS 2024 Community folder was not found, so the in-game panel was not added. The app works without it.",
+                "HeavyPro");
             DialogResult = DialogResult.OK;
             Close();
             Process.Start(new ProcessStartInfo(appExe) { UseShellExecute = true });
@@ -305,8 +309,91 @@ static class FeelSettings
     }
 }
 
+/// <summary>
+/// Puts the in-game HeavyPro panel (toolbar panel plus WASM bridge) in the MSFS 2024
+/// Community folder. Never fails the install: the app works without it.
+/// </summary>
+static class PanelInstaller
+{
+    private const string Package = "rotaidem-heavypro-panel";
+
+    public static string? Install()
+    {
+        try
+        {
+            var community = CommunityFinder.Find2024();
+            using var stream = typeof(PanelInstaller).Assembly.GetManifestResourceStream("HeavyProPanel.zip");
+            if (community == null || stream == null)
+                return null;
+
+            var target = Path.Combine(community, Package);
+            var manifest = Path.Combine(target, "manifest.json");
+            if (Directory.Exists(target))
+            {
+                // Only ever replace our own package.
+                if (!File.Exists(manifest) || !File.ReadAllText(manifest).Contains("\"creator\": \"Rotaidem\""))
+                    return null;
+                Directory.Delete(target, recursive: true);
+            }
+
+            using var archive = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Read);
+            var root = Path.GetFullPath(community) + Path.DirectorySeparatorChar;
+            foreach (var entry in archive.Entries)
+            {
+                if (entry.FullName.EndsWith("/"))
+                    continue;
+                var file = Path.GetFullPath(Path.Combine(community, entry.FullName));
+                if (!file.StartsWith(root + Package + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Invalid panel package path.");
+                Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+                entry.ExtractToFile(file, true);
+            }
+            return target;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+}
+
 static class CommunityFinder
 {
+    /// <summary>The MSFS 2024 Community folder, from its own UserCfg.opt first.</summary>
+    public static string? Find2024()
+    {
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var appdata = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        foreach (var cfg in new[]
+        {
+            Path.Combine(appdata, "Microsoft Flight Simulator 2024", "UserCfg.opt"),
+            Path.Combine(local, "Packages", "Microsoft.Limitless_8wekyb3d8bbwe", "LocalCache", "UserCfg.opt")
+        })
+        {
+            if (!File.Exists(cfg))
+                continue;
+            foreach (var line in File.ReadLines(cfg))
+            {
+                if (!line.StartsWith("InstalledPackagesPath", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var value = line.Split(new[] { ' ' }, 2).Last().Trim().Trim('"');
+                var community = Path.Combine(value, "Community");
+                if (Directory.Exists(community))
+                    return community;
+            }
+        }
+        foreach (var path in new[]
+        {
+            Path.Combine(appdata, "Microsoft Flight Simulator 2024", "Packages", "Community"),
+            Path.Combine(local, "Packages", "Microsoft.Limitless_8wekyb3d8bbwe", "LocalCache", "Packages", "Community")
+        })
+        {
+            if (Directory.Exists(path))
+                return path;
+        }
+        return null;
+    }
+
     public static string? Find()
     {
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
