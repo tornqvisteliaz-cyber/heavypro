@@ -11,6 +11,7 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Assets\Logo.png" LogicalName="HeavyPro.Setup.Logo.png" />
     <EmbeddedResource Include="$(PayloadZipPath)" LogicalName="HeavyProPayload.zip" Condition="'$(PayloadZipPath)' != '' and Exists('$(PayloadZipPath)')" />
   </ItemGroup>
   <ItemGroup>
