@@ -955,6 +955,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (!_client.IsConnected) return "OFFLINE";
             if (IsDirect && !StickConfigured) return "SET UP STICK";
+            if (IsDirect && _client.InputConflict != null) return "UNBIND IN MSFS";
             if (_client.RouteStatus == InputRouteStatus.Fault) return "FAULT";
             if (!MasterEnable) return "PASS-THROUGH";
             if (_snap.AutopilotMaster) return "AP ON · PAUSED";
@@ -967,6 +968,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         "OFFLINE" => "Start MSFS 2024 and load a flight. HeavyPro connects on its own.",
         "SET UP STICK" => "Pick your stick under Stick setup, or press Detect and move it.",
+        "UNBIND IN MSFS" => "MSFS still sends your " + _client.InputConflict + " axis, so it fights HeavyPro and twitches. In MSFS Controls, clear Elevator / Aileron / Rudder Axis for that device.",
         "FAULT" => "SimConnect refused a stick write. Disconnect and connect again.",
         "PASS-THROUGH" => "Your stick goes to the sim untouched. Turn on Master Enable to add weight.",
         "AP ON · PAUSED" => "Autopilot is flying. HeavyPro hands the stick back until you disconnect it.",

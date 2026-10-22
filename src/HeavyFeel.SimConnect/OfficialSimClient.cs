@@ -97,7 +97,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private DateTime _writesPausedUntil = DateTime.MinValue;
 
     // If the engine stops stepping (no flight frames), hand the stick back.
-    private static readonly TimeSpan ArmedTimeout = TimeSpan.FromMilliseconds(300);
+    // Long enough to ride out a sim stutter: dropping to the raw stick for one
+    // frame and back to the shaped value reads as a twitch.
+    private static readonly TimeSpan ArmedTimeout = TimeSpan.FromMilliseconds(1000);
     // Our own transmissions should not come back through the group, but if they
     // do, ignore an identical value seen this soon after sending it.
     private static readonly TimeSpan EchoWindow = TimeSpan.FromMilliseconds(200);
@@ -165,6 +167,15 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         try
         {
             _sim?.ReceiveMessage();
+            try
+            {
+                _monitor?.ReceiveMessage();
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn("Binding monitor stopped: " + ex.Message);
+                _monitor = null;
+            }
         }
         catch (Exception ex)
         {
@@ -318,6 +329,83 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     public bool DirectInput { get; set; } = true;
     private bool _directActive;
+
+    // ---- Binding-conflict monitor (direct route) ----
+    // A second connection with a plain, non-masking group just above the sim
+    // sees every stick event that reaches the aircraft. Anything HeavyPro did not
+    // send comes from an MSFS binding that should have been cleared.
+    private enum MonitorEvents : uint { Elevator = 1, Aileron = 2, Rudder = 3 }
+    private enum MonitorGroups : uint { Watch = 1 }
+    private Microsoft.FlightSimulator.SimConnect.SimConnect? _monitor;
+    private readonly Dictionary<Events, Queue<(int Value, long Tick)>> _sentHistory = new();
+    private readonly Dictionary<string, (int Count, DateTime First, DateTime Last)> _foreign = new();
+    private static readonly TimeSpan SentMemory = TimeSpan.FromSeconds(1.5);
+    private static readonly TimeSpan ConflictHold = TimeSpan.FromSeconds(10);
+
+    public string? InputConflict
+    {
+        get
+        {
+            var now = DateTime.UtcNow;
+            var axes = _foreign.Where(f => f.Value.Count >= 3 && now - f.Value.Last < ConflictHold).Select(f => f.Key).ToList();
+            return axes.Count == 0 ? null : string.Join(", ", axes);
+        }
+    }
+
+    private void OpenMonitor()
+    {
+        try
+        {
+            _monitor = new Microsoft.FlightSimulator.SimConnect.SimConnect("HeavyPro binding monitor", IntPtr.Zero, 0, null, 0);
+            _monitor.OnRecvEvent += OnMonitorEvent;
+            _monitor.MapClientEventToSimEvent(MonitorEvents.Elevator, "AXIS_ELEVATOR_SET");
+            _monitor.MapClientEventToSimEvent(MonitorEvents.Aileron, "AXIS_AILERONS_SET");
+            _monitor.MapClientEventToSimEvent(MonitorEvents.Rudder, "AXIS_RUDDER_SET");
+            _monitor.AddClientEventToNotificationGroup(MonitorGroups.Watch, MonitorEvents.Elevator, false);
+            _monitor.AddClientEventToNotificationGroup(MonitorGroups.Watch, MonitorEvents.Aileron, false);
+            _monitor.AddClientEventToNotificationGroup(MonitorGroups.Watch, MonitorEvents.Rudder, false);
+            _monitor.SetNotificationGroupPriority(MonitorGroups.Watch, 1950000000u);
+        }
+        catch (Exception ex)
+        {
+            _monitor = null;
+            _logger.Warn("Binding monitor unavailable: " + ex.Message);
+        }
+    }
+
+    private void OnMonitorEvent(Microsoft.FlightSimulator.SimConnect.SimConnect sender, SIMCONNECT_RECV_EVENT data)
+    {
+        var (ev, axis) = (MonitorEvents)data.uEventID switch
+        {
+            MonitorEvents.Elevator => (Events.AxisElevator, "pitch"),
+            MonitorEvents.Aileron => (Events.AxisAileron, "roll"),
+            _ => (Events.AxisRudder, "yaw")
+        };
+        // Only axes HeavyPro feeds can conflict; an axis left to MSFS on purpose cannot.
+        if (!_physicalAxis.ContainsKey(ev))
+            return;
+        var value = unchecked((int)data.dwData);
+        if (WeSent(ev, value))
+            return;
+        var now = DateTime.UtcNow;
+        var seen = _foreign.TryGetValue(axis, out var f) && now - f.Last < TimeSpan.FromSeconds(3) ? f : (0, now, now);
+        _foreign[axis] = (seen.Item1 + 1, seen.Item2, now);
+        if (seen.Item1 + 1 == 3)
+            _logger.Warn($"MSFS still has a binding sending {axis}: it fights HeavyPro. Clear it in MSFS Controls.");
+    }
+
+    private bool WeSent(Events ev, int value)
+    {
+        if (!_sentHistory.TryGetValue(ev, out var history))
+            return false;
+        var cutoff = DateTime.UtcNow.Ticks - SentMemory.Ticks;
+        while (history.Count > 0 && history.Peek().Tick < cutoff)
+            history.Dequeue();
+        foreach (var sent in history)
+            if (Math.Abs(sent.Value - value) <= 2)
+                return true;
+        return false;
+    }
 
     public void FeedPhysical(int? elevator, int? aileron, int? rudder)
     {
@@ -620,6 +708,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 _directActive = true;
                 _axisWriteReady = true;
                 _route.BeginDirect();
+                OpenMonitor();
                 _logger.Info("Direct route: HeavyPro sends the stick where hardware enters. The stick's axes must be unbound in MSFS.");
                 return;
             }
@@ -745,6 +834,11 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         if (_recentAxisWrites.TryGetValue(ev, out var recent) && recent.Value == clamped)
             return;
         _recentAxisWrites[ev] = (clamped, DateTime.UtcNow.Ticks);
+        if (!_sentHistory.TryGetValue(ev, out var history))
+            _sentHistory[ev] = history = new Queue<(int, long)>();
+        history.Enqueue((clamped, DateTime.UtcNow.Ticks));
+        if (history.Count > 400)
+            history.Dequeue();
         _sim!.TransmitClientEvent(
             Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
             ev,
@@ -877,6 +971,17 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     private void CloseSim(string message)
     {
+        try
+        {
+            _monitor?.Dispose();
+        }
+        catch (Exception)
+        {
+            // The monitor only reports; nothing to recover.
+        }
+        _monitor = null;
+        _foreign.Clear();
+        _sentHistory.Clear();
         try
         {
             _sim?.Dispose();

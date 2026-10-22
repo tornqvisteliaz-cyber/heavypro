@@ -42,6 +42,10 @@
                                         <Setter Property="Background" Value="#1F3A2B"/>
                                         <Setter Property="BorderBrush" Value="{StaticResource BrushGood}"/>
                                     </DataTrigger>
+                                    <DataTrigger Binding="{Binding RouteBadge}" Value="UNBIND IN MSFS">
+                                        <Setter Property="Background" Value="#3A1F1F"/>
+                                        <Setter Property="BorderBrush" Value="{StaticResource BrushBad}"/>
+                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding RouteBadge}" Value="SET UP STICK">
                                         <Setter Property="BorderBrush" Value="{StaticResource BrushWarn}"/>
                                     </DataTrigger>
