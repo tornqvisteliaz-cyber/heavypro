@@ -13,10 +13,10 @@
         <Grid>
             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <Image Source="/HeavyPro;component/Assets/RsgLogo.png" Width="190" Height="70"
+                <Image Source="{StaticResource RotaidemLogo}" Width="88" Height="64"
                        Stretch="Uniform" HorizontalAlignment="Center" Margin="0,0,0,14"/>
                 <TextBlock Text="HEAVYPRO" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center"/>
-                <TextBlock Text="FLIGHT FEEL CONTROL" Style="{StaticResource SectionText}"
+                <TextBlock Text="BY ROTAIDEM" Style="{StaticResource SectionText}"
                            Foreground="{StaticResource BrushAccent}" HorizontalAlignment="Center" Margin="0,4,0,10"/>
                 <TextBlock Text="Connect to MSFS and shape your aircraft’s control response."
                            Style="{StaticResource MutedText}" TextWrapping="Wrap" TextAlignment="Center"

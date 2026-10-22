@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>HeavyProSetup</AssemblyName>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ApplicationIcon>..\HeavyFeel.App\Assets\HeavyPro.ico</ApplicationIcon>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="$(PayloadZipPath)" LogicalName="HeavyProPayload.zip" Condition="'$(PayloadZipPath)' != '' and Exists('$(PayloadZipPath)')" />

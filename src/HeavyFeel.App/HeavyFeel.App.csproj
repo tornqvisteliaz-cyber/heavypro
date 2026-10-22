@@ -3,7 +3,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net48</TargetFramework>
     <UseWPF>true</UseWPF>
-    <ApplicationIcon />
+    <ApplicationIcon>Assets\HeavyPro.ico</ApplicationIcon>
     <RootNamespace>HeavyFeel.App</RootNamespace>
     <AssemblyName>HeavyPro</AssemblyName>
     <PlatformTarget>x64</PlatformTarget>
@@ -19,7 +19,6 @@
     <Reference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Assets\RsgLogo.png" />
-    <Resource Include="Assets\RsgBanner.png" />
+    <Resource Include="Assets\HeavyPro.ico" />
   </ItemGroup>
 </Project>

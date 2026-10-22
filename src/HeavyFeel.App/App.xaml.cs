@@ -86,6 +86,7 @@ public partial class App : System.Windows.Application
             if (result.IsValid)
                 return false;
             reason = result.Message;
+            LogLicence($"Start-up check rejected the saved key: {result.Status} — {result.Message}");
         }
 
         var dialog = new LicenseWindow(reason, saved?.Key);
@@ -107,10 +108,16 @@ public partial class App : System.Windows.Application
                     MessageBox.Show(MainWindow!, result.Message, "HeavyPro");
                 return;
             default:
-                // Revoked, removed from this PC, or grace ran out: stop now.
-                MessageBox.Show(MainWindow!, result.Message + "\n\nHeavyPro will close. Start it again to enter a licence key.", "HeavyPro",
+                // Revoked, removed from this PC, or grace ran out: stop now. Keep the
+                // key on disk (never make the customer dig it out again) but mark it
+                // unconfirmed, so the next start checks online and shows the
+                // activation window pre-filled with the server's reason.
+                LogLicence($"Background check rejected the saved key: {result.Status} — {result.Message}");
+                var rejected = HeavyProLicense.Store().Load();
+                if (rejected != null)
+                    HeavyProLicense.Store().Save(rejected.Key, DateTimeOffset.FromUnixTimeSeconds(0));
+                MessageBox.Show(MainWindow!, result.Message + "\n\nHeavyPro will close. Start it again to re-check or enter a licence key.", "HeavyPro",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
-                HeavyProLicense.Store().Clear();
                 Shutdown();
                 return;
         }
@@ -147,6 +154,21 @@ public partial class App : System.Windows.Application
     {
         ShowError(e.Exception);
         e.Handled = true;
+    }
+
+    /// <summary>Keeps a record of every licence rejection, so support can see what the server said.</summary>
+    private static void LogLicence(string line)
+    {
+        try
+        {
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HeavyFeel", "logs");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(Path.Combine(dir, "licence.log"), $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {line}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Logging must never stop the app.
+        }
     }
 
     private static void ShowError(Exception ex)

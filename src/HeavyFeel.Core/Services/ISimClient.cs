@@ -38,6 +38,12 @@ public interface ISimClient : IDisposable
     /// MSFS sign convention). Null leaves that axis to MSFS.
     /// </summary>
     void FeedPhysical(int? elevator, int? aileron, int? rudder);
+
+    /// <summary>
+    /// Direct route: names the axes ("pitch", "roll", "yaw") that still reach the
+    /// sim from an MSFS binding, so MSFS and HeavyPro fight. Null when clean.
+    /// </summary>
+    string? InputConflict { get; }
     string RouteDetail { get; }
 }
 

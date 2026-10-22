@@ -58,6 +58,8 @@ public sealed class OfflineSimClient : ISimClient
     {
     }
 
+    public string? InputConflict => null;
+
     public void Dispose()
     {
     }
