@@ -63,8 +63,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path publish | Out-Null
           Copy-Item src/HeavyPro.Setup/bin/Release/net48/HeavyProSetup.exe publish/
           $size = (Get-Item publish/HeavyProSetup.exe).Length
-          Write-Host ("HeavyProSetup.exe is {0:N1} MB" -f ($size / 1MB))
-          if ($size -lt 1MB) { throw "HeavyProSetup.exe is too small; the app payload was probably not embedded." }
+          $payload = (Get-Item packaging/HeavyProAppPayload.zip).Length
+          Write-Host ("HeavyProSetup.exe is {0:N1} MB, app payload {1:N1} MB" -f ($size / 1MB), ($payload / 1MB))
+          # With no bundled runtime the setup is the payload plus ~100 KB, under 1 MB today,
+          # so compare against the payload itself rather than a fixed size.
+          if ($size -lt $payload) { throw "HeavyProSetup.exe is smaller than the app payload; the payload was not embedded." }
       - name: Add a zip and a checksum for testers
         shell: pwsh
         run: |
