@@ -53,6 +53,8 @@ public sealed class OfflineSimClient : ISimClient
     }
 
     public bool DirectInput { get; set; }
+    public bool CounterMsfsBindings { get; set; }
+    public bool BridgeLoaded => false;
 
     public void FeedPhysical(int? elevator, int? aileron, int? rudder)
     {

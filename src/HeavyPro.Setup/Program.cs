@@ -328,12 +328,16 @@ static class PanelInstaller
 
             var target = Path.Combine(community, Package);
             var manifest = Path.Combine(target, "manifest.json");
+            // While MSFS runs it holds the package's files: overwrite them in place instead
+            // of deleting the folder, so a locked file can never leave half a package.
+            var simRunning = Process.GetProcessesByName("FlightSimulator2024").Length > 0;
             if (Directory.Exists(target))
             {
                 // Only ever replace our own package.
                 if (!File.Exists(manifest) || !File.ReadAllText(manifest).Contains("\"creator\": \"Rotaidem\""))
                     return null;
-                Directory.Delete(target, recursive: true);
+                if (!simRunning)
+                    Directory.Delete(target, recursive: true);
             }
 
             using var archive = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Read);
@@ -346,7 +350,14 @@ static class PanelInstaller
                 if (!file.StartsWith(root + Package + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("Invalid panel package path.");
                 Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-                entry.ExtractToFile(file, true);
+                try
+                {
+                    entry.ExtractToFile(file, true);
+                }
+                catch (IOException) when (simRunning)
+                {
+                    // In use by the sim: the copy already there stays until the next install.
+                }
             }
             return target;
         }

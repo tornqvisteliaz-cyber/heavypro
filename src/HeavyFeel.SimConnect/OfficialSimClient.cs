@@ -72,6 +72,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     {
         Highest = 1,
         HighestMaskable = 10000000,
+        // Just after HeavyPro's masking group (10,000,000), where the hardware stick
+        // would carry on: PMDG's own handler sits below this and drives its yoke.
+        AfterMask = 10000001,
         Standard = 1900000000
     }
 
@@ -159,6 +162,9 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     // value, so the stick can stay bound in MSFS.
     private bool _bridgeReady;
     private bool _bridgeLoaded;
+    private DateTime _bridgeLastLog = DateTime.MinValue;
+    public bool CounterMsfsBindings { get; set; }
+    public bool BridgeLoaded => _bridgeLoaded;
     private double _bridgeOverrides;
     private DateTime _bridgeLastOverride = DateTime.MinValue;
     private readonly Dictionary<Events, double> _bridgeShaped = new();
@@ -187,7 +193,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     private void OnBridgeStatus(BridgeStatusPacket packet)
     {
-        var loaded = packet.Version >= 1;
+        // A module that is answering stick events is loaded, whatever its version L:var says.
+        var loaded = packet.Version >= 1 || packet.Overrides > 0;
         if (loaded != _bridgeLoaded)
             _logger.Info(loaded ? "HeavyPro WASM bridge is loaded in the sim." : "HeavyPro WASM bridge is not loaded.");
         _bridgeLoaded = loaded;
@@ -195,6 +202,11 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         {
             if (_bridgeOverrides > 0 || packet.Overrides > 0)
                 _bridgeLastOverride = DateTime.UtcNow;
+            if (packet.Overrides > 0 && DateTime.UtcNow - _bridgeLastLog > TimeSpan.FromSeconds(10))
+            {
+                _bridgeLastLog = DateTime.UtcNow;
+                _logger.Info($"WASM bridge has answered {packet.Overrides:0} MSFS stick events with HeavyPro's value.");
+            }
             _bridgeOverrides = packet.Overrides;
         }
     }
@@ -204,12 +216,14 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
     private void WriteBridge(Events ev, int value)
     {
-        if (!_bridgeReady || !_bridgeLoaded || !_directActive)
+        // Not gated on the module saying it is loaded: loading a flight clears that L:var,
+        // and these writes are harmless when no module listens.
+        if (!_bridgeReady || !_directActive)
             return;
         _bridgeShaped[ev] = value;
         // Only while an MSFS binding is really sending: with the axes unbound the
         // module has nothing to answer and stays out of the way.
-        SetBridge(ForeignInputSeen);
+        SetBridge(CounterMsfsBindings || ForeignInputSeen);
     }
 
     private bool ForeignInputSeen
@@ -328,6 +342,15 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             {
                 _logger.Warn("Binding monitor stopped: " + ex.Message);
                 _monitor = null;
+            }
+            try
+            {
+                _sender?.ReceiveMessage();
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn("Stick sender stopped: " + ex.Message);
+                _sender = null;
             }
         }
         catch (Exception ex)
@@ -529,6 +552,33 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _logger.Warn("Binding monitor unavailable: " + ex.Message);
         }
     }
+
+    // ---- Stick sender (masked route) ----
+    // Sends from the masking connection at Standard priority reach the flight model but
+    // skip the handler PMDG and iniBuilds put between 10,000,001 and 1e8, so their yoke
+    // never moves. Measured: a client that holds these events in its own maskable group
+    // cannot get sends through to that handler, but one without groups can. This second
+    // connection has no groups and sends where the hardware stick would carry on.
+    private Microsoft.FlightSimulator.SimConnect.SimConnect? _sender;
+
+    private void OpenSender()
+    {
+        try
+        {
+            _sender = new Microsoft.FlightSimulator.SimConnect.SimConnect("HeavyPro stick sender", IntPtr.Zero, 0, null, 0);
+            _sender.MapClientEventToSimEvent(Events.AxisElevator, "AXIS_ELEVATOR_SET");
+            _sender.MapClientEventToSimEvent(Events.AxisAileron, "AXIS_AILERONS_SET");
+            _sender.MapClientEventToSimEvent(Events.AxisRudder, "AXIS_RUDDER_SET");
+        }
+        catch (Exception ex)
+        {
+            _sender = null;
+            _logger.Warn("Stick sender unavailable; PMDG and iniBuilds yokes may not move: " + ex.Message);
+        }
+    }
+
+    /// <summary>Aircraft whose own control handler moves the yoke (PMDG, iniBuilds).</summary>
+    private bool SendThroughAddonHandler => !DirectInput && _sender != null && _identity.NeedsDirectRoute;
 
     private void OnMonitorEvent(Microsoft.FlightSimulator.SimConnect.SimConnect sender, SIMCONNECT_RECV_EVENT data)
     {
@@ -883,6 +933,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisAileron, true);
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisRudder, true);
             _sim.SetNotificationGroupPriority(Groups.Stick, 10000000u);
+            OpenSender();
             _axisWriteReady = true;
             _route.Begin();
             _logger.Info("AXIS events mapped maskable at priority 10000000. Waiting for a joystick event.");
@@ -1007,6 +1058,16 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         if (history.Count > 400)
             history.Dequeue();
         WriteBridge(ev, clamped);
+        if (SendThroughAddonHandler)
+        {
+            _sender!.TransmitClientEvent(
+                Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                ev,
+                unchecked((uint)clamped),
+                EventPriority.AfterMask,
+                SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY);
+            return;
+        }
         _sim!.TransmitClientEvent(
             Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
             ev,
@@ -1148,6 +1209,15 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             // The monitor only reports; nothing to recover.
         }
         _monitor = null;
+        try
+        {
+            _sender?.Dispose();
+        }
+        catch (Exception)
+        {
+            // Only sends; nothing to recover.
+        }
+        _sender = null;
         _foreign.Clear();
         _sentHistory.Clear();
         try
