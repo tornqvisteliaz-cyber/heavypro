@@ -31,6 +31,7 @@ public sealed class CustomProfile
     public bool AirspeedResponseEnabled { get; set; } = true;
     public double AirspeedResponse { get; set; } = 0.65;
     public bool RudderLimiter { get; set; } = true;
+    public bool RealisticRudder { get; set; }
     public string StickReleaseMode { get; set; } = "Auto";
     public double ReturnDelayMs { get; set; }
 
@@ -58,6 +59,7 @@ public sealed class CustomProfile
         AirspeedResponseEnabled = s.AirspeedResponseEnabled,
         AirspeedResponse = s.AirspeedResponse,
         RudderLimiter = s.RudderLimiter,
+        RealisticRudder = s.RealisticRudder,
         StickReleaseMode = s.StickReleaseMode,
         ReturnDelayMs = s.ReturnDelayMs
     };
@@ -85,6 +87,7 @@ public sealed class CustomProfile
         s.AirspeedResponseEnabled = AirspeedResponseEnabled;
         s.AirspeedResponse = AirspeedResponse;
         s.RudderLimiter = RudderLimiter;
+        s.RealisticRudder = RealisticRudder;
         s.StickReleaseMode = StickReleaseMode;
         s.ReturnDelayMs = ReturnDelayMs;
     }

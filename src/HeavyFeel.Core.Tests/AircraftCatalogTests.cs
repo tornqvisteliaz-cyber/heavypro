@@ -15,6 +15,34 @@ public class AircraftCatalogTests
     }
 
     [Fact]
+    public void Msfs_2024_c172_is_light_ga_not_a_c17()
+    {
+        // The exact identity MSFS 2024 reported for the C172 on floats.
+        var c172 = new AircraftIdentity
+        {
+            Title = "C172SP G1000 Passengers Floats",
+            AtcModel = "ATCCOM.AC_MODEL C172.0.text",
+            AtcType = "ATCCOM.ATC_NAME CESSNA.0.text"
+        };
+        Assert.Equal(AircraftClass.LightGa, AircraftCatalog.Classify(c172, 0));
+        Assert.Equal("Light GA", c172.SuggestedProfile);
+    }
+
+    [Theory]
+    [InlineData("Boeing C-17 Globemaster", AircraftClass.HeavyWide)]
+    [InlineData("C17", AircraftClass.HeavyWide)]
+    [InlineData("PMDG 737-800", AircraftClass.NarrowBody)]
+    [InlineData("Cessna 152", AircraftClass.LightGa)]
+    [InlineData("C152 Aerobat", AircraftClass.LightGa)]
+    [InlineData("SR22T", AircraftClass.LightGa)]
+    [InlineData("DA40NG", AircraftClass.LightGa)]
+    [InlineData("A320neo", AircraftClass.NarrowBody)]
+    public void Numbers_in_names_match_whole_numbers_only(string title, AircraftClass expected)
+    {
+        Assert.Equal(expected, AircraftCatalog.Classify(new AircraftIdentity { Title = title }, 0));
+    }
+
+    [Fact]
     public void Heavy_has_more_inertia_than_cessna()
     {
         Assert.True(AircraftCatalog.InertiaScale(AircraftClass.HeavyWide) > AircraftCatalog.InertiaScale(AircraftClass.NarrowBody));

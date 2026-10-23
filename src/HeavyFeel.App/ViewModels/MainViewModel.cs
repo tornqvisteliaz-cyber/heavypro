@@ -68,6 +68,21 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _settings.SettingsVersion = 3;
             settingsStore.Save(_settings);
         }
+        if (_settings.SettingsVersion < 4)
+        {
+            // 0.5: ready-made profiles for common aircraft, added once.
+            BuiltInProfiles.AddMissing(_settings.CustomProfiles);
+            _settings.SettingsVersion = 4;
+            settingsStore.Save(_settings);
+        }
+        if (_settings.SettingsVersion < 5)
+        {
+            // 0.5.0 built-ins pinned an aircraft; applying the C172 one made an A350 fly as GA.
+            BuiltInProfiles.Unpin(_settings.CustomProfiles);
+            _settings.AircraftProfile = "Auto Detect";
+            _settings.SettingsVersion = 5;
+            settingsStore.Save(_settings);
+        }
         _client.DirectInput = IsDirect;
         StickDevices = new ObservableCollection<JoystickDevice>();
         RudderDevices = new ObservableCollection<JoystickDevice>();
@@ -122,7 +137,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (_settings.AutoConnect && !_client.IsConnected)
                 Connect();
+            if (DateTime.UtcNow - _lastBindingScan > TimeSpan.FromSeconds(20))
+                ScanMsfsBindings();
         };
+        ScanMsfsBindings();
 
         _logger.Info("HeavyFeel started. Backend=" + backendName);
         _logger.Info("Master Enable writes AXIS_ELEVATOR/AILERONS/RUDDER_SET only while the stick is held (body rates disabled).");
@@ -300,8 +318,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             nameof(GroundInertia), nameof(TurbulenceResponse), nameof(SelectedInputCurve), nameof(InputDeadzonePercent),
             nameof(InputSensitivityPercent), nameof(ExpoStrengthPercent), nameof(InputAccelerationPercent),
             nameof(InputDecelerationPercent), nameof(PitchRateLimit), nameof(RollRateLimit), nameof(YawRateLimit),
-            nameof(AirspeedResponseEnabled), nameof(AirspeedResponsePercent), nameof(RudderLimiter), nameof(StickReleaseMode),
-            nameof(ReturnDelayMs), nameof(SelectedProfile), nameof(PreviewTau), nameof(DebugPanel)
+            nameof(AirspeedResponseEnabled), nameof(AirspeedResponsePercent), nameof(RudderLimiter), nameof(RealisticRudder),
+            nameof(StickReleaseMode), nameof(ReturnDelayMs), nameof(SelectedProfile), nameof(PreviewTau), nameof(DebugPanel)
         })
             OnChanged(name);
         RaiseFeel();
@@ -374,6 +392,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (value == null || value.Key == _settings.StickDevice) return;
             _settings.StickDevice = value.Key;
+            _lastBindingScan = DateTime.MinValue;
             if (!value.HasAxis(_settings.PitchAxis)) { _settings.PitchAxis = "Y"; OnChanged(nameof(PitchAxis)); }
             if (!value.HasAxis(_settings.RollAxis)) { _settings.RollAxis = "X"; OnChanged(nameof(RollAxis)); }
             OnChanged();
@@ -388,6 +407,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (value == null) return;
             _settings.RudderDevice = value.Key;
+            _lastBindingScan = DateTime.MinValue;
             // Pedals usually put the rudder on Z (X/Y are often the toe brakes).
             if (value.Id >= 0 && !value.HasAxis(_settings.RudderAxis))
             {
@@ -845,6 +865,18 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
     }
 
+    public bool RealisticRudder
+    {
+        get => _settings.RealisticRudder;
+        set
+        {
+            _settings.RealisticRudder = value;
+            _logger.Info("Realistic rudder " + (value ? "on" : "off") + ".");
+            OnChanged();
+            ScheduleSave();
+        }
+    }
+
     public string StickReleaseMode
     {
         get => _settings.StickReleaseMode;
@@ -956,7 +988,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (!_client.IsConnected) return "OFFLINE";
             if (IsDirect && !StickConfigured) return "SET UP STICK";
-            if (IsDirect && _client.InputConflict != null) return "UNBIND IN MSFS";
+            if (IsDirect && (_client.InputConflict != null || _profileConflict != null)) return "UNBIND IN MSFS";
             if (_client.RouteStatus == InputRouteStatus.Fault) return "FAULT";
             if (!MasterEnable) return "PASS-THROUGH";
             if (_snap.AutopilotMaster) return "AP ON · PAUSED";
@@ -969,13 +1001,73 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         "OFFLINE" => "Start MSFS 2024 and load a flight. HeavyPro connects on its own.",
         "SET UP STICK" => "Pick your stick under Stick setup, or press Detect and move it.",
-        "UNBIND IN MSFS" => "MSFS still sends your " + _client.InputConflict + " axis, so it fights HeavyPro and twitches. In MSFS Controls, clear Elevator / Aileron / Rudder Axis for that device.",
+        "UNBIND IN MSFS" => _client.InputConflict != null
+            ? "MSFS still sends your " + _client.InputConflict + " axis, so it fights HeavyPro and twitches. In MSFS Controls, clear Elevator / Aileron / Rudder Axis for that device."
+            : "MSFS still binds " + _profileConflict + ". In PMDG and iniBuilds the yoke then jumps with the raw stick and back to HeavyPro's slower value. In MSFS Controls, clear those axes in that profile.",
         "FAULT" => "SimConnect refused a stick write. Disconnect and connect again.",
         "PASS-THROUGH" => "Your stick goes to the sim untouched. Turn on Master Enable to add weight.",
         "AP ON · PAUSED" => "Autopilot is flying. HeavyPro hands the stick back until you disconnect it.",
         "MOVE STICK" => IsDirect ? "Waiting for the stick. Check it is plugged in." : "Move the stick once. It must be bound to Elevator, Aileron and Rudder Axis in MSFS.",
         _ => "The gold bar is what the aircraft gets. The white tick is your stick."
     };
+
+    // ---------------- MSFS bindings that fight HeavyPro ----------------
+    private string? _profileConflict;
+    private DateTime _lastBindingScan = DateTime.MinValue;
+
+    /// <summary>
+    /// Reads the MSFS 2024 control profiles for the selected stick and pedals. PMDG and
+    /// iniBuilds take hardware events before SimConnect sees them, so a live check
+    /// cannot catch a binding there; the profile files can.
+    /// </summary>
+    private void ScanMsfsBindings()
+    {
+        _lastBindingScan = DateTime.UtcNow;
+        string? found = null;
+        try
+        {
+            var files = MsfsProfileFiles();
+            var conflicts = new List<string>();
+            if (MsfsInputProfiles.ProductIdFromKey(_settings.StickDevice) is int stick
+                && MsfsInputProfiles.FindBinding(files, stick, new[] { "pitch", "roll" }) is { } stickBinding)
+                conflicts.Add(stickBinding.ToString());
+            if (MsfsInputProfiles.ProductIdFromKey(_settings.RudderDevice) is int pedals
+                && MsfsInputProfiles.FindBinding(files, pedals, new[] { "yaw" }) is { } pedalBinding)
+                conflicts.Add(pedalBinding.ToString());
+            found = conflicts.Count == 0 ? null : string.Join("; ", conflicts);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn("Could not read the MSFS control profiles: " + ex.Message);
+        }
+        if (found == _profileConflict)
+            return;
+        _profileConflict = found;
+        _logger.Info(found == null
+            ? "MSFS control profiles: no stick axes bound for HeavyPro's devices."
+            : "MSFS control profile still binds " + found + ". Clear those axes in MSFS Controls.");
+    }
+
+    /// <summary>MSFS 2024 (Steam) control profiles: Steam\userdata\*\2537590\remote\inputprofile_*.</summary>
+    private static List<(DateTime Modified, string Xml)> MsfsProfileFiles()
+    {
+        var result = new List<(DateTime, string)>();
+        var steam = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null) as string;
+        if (string.IsNullOrEmpty(steam))
+            return result;
+        var userdata = System.IO.Path.Combine(steam!.Replace('/', '\\'), "userdata");
+        if (!System.IO.Directory.Exists(userdata))
+            return result;
+        foreach (var user in System.IO.Directory.GetDirectories(userdata))
+        {
+            var remote = System.IO.Path.Combine(user, "2537590", "remote");
+            if (!System.IO.Directory.Exists(remote))
+                continue;
+            foreach (var file in System.IO.Directory.GetFiles(remote, "inputprofile_*"))
+                result.Add((System.IO.File.GetLastWriteTimeUtc(file), System.IO.File.ReadAllText(file)));
+        }
+        return result;
+    }
 
     // ---------------- In-game panel ----------------
     private PanelState CurrentPanelState()
@@ -1062,6 +1154,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         DetectedProfile = id.SuggestedProfile;
         if (_settings.AircraftProfile == "Auto Detect")
             _logger.Info("Auto profile suggestion: " + DetectedProfile);
+        if (!IsDirect && id.NeedsDirectRoute)
+        {
+            _logger.Info(id.DisplayName + " runs its own control model, which only the Direct route reaches. Switching to Direct.");
+            // Later, not inside the SimConnect callback that reported the aircraft.
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() => SelectedInputRoute = RouteDirectLabel));
+        }
         RaiseTelemetry();
     }
 

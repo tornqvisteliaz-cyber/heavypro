@@ -363,6 +363,8 @@
                                 <CheckBox Content="Airspeed feel (heavier as speed builds)" IsChecked="{Binding AirspeedResponseEnabled}" Margin="0,2,0,4"/>
                                 <CheckBox Content="Jet rudder limiter at speed" IsChecked="{Binding RudderLimiter}" Margin="0,0,0,4"
                                           ToolTip="Less rudder throw as speed rises, like the 747 ratio changer. Skipped for PMDG, Fenix, iniBuilds and FlyByWire, which model it themselves."/>
+                                <CheckBox Content="Realistic rudder" IsChecked="{Binding RealisticRudder}" Margin="0,0,0,4"
+                                          ToolTip="Pedals get heavier as airspeed builds, like a real rudder feel spring, and stay light while taxiing. Softer around centre for fine corrections; full rudder takes a deliberate push."/>
                                 <Grid Margin="0,0,0,2"><TextBlock Text="High-speed damping (%)"/><TextBlock Text="{Binding AirspeedResponsePercent, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
                                 <Slider Minimum="0" Maximum="100" Value="{Binding AirspeedResponsePercent}" Margin="0,0,0,7"/>
                                 <Grid Margin="0,0,0,2"><TextBlock Text="Release delay (ms)"/><TextBlock Text="{Binding ReturnDelayMs, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
