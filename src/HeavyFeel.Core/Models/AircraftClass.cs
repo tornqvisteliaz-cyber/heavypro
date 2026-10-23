@@ -90,8 +90,29 @@ public static class AircraftCatalog
     {
         foreach (var t in tokens)
         {
-            if (blob.Contains(t))
+            if (ContainsToken(blob, t))
                 return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Substring match where a number in the token cannot be part of a longer number:
+    /// "C17" (C-17) must not match "C172", but "C172" still matches "C172SP" and
+    /// "737" still matches "B737-800".
+    /// </summary>
+    private static bool ContainsToken(string blob, string token)
+    {
+        var digitStart = char.IsDigit(token[0]);
+        var digitEnd = char.IsDigit(token[token.Length - 1]);
+        for (var i = blob.IndexOf(token, StringComparison.Ordinal); i >= 0; i = blob.IndexOf(token, i + 1, StringComparison.Ordinal))
+        {
+            var end = i + token.Length;
+            if (digitStart && i > 0 && char.IsDigit(blob[i - 1]))
+                continue;
+            if (digitEnd && end < blob.Length && char.IsDigit(blob[end]))
+                continue;
+            return true;
         }
         return false;
     }
