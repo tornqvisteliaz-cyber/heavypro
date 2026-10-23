@@ -50,6 +50,10 @@ public sealed record ControlFeel(
         var studyLevel = snapshot.Aircraft.IsFenixA320 || snapshot.Aircraft.IsPmdg777
             || ContainsAny(id, "PMDG", "FENIX", "INIBUILDS", "FLYBYWIRE", "A32NX", "A380X", "IFLY", "FSLABS", "MADDOG", "HEADWIND", "LEONARDO");
 
+        // A widebody FBW Airbus has the same sidestick spring, but pilots fly it with
+        // smaller, slower inputs than an A320, so it gets more of the shaping.
+        if (IsSidestickAirbus(id) && IsHeavyAirbus(id))
+            return new(FeelSystem.Sidestick, "FBW sidestick (widebody)", AirlinerQ, 0.08, 3.5, !studyLevel, BaseScale: 0.75);
         if (IsSidestickAirbus(id))
             return new(FeelSystem.Sidestick, "FBW sidestick", AirlinerQ, 0.08, 3.0, !studyLevel, BaseScale: 0.5);
         if (snapshot.Class is AircraftClass.NarrowBody or AircraftClass.WideBody or AircraftClass.HeavyWide)
@@ -119,6 +123,9 @@ public sealed record ControlFeel(
     private static bool IsSidestickAirbus(string id) =>
         ContainsAny(id, "A318", "A319", "A320", "A321", "A32N", "A20N", "A21N", "A330", "A332", "A333", "A338", "A339",
             "A340", "A350", "A359", "A35K", "A380", "A388", "A220", "BCS1", "BCS3", "CS100", "CS300");
+
+    private static bool IsHeavyAirbus(string id) =>
+        ContainsAny(id, "A330", "A332", "A333", "A338", "A339", "A340", "A350", "A359", "A35K", "A380", "A388");
 
     private static bool ContainsAny(string text, params string[] tokens)
     {
