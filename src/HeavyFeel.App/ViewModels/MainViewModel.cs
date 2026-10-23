@@ -83,7 +83,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _settings.SettingsVersion = 5;
             settingsStore.Save(_settings);
         }
-        _client.DirectInput = IsDirect;
+        ApplyTransport();
         StickDevices = new ObservableCollection<JoystickDevice>();
         RudderDevices = new ObservableCollection<JoystickDevice>();
         AxisNames = new ObservableCollection<string>(JoystickReader.AxisNames);
@@ -371,7 +371,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             if (direct == IsDirect) return;
             _settings.InputRoute = direct ? "Direct" : "Masked";
             _logger.Info("Input route set to " + _settings.InputRoute + ". Reconnecting.");
-            _client.DirectInput = direct;
+            ApplyTransport();
             if (_client.IsConnected)
             {
                 _client.Disconnect();
@@ -437,7 +437,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         ? "In MSFS Controls, clear Elevator Axis and Aileron Axis"
           + (string.IsNullOrEmpty(_settings.RudderDevice) ? "" : " and Rudder Axis")
           + " for these devices. HeavyPro feeds them itself; a binding left in MSFS fights it and twitches."
-        : "Keep the stick bound to Elevator / Aileron / Rudder Axis in MSFS. Works with default aircraft; PMDG and iniBuilds need Direct.";
+        : "Keep the stick bound to Elevator / Aileron / Rudder Axis in MSFS. Default aircraft: HeavyPro takes over the binding. "
+          + "PMDG and iniBuilds: pick your stick below too; HeavyPro sends it directly and the HeavyPro WASM bridge "
+          + "(installed with the in-game panel) answers the binding with HeavyPro's value.";
 
     private bool StickConfigured => !string.IsNullOrEmpty(_settings.StickDevice);
 
@@ -578,7 +580,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 yaw = Read(pedalAxes, _settings.RudderAxis, _settings.InvertRudder);
         }
 
-        if (IsDirect && _client.IsConnected)
+        if (_client.DirectInput && _client.IsConnected)
             _client.FeedPhysical(pitch.HasValue ? ToAxisEvent(pitch.Value) : null, roll.HasValue ? ToAxisEvent(roll.Value) : null,
                 yaw.HasValue ? ToAxisEvent(yaw.Value) : null);
 
@@ -987,7 +989,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         get
         {
             if (!_client.IsConnected) return "OFFLINE";
-            if (IsDirect && !StickConfigured) return "SET UP STICK";
+            if (_client.DirectInput && !StickConfigured) return "SET UP STICK";
             if (IsDirect && (_client.InputConflict != null || _profileConflict != null)) return "UNBIND IN MSFS";
             if (_client.RouteStatus == InputRouteStatus.Fault) return "FAULT";
             if (!MasterEnable) return "PASS-THROUGH";
@@ -1010,6 +1012,21 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         "MOVE STICK" => IsDirect ? "Waiting for the stick. Check it is plugged in." : "Move the stick once. It must be bound to Elevator, Aileron and Rudder Axis in MSFS.",
         _ => "The gold bar is what the aircraft gets. The white tick is your stick."
     };
+
+    // ---------------- Input transport ----------------
+    private bool _addonAircraft;
+
+    /// <summary>
+    /// The route the user picked decides whether the stick stays bound in MSFS. How the
+    /// stick reaches the sim follows the aircraft: PMDG and iniBuilds hide MSFS's stick
+    /// events from SimConnect, so there "MSFS bindings" sends directly and lets the
+    /// WASM bridge answer the binding instead of masking it.
+    /// </summary>
+    private void ApplyTransport()
+    {
+        _client.DirectInput = IsDirect || _addonAircraft;
+        _client.CounterMsfsBindings = !IsDirect;
+    }
 
     // ---------------- MSFS bindings that fight HeavyPro ----------------
     private string? _profileConflict;
@@ -1154,11 +1171,22 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         DetectedProfile = id.SuggestedProfile;
         if (_settings.AircraftProfile == "Auto Detect")
             _logger.Info("Auto profile suggestion: " + DetectedProfile);
-        if (!IsDirect && id.NeedsDirectRoute)
+        if (_addonAircraft != id.NeedsDirectRoute)
         {
-            _logger.Info(id.DisplayName + " runs its own control model, which only the Direct route reaches. Switching to Direct.");
-            // Later, not inside the SimConnect callback that reported the aircraft.
-            System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() => SelectedInputRoute = RouteDirectLabel));
+            _addonAircraft = id.NeedsDirectRoute;
+            var before = _client.DirectInput;
+            ApplyTransport();
+            if (!IsDirect && _client.DirectInput != before && _client.IsConnected)
+            {
+                _logger.Info(id.DisplayName + " hides MSFS stick events from SimConnect. Keeping your MSFS bindings: "
+                    + "HeavyPro sends the stick directly and the WASM bridge answers MSFS's raw stick with HeavyPro's value.");
+                // Later, not inside the SimConnect callback that reported the aircraft.
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _client.Disconnect();
+                    _client.Connect();
+                }));
+            }
         }
         RaiseTelemetry();
     }

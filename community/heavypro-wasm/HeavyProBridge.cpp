@@ -89,6 +89,9 @@ namespace
     {
         if (g_inTrigger)
             return;
+        // Loading a flight clears L:vars; say again that the bridge is here.
+        if (Get(g_version) < 0.5)
+            fsVarsLVarSet(g_version, g_number, 1);
 
         for (Axis& axis : g_axes)
         {

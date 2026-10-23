@@ -34,6 +34,16 @@ public interface ISimClient : IDisposable
     bool DirectInput { get; set; }
 
     /// <summary>
+    /// The stick stays bound in MSFS: the HeavyPro WASM bridge answers MSFS's raw
+    /// stick events with HeavyPro's value, so add-ons that hide those events from
+    /// SimConnect (PMDG, iniBuilds) still end each frame on the shaped stick.
+    /// </summary>
+    bool CounterMsfsBindings { get; set; }
+
+    /// <summary>The HeavyPro WASM bridge is running in the sim.</summary>
+    bool BridgeLoaded { get; }
+
+    /// <summary>
     /// Direct route only: the physical stick in AXIS event units (-16384..16384,
     /// MSFS sign convention). Null leaves that axis to MSFS.
     /// </summary>

@@ -159,6 +159,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     // value, so the stick can stay bound in MSFS.
     private bool _bridgeReady;
     private bool _bridgeLoaded;
+    public bool CounterMsfsBindings { get; set; }
+    public bool BridgeLoaded => _bridgeLoaded;
     private double _bridgeOverrides;
     private DateTime _bridgeLastOverride = DateTime.MinValue;
     private readonly Dictionary<Events, double> _bridgeShaped = new();
@@ -209,7 +211,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _bridgeShaped[ev] = value;
         // Only while an MSFS binding is really sending: with the axes unbound the
         // module has nothing to answer and stays out of the way.
-        SetBridge(ForeignInputSeen);
+        SetBridge(CounterMsfsBindings || ForeignInputSeen);
     }
 
     private bool ForeignInputSeen
