@@ -7,3 +7,4 @@ lib/Microsoft.FlightSimulator.SimConnect.dll
 lib/SimConnect.dll
 *.log
 dist/
+release-notes.md

@@ -119,6 +119,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         firstCheck.Tick += (_, _) => { firstCheck.Stop(); _ = CheckForUpdateAsync(); };
         firstCheck.Start();
         ApplyProfileCommand = new RelayCommand(ApplyProfile);
+        ToggleAircraftLinkCommand = new RelayCommand(ToggleAircraftLink);
         DeleteProfileCommand = new RelayCommand(DeleteProfile);
         ShareProfileCommand = new RelayCommand(() => _ = ShareProfileAsync());
         GetSharedProfileCommand = new RelayCommand(() => _ = GetSharedProfileAsync());
@@ -173,6 +174,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     // ---------------- Custom profiles ----------------
     public ObservableCollection<CustomProfile> CustomProfiles { get; }
     public ICommand SaveProfileCommand { get; }
+    public ICommand ToggleAircraftLinkCommand { get; }
 
     // ---------------- Updates (tagged releases only) ----------------
     public ICommand UpdateCommand { get; }
@@ -332,6 +334,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             Set(ref _selectedCustomProfile, value);
             if (value != null)
                 NewProfileName = value.Name;
+            OnChanged(nameof(AircraftLinkText));
         }
     }
 
@@ -367,8 +370,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     private void ApplyProfile()
     {
-        var profile = SelectedCustomProfile;
-        if (profile == null) return;
+        if (SelectedCustomProfile is { } profile)
+            ApplyProfile(profile);
+    }
+
+    private void ApplyProfile(CustomProfile profile)
+    {
         profile.ApplyTo(_settings);
         foreach (var name in new[]
         {
@@ -390,6 +397,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         var profile = SelectedCustomProfile;
         if (profile == null) return;
         CustomProfiles.Remove(profile);
+        AircraftProfileLinks.Forget(_settings, profile.Name);
         SyncProfiles();
         SelectedCustomProfile = null;
         NewProfileName = "";
@@ -1249,7 +1257,86 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         if (_settings.AircraftProfile == "Auto Detect")
             _logger.Info("Auto profile suggestion: " + DetectedProfile);
 
+        // A profile linked to this aircraft switches on once when it loads.
+        var key = AircraftProfileLinks.Key(id);
+        if (key.Length > 0 && key != _linkedAircraft)
+        {
+            _linkedAircraft = key;
+            if (AircraftProfileLinks.Find(_settings, id) is { } linked)
+            {
+                ApplyProfile(linked);
+                ProfileStatus = $"\"{linked.Name}\" switched on for {key}.";
+                _logger.Info($"Profile \"{linked.Name}\" is linked to {key}: applied.");
+            }
+        }
+        OnChanged(nameof(AircraftLinkText));
         RaiseTelemetry();
+    }
+
+    // ---------------- Profile per aircraft ----------------
+    private string _linkedAircraft = "";
+
+    public string AircraftLinkText
+    {
+        get
+        {
+            var key = AircraftProfileLinks.Key(_snap.Aircraft);
+            if (key.Length == 0)
+                return "Use for this aircraft (load one first)";
+            return SelectedCustomProfile is { } p && AircraftProfileLinks.IsLinked(_settings, _snap.Aircraft, p)
+                ? "Stop using for " + key
+                : "Use for " + key;
+        }
+    }
+
+    private void ToggleAircraftLink()
+    {
+        var key = AircraftProfileLinks.Key(_snap.Aircraft);
+        if (key.Length == 0)
+        {
+            ProfileStatus = "Load an aircraft in MSFS first, then link a profile to it.";
+            return;
+        }
+        if (SelectedCustomProfile is not { } profile)
+        {
+            ProfileStatus = "Pick a profile above first.";
+            return;
+        }
+        if (AircraftProfileLinks.IsLinked(_settings, _snap.Aircraft, profile))
+        {
+            AircraftProfileLinks.Unlink(_settings, _snap.Aircraft);
+            ProfileStatus = $"{key} no longer switches a profile on.";
+            _logger.Info($"Profile link removed for {key}.");
+        }
+        else
+        {
+            AircraftProfileLinks.Link(_settings, _snap.Aircraft, profile);
+            ApplyProfile(profile);
+            ProfileStatus = $"\"{profile.Name}\" now switches on whenever {key} loads.";
+            _logger.Info($"Profile \"{profile.Name}\" linked to {key}.");
+        }
+        _linkedAircraft = key;
+        OnChanged(nameof(AircraftLinkText));
+        ScheduleSave();
+    }
+
+    // ---------------- Version and What's new ----------------
+    /// <summary>
+    /// What's new for this version, once: the first start after installing or updating.
+    /// Null when it was already shown or the changelog has nothing for this version.
+    /// </summary>
+    public string? TakeWhatsNew()
+    {
+        var current = Services.Updater.Current.ToString(3);
+        if (_settings.LastSeenVersion == current)
+            return null;
+        _settings.LastSeenVersion = current;
+        ScheduleSave();
+        using var stream = typeof(MainViewModel).Assembly.GetManifestResourceStream("HeavyPro.Changelog.md");
+        if (stream == null)
+            return null;
+        using var reader = new System.IO.StreamReader(stream);
+        return Changelog.WhatsNew(reader.ReadToEnd(), Services.Updater.Current);
     }
 
     private void ApplySnapshot(FlightSnapshot snap)

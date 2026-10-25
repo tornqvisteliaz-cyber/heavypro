@@ -395,11 +395,13 @@
                             <StackPanel>
                                 <TextBlock Text="MY PROFILES" Style="{StaticResource SectionText}" Margin="0,0,0,10"/>
                                 <ComboBox ItemsSource="{Binding CustomProfiles}" SelectedItem="{Binding SelectedCustomProfile}" Margin="0,0,0,8"/>
-                                <Grid Margin="0,0,0,10">
+                                <Grid Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                     <Button Content="Apply" Command="{Binding ApplyProfileCommand}" Style="{StaticResource PrimaryButton}"/>
                                     <Button Grid.Column="2" Content="Delete" Command="{Binding DeleteProfileCommand}"/>
                                 </Grid>
+                                <Button Content="{Binding AircraftLinkText}" Command="{Binding ToggleAircraftLinkCommand}" Margin="0,0,0,10"
+                                        ToolTip="Link the selected profile to the aircraft loaded in MSFS. It then switches on by itself whenever that aircraft loads."/>
                                 <TextBlock Text="Name" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
