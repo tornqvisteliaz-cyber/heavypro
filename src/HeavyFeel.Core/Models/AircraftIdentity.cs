@@ -41,6 +41,19 @@ public sealed class AircraftIdentity
         }
     }
 
+    /// <summary>
+    /// The iniBuilds A350 claims the stick events in its own masking group at the same
+    /// SimConnect priority as HeavyPro's (10,000,000, the highest maskable one).
+    /// </summary>
+    public bool IsA350
+    {
+        get
+        {
+            var blob = $"{Title} {AtcModel} {AtcType}".ToUpperInvariant();
+            return blob.Contains("A350") || blob.Contains("A359") || blob.Contains("A35K");
+        }
+    }
+
     public string DisplayName
     {
         get

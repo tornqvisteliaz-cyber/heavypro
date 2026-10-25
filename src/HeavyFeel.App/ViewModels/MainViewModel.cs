@@ -578,6 +578,27 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 yaw = Read(pedalAxes, _settings.RudderAxis, _settings.InvertRudder);
         }
 
+        // MSFS bindings route: the app shows the stick from the device itself, and notices
+        // when it moves but no stick event reaches HeavyPro (the aircraft took it first).
+        _stickPitch = pitch;
+        _stickRoll = roll;
+        var offCentre = Math.Max(Math.Abs(pitch ?? 0), Math.Abs(roll ?? 0)) > 0.25;
+        if (!_client.DirectInput && _client.IsConnected && offCentre && _client.RouteStatus != InputRouteStatus.Active)
+        {
+            _stickHiddenSince ??= now;
+            if (!_stickHidden && now - _stickHiddenSince.Value > TimeSpan.FromSeconds(1.5))
+            {
+                _stickHidden = true;
+                _logger.Warn("The stick moves but no stick event reaches HeavyPro: the aircraft took it first. "
+                    + "Connect HeavyPro in the main menu, before loading the flight.");
+            }
+        }
+        else if (_client.RouteStatus == InputRouteStatus.Active || !_client.IsConnected)
+        {
+            _stickHiddenSince = null;
+            _stickHidden = false;
+        }
+
         if (_client.DirectInput && _client.IsConnected)
             _client.FeedPhysical(pitch.HasValue ? ToAxisEvent(pitch.Value) : null, roll.HasValue ? ToAxisEvent(roll.Value) : null,
                 yaw.HasValue ? ToAxisEvent(yaw.Value) : null);
@@ -974,9 +995,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     // Live meters: where the stick is versus what the sim is being sent.
-    public double MeterPitchIn => _snap.CapturedPitch ?? _lastCmd.RawPitch;
+    private double? _stickPitch;
+    private double? _stickRoll;
+    private DateTime? _stickHiddenSince;
+    private bool _stickHidden;
+
+    // When no stick event reaches HeavyPro, show the stick from the device itself.
+    public double MeterPitchIn => _snap.CapturedPitch ?? (_stickHidden ? _stickPitch ?? 0 : _lastCmd.RawPitch);
     public double MeterPitchOut => _lastCmd.Active ? _lastCmd.OutPitch : MeterPitchIn;
-    public double MeterRollIn => _snap.CapturedRoll ?? _lastCmd.RawRoll;
+    public double MeterRollIn => _snap.CapturedRoll ?? (_stickHidden ? _stickRoll ?? 0 : _lastCmd.RawRoll);
     public double MeterRollOut => _lastCmd.Active ? _lastCmd.OutRoll : MeterRollIn;
     public double MeterYawIn => _snap.CapturedYaw ?? _lastCmd.RawYaw;
     public double MeterYawOut => _lastCmd.Active ? _lastCmd.OutYaw : MeterYawIn;
@@ -1007,7 +1034,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         "FAULT" => "SimConnect refused a stick write. Disconnect and connect again.",
         "PASS-THROUGH" => "Your stick goes to the sim untouched. Turn on Master Enable to add weight.",
         "AP ON · PAUSED" => "Autopilot is flying. HeavyPro hands the stick back until you disconnect it.",
-        "MOVE STICK" => IsDirect ? "Waiting for the stick. Check it is plugged in." : "Move the stick once. It must be bound to Elevator, Aileron and Rudder Axis in MSFS.",
+        "MOVE STICK" => IsDirect ? "Waiting for the stick. Check it is plugged in."
+            : _stickHidden ? "Your stick moves, but the aircraft takes it before HeavyPro can (the A350 does this when it loads first). Disconnect, go to the MSFS main menu, connect HeavyPro, then load the flight."
+            : "Move the stick once. It must be bound to Elevator, Aileron and Rudder Axis in MSFS.",
         _ => "The gold bar is what the aircraft gets. The white tick is your stick."
     };
 

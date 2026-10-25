@@ -64,6 +64,16 @@ public class RudderAndProfileTests
         Assert.Equal(expected, new AircraftIdentity { Title = title, AtcModel = model }.NeedsDirectRoute);
     }
 
+    [Theory]
+    [InlineData("A350-1000 (No Cabin)", "A350-1000", "A35K", true)]
+    [InlineData("A350-900 (Default Cabin)", "A350-900", "A359", true)]
+    [InlineData("777F", "ATCCOM.AC_MODEL B77L.0.text", "BOEING", false)]
+    [InlineData("Fenix A320", "A320", "A320", false)]
+    public void A350IsRecognisedFromWhatMsfsReports(string title, string model, string type, bool expected)
+    {
+        Assert.Equal(expected, new AircraftIdentity { Title = title, AtcModel = model, AtcType = type }.IsA350);
+    }
+
     [Fact]
     public void BuiltInProfilesAreAddedOnceAndKeepUserProfiles()
     {
