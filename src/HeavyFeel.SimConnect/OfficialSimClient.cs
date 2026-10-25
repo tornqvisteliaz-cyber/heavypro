@@ -72,9 +72,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     {
         Highest = 1,
         HighestMaskable = 10000000,
-        // Just after HeavyPro's masking group (10,000,000), where the hardware stick
-        // would carry on: PMDG's own handler sits below this and drives its yoke.
-        AfterMask = 10000001,
         Standard = 1900000000
     }
 
@@ -343,15 +340,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                 _logger.Warn("Binding monitor stopped: " + ex.Message);
                 _monitor = null;
             }
-            try
-            {
-                _sender?.ReceiveMessage();
-            }
-            catch (Exception ex)
-            {
-                _logger.Warn("Stick sender stopped: " + ex.Message);
-                _sender = null;
-            }
         }
         catch (Exception ex)
         {
@@ -552,42 +540,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _logger.Warn("Binding monitor unavailable: " + ex.Message);
         }
     }
-
-    // ---- Stick sender (masked route) ----
-    // Sends from the masking connection at Standard priority reach the flight model but
-    // skip the handler PMDG and iniBuilds put between 10,000,001 and 1e8, so their yoke
-    // never moves. Measured: a client that holds these events in its own maskable group
-    // cannot get sends through to that handler, but one without groups can. This second
-    // connection has no groups and sends where the hardware stick would carry on.
-    private Microsoft.FlightSimulator.SimConnect.SimConnect? _sender;
-
-    private void OpenSender()
-    {
-        try
-        {
-            _sender = new Microsoft.FlightSimulator.SimConnect.SimConnect("HeavyPro stick sender", IntPtr.Zero, 0, null, 0);
-            _sender.MapClientEventToSimEvent(Events.AxisElevator, "AXIS_ELEVATOR_SET");
-            _sender.MapClientEventToSimEvent(Events.AxisAileron, "AXIS_AILERONS_SET");
-            _sender.MapClientEventToSimEvent(Events.AxisRudder, "AXIS_RUDDER_SET");
-        }
-        catch (Exception ex)
-        {
-            _sender = null;
-            _logger.Warn("Stick sender unavailable; PMDG and iniBuilds yokes may not move: " + ex.Message);
-        }
-    }
-
-    /// <summary>Aircraft whose own control handler moves the yoke (PMDG, iniBuilds).</summary>
-    private bool SendThroughAddonHandler => !DirectInput && _sender != null && _identity.NeedsDirectRoute && !_identity.IsA350;
-
-    /// <summary>
-    /// The A350's own masking group sits at the same priority as HeavyPro's. Sent at
-    /// 10,000,001 the stick lands after it, so its fly-by-wire never gets the stick and
-    /// fights HeavyPro's elevator. Passed on from HeavyPro's own group instead (the
-    /// standard way to re-send a masked event), it goes to the groups after HeavyPro's,
-    /// the A350's included, and never back to HeavyPro.
-    /// </summary>
-    private bool SendFromOwnGroup => !DirectInput && _identity.IsA350;
 
     private void OnMonitorEvent(Microsoft.FlightSimulator.SimConnect.SimConnect sender, SIMCONNECT_RECV_EVENT data)
     {
@@ -942,7 +894,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisAileron, true);
             _sim.AddClientEventToNotificationGroup(Groups.Stick, Events.AxisRudder, true);
             _sim.SetNotificationGroupPriority(Groups.Stick, 10000000u);
-            OpenSender();
             _axisWriteReady = true;
             _route.Begin();
             _logger.Info("AXIS events mapped maskable at priority 10000000. Waiting for a joystick event.");
@@ -1067,26 +1018,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         if (history.Count > 400)
             history.Dequeue();
         WriteBridge(ev, clamped);
-        if (SendFromOwnGroup)
-        {
-            _sim!.TransmitClientEvent(
-                Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
-                ev,
-                unchecked((uint)clamped),
-                Groups.Stick,
-                SIMCONNECT_EVENT_FLAG.DEFAULT);
-            return;
-        }
-        if (SendThroughAddonHandler)
-        {
-            _sender!.TransmitClientEvent(
-                Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
-                ev,
-                unchecked((uint)clamped),
-                EventPriority.AfterMask,
-                SIMCONNECT_EVENT_FLAG.GROUPID_IS_PRIORITY);
-            return;
-        }
         _sim!.TransmitClientEvent(
             Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
             ev,
@@ -1228,15 +1159,6 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             // The monitor only reports; nothing to recover.
         }
         _monitor = null;
-        try
-        {
-            _sender?.Dispose();
-        }
-        catch (Exception)
-        {
-            // Only sends; nothing to recover.
-        }
-        _sender = null;
         _foreign.Clear();
         _sentHistory.Clear();
         try
