@@ -122,6 +122,32 @@ jobs:
           $tag = $env:GITHUB_REF_NAME
           $url = "https://github.com/${{ github.repository }}/releases/download/$tag/HeavyProSetup.exe"
           & packaging/New-UpdateManifest.ps1 -Version $env:HP_VERSION -Setup publish/HeavyProSetup.exe -Url $url -Out publish/update.jws
+      - name: Build the RotaHub package
+        # RotaHub (Rotaidem's add-on manager) installs HeavyPro from this zip: app\ is the app
+        # payload, community\rotaidem-heavypro-panel\ the in-game panel it links into MSFS 2024.
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $pkg = 'publish/rotahub-pkg'
+          Remove-Item -Recurse -Force $pkg -ErrorAction SilentlyContinue
+          [System.IO.Compression.ZipFile]::ExtractToDirectory((Resolve-Path packaging/HeavyProAppPayload.zip), "$pwd/$pkg/app")
+          [System.IO.Compression.ZipFile]::ExtractToDirectory((Resolve-Path packaging/HeavyProPanel.zip), "$pwd/$pkg/community")
+          if (-not (Test-Path "$pkg/app/HeavyPro.exe")) { throw 'The RotaHub package has no app/HeavyPro.exe.' }
+          if (-not (Test-Path "$pkg/community/rotaidem-heavypro-panel/manifest.json")) { throw 'The RotaHub package has no panel.' }
+          Compress-Archive -Path "$pkg/*" -DestinationPath publish/HeavyPro-rotahub.zip -Force
+      - name: Sign the RotaHub manifest
+        # rotahub.jws tells RotaHub about this release, signed with the same key as update.jws.
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $url = "https://github.com/${{ github.repository }}/releases/download/$tag/HeavyPro-rotahub.zip"
+          & packaging/New-HubManifest.ps1 -Product rotaidem-heavypro -Name HeavyPro -Version $env:HP_VERSION `
+            -Package publish/HeavyPro-rotahub.zip -Url $url -Out publish/rotahub.jws `
+            -AppDir '%LOCALAPPDATA%\HeavyPro' -AppExe HeavyPro.exe -Shortcut HeavyPro -Processes HeavyPro `
+            -Community rotaidem-heavypro-panel:msfs2024
       - uses: actions/upload-artifact@v4
         with:
           name: HeavyProSetup
@@ -176,5 +202,5 @@ jobs:
             }
             if ($LASTEXITCODE -ne 0) { throw "Could not create release $tag." }
           }
-          gh release upload $tag publish/HeavyProSetup.exe publish/HeavyProSetup.zip publish/SHA256SUMS.txt publish/update.jws --clobber
+          gh release upload $tag publish/HeavyProSetup.exe publish/HeavyProSetup.zip publish/SHA256SUMS.txt publish/update.jws publish/HeavyPro-rotahub.zip publish/rotahub.jws --clobber
           if ($LASTEXITCODE -ne 0) { throw "Could not upload the installer to release $tag." }
