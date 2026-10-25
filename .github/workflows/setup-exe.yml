@@ -151,9 +151,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = $env:GITHUB_REF_NAME
+          # Release notes: this version's section of CHANGELOG.md, the same lines the app
+          # shows as "What's new". Falls back to GitHub's generated list if there is none.
+          $section = @()
+          $inside = $false
+          foreach ($line in Get-Content CHANGELOG.md -Encoding utf8) {
+            if ($line -match '^## ') {
+              if ($inside) { break }
+              $inside = $line -match "^## v?$([regex]::Escape($env:HP_VERSION))(\s|$)"
+              continue
+            }
+            if ($inside) { $section += $line }
+          }
+          $notes = ($section -join "`n").Trim()
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title "HeavyPro $tag" --generate-notes --latest
+            if ($notes) {
+              Set-Content -Path release-notes.md -Value $notes -Encoding utf8
+              gh release create $tag --title "HeavyPro $tag" --notes-file release-notes.md --latest
+            } else {
+              Write-Warning "CHANGELOG.md has no section for $env:HP_VERSION; using generated notes."
+              gh release create $tag --title "HeavyPro $tag" --generate-notes --latest
+            }
             if ($LASTEXITCODE -ne 0) { throw "Could not create release $tag." }
           }
           gh release upload $tag publish/HeavyProSetup.exe publish/HeavyProSetup.zip publish/SHA256SUMS.txt publish/update.jws --clobber

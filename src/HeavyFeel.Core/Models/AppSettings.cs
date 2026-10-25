@@ -53,6 +53,12 @@ public sealed class AppSettings
     public int SettingsVersion { get; set; }
 
     public List<CustomProfile> CustomProfiles { get; set; } = new();
+
+    /// <summary>Aircraft title -> custom profile applied by itself when that aircraft loads.</summary>
+    public Dictionary<string, string> AircraftProfiles { get; set; } = new();
+
+    /// <summary>The version whose "What's new" was last shown.</summary>
+    public string LastSeenVersion { get; set; } = "";
     public string FeelLevel { get; set; } = "RealisticPlus";
     public double WindowWidth { get; set; } = 1280;
     public double WindowHeight { get; set; } = 800;
