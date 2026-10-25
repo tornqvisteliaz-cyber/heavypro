@@ -578,7 +578,16 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     }
 
     /// <summary>Aircraft whose own control handler moves the yoke (PMDG, iniBuilds).</summary>
-    private bool SendThroughAddonHandler => !DirectInput && _sender != null && _identity.NeedsDirectRoute;
+    private bool SendThroughAddonHandler => !DirectInput && _sender != null && _identity.NeedsDirectRoute && !_identity.IsA350;
+
+    /// <summary>
+    /// The A350's own masking group sits at the same priority as HeavyPro's. Sent at
+    /// 10,000,001 the stick lands after it, so its fly-by-wire never gets the stick and
+    /// fights HeavyPro's elevator. Passed on from HeavyPro's own group instead (the
+    /// standard way to re-send a masked event), it goes to the groups after HeavyPro's,
+    /// the A350's included, and never back to HeavyPro.
+    /// </summary>
+    private bool SendFromOwnGroup => !DirectInput && _identity.IsA350;
 
     private void OnMonitorEvent(Microsoft.FlightSimulator.SimConnect.SimConnect sender, SIMCONNECT_RECV_EVENT data)
     {
@@ -1058,6 +1067,16 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         if (history.Count > 400)
             history.Dequeue();
         WriteBridge(ev, clamped);
+        if (SendFromOwnGroup)
+        {
+            _sim!.TransmitClientEvent(
+                Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                ev,
+                unchecked((uint)clamped),
+                Groups.Stick,
+                SIMCONNECT_EVENT_FLAG.DEFAULT);
+            return;
+        }
         if (SendThroughAddonHandler)
         {
             _sender!.TransmitClientEvent(
