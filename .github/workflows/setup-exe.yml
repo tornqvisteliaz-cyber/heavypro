@@ -17,6 +17,16 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Version from the tag
+        # A tag like v1.0.1 builds HeavyPro 1.0.1 (Directory.Build.props reads HP_VERSION);
+        # the app's Update button compares against this number.
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') { throw "Release tags look like v1.0.1, not $tag." }
+          "HP_VERSION=$($Matches[1])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Building HeavyPro $($Matches[1])"
       - name: Built-in licence public key
         # HeavyPro trusts only licence answers signed by rotaidem.com. Its public key is built in:
         # packaging/licence-public-key.json if committed, otherwise fetched from the website here.
@@ -100,6 +110,17 @@ jobs:
           $hash = (Get-FileHash publish/HeavyProSetup.exe -Algorithm SHA256).Hash.ToLower()
           "$hash  HeavyProSetup.exe" | Set-Content publish/SHA256SUMS.txt -Encoding ascii
           Write-Host "SHA-256: $hash"
+      - name: Sign the update manifest
+        # update.jws tells the app's Update button about this release. It is signed with the
+        # update key (secret UPDATE_SIGNING_KEY), so only releases built here are installed.
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $url = "https://github.com/${{ github.repository }}/releases/download/$tag/HeavyProSetup.exe"
+          & packaging/New-UpdateManifest.ps1 -Version $env:HP_VERSION -Setup publish/HeavyProSetup.exe -Url $url -Out publish/update.jws
       - uses: actions/upload-artifact@v4
         with:
           name: HeavyProSetup
@@ -135,5 +156,5 @@ jobs:
             gh release create $tag --title "HeavyPro $tag" --generate-notes --latest
             if ($LASTEXITCODE -ne 0) { throw "Could not create release $tag." }
           }
-          gh release upload $tag publish/HeavyProSetup.exe publish/HeavyProSetup.zip publish/SHA256SUMS.txt --clobber
+          gh release upload $tag publish/HeavyProSetup.exe publish/HeavyProSetup.zip publish/SHA256SUMS.txt publish/update.jws --clobber
           if ($LASTEXITCODE -ne 0) { throw "Could not upload the installer to release $tag." }

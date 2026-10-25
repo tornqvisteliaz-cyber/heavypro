@@ -27,6 +27,16 @@
                     <TextBlock Text="BY ROTAIDEM" Foreground="{StaticResource BrushMuted}" FontSize="10" FontWeight="SemiBold" Margin="1,2,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="{Binding UpdateText}" Command="{Binding UpdateCommand}" Style="{StaticResource PrimaryButton}"
+                            Margin="0,0,10,0" Padding="12,6" ToolTip="{Binding AppVersion}">
+                        <Button.Visibility>
+                            <Binding Path="UpdateAvailable">
+                                <Binding.Converter>
+                                    <BooleanToVisibilityConverter/>
+                                </Binding.Converter>
+                            </Binding>
+                        </Button.Visibility>
+                    </Button>
                     <Border CornerRadius="8" Padding="12,7" Margin="0,0,10,0" BorderThickness="1"
                             ToolTip="{Binding RouteHint}">
                         <Border.Style>

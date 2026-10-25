@@ -12,13 +12,14 @@ namespace HeavyPro.Setup;
 static class Program
 {
     [STAThread]
-    static void Main()
+    static void Main(string[] args)
     {
         // Hosting providers refuse old TLS versions, which .NET Framework can still default to.
         System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
-        using var setup = new SetupForm();
+        // "/update": started by the app's Update button.
+        using var setup = new SetupForm(args.Any(a => string.Equals(a, "/update", StringComparison.OrdinalIgnoreCase)));
         System.Windows.Forms.Application.Run(setup);
     }
 }
@@ -36,8 +37,9 @@ sealed class SetupForm : Form
     private readonly TextBox _key = new() { CharacterCasing = CharacterCasing.Upper };
     private readonly Button _install = new() { Text = "Install HeavyPro" };
     private readonly Label _status = new();
+    private readonly bool _updateMode;
 
-    public SetupForm()
+    public SetupForm(bool update = false)
     {
         Text = "Install HeavyPro";
         ClientSize = new Size(560, 430);
@@ -83,8 +85,19 @@ sealed class SetupForm : Form
         _status.Text = "Installs into your user folder and adds Start menu and desktop shortcuts.";
 
         // Reinstalling on a computer that is already activated should not ask again.
-        if (HeavyProLicense.Store().Load() is { } saved)
+        var saved = HeavyProLicense.Store().Load();
+        if (saved != null)
             _key.Text = saved.Key;
+        // From the Update button on an activated PC: install straight away, nothing to answer.
+        _updateMode = update && saved != null;
+        if (_updateMode)
+        {
+            Text = "Updating HeavyPro";
+            _install.Text = "Updating…";
+            _install.Enabled = false;
+            _status.Text = "Updating HeavyPro. It opens again when done.";
+            Shown += (_, _) => BeginInvoke(new Action(Install));
+        }
         HeavyProLicense.WakeServer();
         _key.HandleCreated += (_, _) => SetPlaceholder(_key, "HPRO-XXXX-XXXX-XXXX");
         // Open with the cursor after a pre-filled key rather than the whole key selected.
@@ -170,10 +183,11 @@ sealed class SetupForm : Form
             var appExe = Path.Combine(appDir, "HeavyPro.exe");
             SimConnectLocator.CreateShortcut(appExe);
 
-            MessageBox.Show(this, panel != null
-                ? "HeavyPro is installed and will open now.\n\nIn MSFS 2024, the HeavyPro panel is in the toolbar."
-                : "HeavyPro is installed and will open now.\n\nThe MSFS 2024 Community folder was not found, so the in-game panel was not added. The app works without it.",
-                "HeavyPro");
+            if (!_updateMode)
+                MessageBox.Show(this, panel != null
+                    ? "HeavyPro is installed and will open now.\n\nIn MSFS 2024, the HeavyPro panel is in the toolbar."
+                    : "HeavyPro is installed and will open now.\n\nThe MSFS 2024 Community folder was not found, so the in-game panel was not added. The app works without it.",
+                    "HeavyPro");
             DialogResult = DialogResult.OK;
             Close();
             Process.Start(new ProcessStartInfo(appExe) { UseShellExecute = true });
@@ -181,6 +195,7 @@ sealed class SetupForm : Form
         catch (Exception ex)
         {
             _install.Enabled = true;
+            _install.Text = "Install HeavyPro";
             ShowStatus("HeavyPro could not be installed. Close HeavyPro and try again. " + ex.Message, problem: true);
         }
     }
@@ -190,6 +205,18 @@ sealed class SetupForm : Form
         var processes = Process.GetProcessesByName("HeavyPro");
         if (processes.Length == 0)
             return true;
+        if (_updateMode)
+        {
+            // The app closes itself after starting the update; give it time before asking.
+            foreach (var process in processes)
+            {
+                process.WaitForExit(15000);
+                process.Dispose();
+            }
+            processes = Process.GetProcessesByName("HeavyPro");
+            if (processes.Length == 0)
+                return true;
+        }
 
         var answer = MessageBox.Show(this,
             "HeavyPro is open and must close before setup can update it. Save any settings, then choose Yes to close HeavyPro and continue.",

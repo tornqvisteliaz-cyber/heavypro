@@ -6,6 +6,8 @@
     <Company>HeavyFeel</Company>
     <Product>HeavyFeel</Product>
     <Version>0.4.0</Version>
+    <!-- Release builds: CI sets HP_VERSION from the tag (v1.0.1 -> 1.0.1), which the Update button compares against. -->
+    <Version Condition="'$(HP_VERSION)' != ''">$(HP_VERSION)</Version>
     <Authors>HeavyFeel</Authors>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <PlatformTarget>x64</PlatformTarget>
