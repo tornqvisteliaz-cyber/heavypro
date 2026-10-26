@@ -56,6 +56,41 @@ public class MsfsInputProfilesTests
     }
 
     [Fact]
+    public void Clearing_unbinds_only_the_given_axes_and_keeps_the_rest()
+    {
+        var xml = Profile("throttle'", 48167, "AIRPLANE", true, true, true);
+        var cleared = MsfsInputProfiles.ClearAxes(xml, new[] { "pitch", "roll" });
+        Assert.Equal(new[] { "yaw" }, MsfsInputProfiles.Parse(cleared)!.BoundAxes);
+        Assert.Contains("<Action ActionName=\"KEY_AXIS_ELEVATOR_SET\" ValueEvent=\"0.000000\" Delay=\"0.000000\" Flag=\"2\"/>", cleared);
+        Assert.Contains("Joystick L-Axis Z", cleared);
+        Assert.Contains("<FriendlyName PlatformAvailability=\"1\" Locked=\"false\">throttle'</FriendlyName>", cleared);
+        // Clearing twice changes nothing more.
+        Assert.Equal(cleared, MsfsInputProfiles.ClearAxes(cleared, new[] { "pitch", "roll" }));
+    }
+
+    [Fact]
+    public void Clearing_the_real_msfs_2024_layout()
+    {
+        // As MSFS 2024 writes a bound axis (Delay 2, Flag 4, a KEY with a code).
+        var xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Version Num=\"-1\"/>\n<FriendlyName>p</FriendlyName>\n"
+            + "<Device DeviceName=\"WINCTRL URSA MINOR 32 Joystick L\" ProductID=\"48167\">\n\t<AircraftInfo CategoryName=\"AIRPLANE\"/>\n\t<Context ContextName=\"SURFACES\">\n"
+            + "\t\t<Action ActionName=\"KEY_AXIS_AILERONS_SET\" ValueEvent=\"0.000000\" Delay=\"2.000000\" Flag=\"4\">\n\t\t\t<Primary>\n\t\t\t\t<KEY Information=\"Joystick L-Axis X \">1026</KEY>\n\t\t\t</Primary>\n\t\t</Action>\n"
+            + "\t\t<Action ActionName=\"KEY_AXIS_ELEVATOR_SET\" ValueEvent=\"0.000000\" Delay=\"2.000000\" Flag=\"4\">\n\t\t\t<Primary>\n\t\t\t\t<KEY Information=\"Joystick L-Axis Y \">1042</KEY>\n\t\t\t</Primary>\n\t\t</Action>\n"
+            + "\t</Context>\n</Device>";
+        Assert.Equal(new[] { "pitch", "roll" }, MsfsInputProfiles.Parse(xml)!.BoundAxes);
+        var cleared = MsfsInputProfiles.ClearAxes(xml, new[] { "pitch", "roll" });
+        Assert.Empty(MsfsInputProfiles.Parse(cleared)!.BoundAxes);
+        Assert.DoesNotContain("1042", cleared);
+    }
+
+    [Fact]
+    public void Binding_found_on_disk_names_its_file()
+    {
+        var files = new[] { (@"C:\x\inputprofile_1", DateTime.Now, Profile("p", 48167, "AIRPLANE", true, false, false)) };
+        Assert.Equal(@"C:\x\inputprofile_1", MsfsInputProfiles.FindBinding(files, 48167, new[] { "pitch" })!.File);
+    }
+
+    [Fact]
     public void Product_id_comes_from_the_device_key()
     {
         Assert.Equal(48167, MsfsInputProfiles.ProductIdFromKey("4098:BC27"));

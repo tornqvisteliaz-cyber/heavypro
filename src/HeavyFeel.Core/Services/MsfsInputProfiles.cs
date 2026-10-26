@@ -4,7 +4,7 @@ using System.Xml.Linq;
 namespace HeavyFeel.Core.Services;
 
 /// <summary>An MSFS control profile that still sends stick axes HeavyPro feeds itself.</summary>
-public sealed record MsfsAxisBinding(string ProfileName, string DeviceName, IReadOnlyList<string> Axes)
+public sealed record MsfsAxisBinding(string ProfileName, string DeviceName, IReadOnlyList<string> Axes, string File = "")
 {
     public override string ToString() => $"{string.Join(", ", Axes)} on {DeviceName} (MSFS profile \"{ProfileName}\")";
 }
@@ -29,19 +29,39 @@ public static class MsfsInputProfiles
     /// For one device (by USB product id), the airplane profile MSFS changed last, and
     /// which of the wanted axes ("pitch", "roll", "yaw") it binds. Null when none.
     /// </summary>
-    public static MsfsAxisBinding? FindBinding(IEnumerable<(DateTime Modified, string Xml)> profiles, int productId, IReadOnlyCollection<string> axes)
+    public static MsfsAxisBinding? FindBinding(IEnumerable<(DateTime Modified, string Xml)> profiles, int productId, IReadOnlyCollection<string> axes) =>
+        FindBinding(profiles.Select(p => ("", p.Modified, p.Xml)), productId, axes);
+
+    /// <summary>As above, from files on disk: the binding names the file it is in.</summary>
+    public static MsfsAxisBinding? FindBinding(IEnumerable<(string Path, DateTime Modified, string Xml)> profiles, int productId, IReadOnlyCollection<string> axes)
     {
         var latest = profiles
-            .Select(p => (p.Modified, Profile: Parse(p.Xml)))
+            .Select(p => (p.Path, p.Modified, Profile: Parse(p.Xml)))
             .Where(p => p.Profile != null && p.Profile.ProductId == productId
                 && string.Equals(p.Profile.Category, "AIRPLANE", StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(p => p.Modified)
-            .Select(p => p.Profile!)
             .FirstOrDefault();
-        if (latest == null)
+        if (latest.Profile == null)
             return null;
-        var bound = latest.BoundAxes.Where(axes.Contains).ToList();
-        return bound.Count == 0 ? null : new MsfsAxisBinding(latest.Name, latest.DeviceName, bound);
+        var bound = latest.Profile.BoundAxes.Where(axes.Contains).ToList();
+        return bound.Count == 0 ? null : new MsfsAxisBinding(latest.Profile.Name, latest.Profile.DeviceName, bound, latest.Path);
+    }
+
+    /// <summary>
+    /// The profile with those axes unbound: each bound action becomes the empty
+    /// <c>&lt;Action … Flag="2"/&gt;</c> MSFS itself writes for an unbound one.
+    /// Everything else in the file stays byte for byte the same.
+    /// </summary>
+    public static string ClearAxes(string xml, IReadOnlyCollection<string> axes)
+    {
+        foreach (var (action, axis) in StickAxes)
+        {
+            if (!axes.Contains(axis))
+                continue;
+            var bound = new Regex("<Action ActionName=\"" + action + "\"[^>]*(?<!/)>.*?</Action>", RegexOptions.Singleline);
+            xml = bound.Replace(xml, "<Action ActionName=\"" + action + "\" ValueEvent=\"0.000000\" Delay=\"0.000000\" Flag=\"2\"/>");
+        }
+        return xml;
     }
 
     public sealed record Profile(string Name, string DeviceName, int ProductId, string Category, IReadOnlyList<string> BoundAxes);

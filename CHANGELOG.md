@@ -2,6 +2,11 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.5.3
+
+- **Fix MSFS bindings for me:** when MSFS still sends your stick or pedals on its own (the reason the PMDG 777 and iniBuilds A350 twitched, jumped back or felt like paper), one button (at the top, next to UNBIND IN MSFS, and under Stick setup) clears exactly those axes in your MSFS 2024 controls, keeps a backup, and switches HeavyPro to the Direct route. Close MSFS first.
+- **PMDG 777 gets its own feel again:** MSFS 2024 names it just "777-300ER", so HeavyPro treated it as a generic airliner.
+
 ## 0.5.2
 
 - **RotaHub:** install and update HeavyPro from RotaHub, Rotaidem's add-on manager. It also links the in-game panel into MSFS 2024 for you. The Update button inside HeavyPro is gone; RotaHub handles updates.

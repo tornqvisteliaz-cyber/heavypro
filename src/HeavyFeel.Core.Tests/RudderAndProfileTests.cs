@@ -74,6 +74,15 @@ public class RudderAndProfileTests
         Assert.Equal(expected, new AircraftIdentity { Title = title, AtcModel = model, AtcType = type }.IsA350);
     }
 
+    [Theory]
+    [InlineData("777-300ER", "ATCCOM.AC_MODEL B77W.0.text")]
+    [InlineData("777F", "ATCCOM.AC_MODEL B77L.0.text")]
+    public void Msfs2024_pmdg_777_gets_the_777_feel(string title, string model)
+    {
+        var snap = new FlightSnapshot { Aircraft = new AircraftIdentity { Title = title, AtcModel = model, AtcType = "ATCCOM.ATC_NAME BOEING.0.text" }, Class = AircraftClass.WideBody };
+        Assert.Equal("PMDG 777", InputDynamicsProfile.For(snap, "Auto Detect").Name);
+    }
+
     [Fact]
     public void BuiltInProfilesAreAddedOnceAndKeepUserProfiles()
     {
