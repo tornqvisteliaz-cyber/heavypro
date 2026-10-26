@@ -19,9 +19,6 @@
     <!-- The licence server's public key (the build fetches it from rotaidem.com/api/licenses/jwks.json).
          HeavyPro accepts only licence answers signed with the matching private key. -->
     <EmbeddedResource Include="..\..\packaging\licence-public-key.json" LogicalName="HeavyPro.LicensePublicKey.json" Condition="Exists('..\..\packaging\licence-public-key.json')" />
-    <!-- The update signing key's public half. The Update button installs only releases whose
-         update.jws is signed with the matching private key (the UPDATE_SIGNING_KEY secret in CI). -->
-    <EmbeddedResource Include="..\..\packaging\update-public-key.json" LogicalName="HeavyPro.UpdatePublicKey.json" />
     <!-- "What's new" after an update comes from the same file as the release notes. -->
     <EmbeddedResource Include="..\..\CHANGELOG.md" LogicalName="HeavyPro.Changelog.md" />
     <Reference Include="System.Net.Http" />

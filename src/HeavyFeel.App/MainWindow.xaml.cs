@@ -45,7 +45,7 @@ public partial class MainWindow : Window
 
         _vm.Start();
 
-        var welcome = new WelcomeWindow(Services.Updater.Current.ToString(3), _vm.TakeWhatsNew()) { Owner = this };
+        var welcome = new WelcomeWindow(AppVersion.Current.ToString(3), _vm.TakeWhatsNew()) { Owner = this };
         welcome.Show();
     }
 
