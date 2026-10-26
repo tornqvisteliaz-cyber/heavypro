@@ -111,8 +111,9 @@ jobs:
           "$hash  HeavyProSetup.exe" | Set-Content publish/SHA256SUMS.txt -Encoding ascii
           Write-Host "SHA-256: $hash"
       - name: Sign the update manifest
-        # update.jws tells the app's Update button about this release. It is signed with the
-        # update key (secret UPDATE_SIGNING_KEY), so only releases built here are installed.
+        # update.jws lets HeavyPro 0.5.0/0.5.1, which still have an Update button, move to this
+        # release once. Newer versions update through RotaHub instead. Signed with the release
+        # key (secret UPDATE_SIGNING_KEY), so only releases built here are installed.
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         env:

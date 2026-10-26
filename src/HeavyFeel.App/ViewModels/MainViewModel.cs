@@ -122,14 +122,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         SetFeelRealisticCommand = new RelayCommand(() => ApplyFeel(FeelLevel.Realistic));
         CustomProfiles = new ObservableCollection<CustomProfile>(_settings.CustomProfiles);
         SaveProfileCommand = new RelayCommand(SaveProfile);
-        UpdateCommand = new RelayCommand(() => _ = InstallUpdateAsync());
-        _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(6) };
-        _updateTimer.Tick += (_, _) => _ = CheckForUpdateAsync();
-        _updateTimer.Start();
-        // A few seconds after start, so the first check never slows the window opening.
-        var firstCheck = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
-        firstCheck.Tick += (_, _) => { firstCheck.Stop(); _ = CheckForUpdateAsync(); };
-        firstCheck.Start();
         ApplyProfileCommand = new RelayCommand(ApplyProfile);
         ToggleAircraftLinkCommand = new RelayCommand(ToggleAircraftLink);
         DeleteProfileCommand = new RelayCommand(DeleteProfile);
@@ -188,55 +180,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ICommand SaveProfileCommand { get; }
     public ICommand ToggleAircraftLinkCommand { get; }
 
-    // ---------------- Updates (tagged releases only) ----------------
-    public ICommand UpdateCommand { get; }
-    private readonly DispatcherTimer _updateTimer;
-    private UpdateInfo? _update;
-    private bool _updating;
-
-    public bool UpdateAvailable => _update != null;
-    public string AppVersion => "HeavyPro " + Services.Updater.Current;
-
-    private string _updateText = "";
-    public string UpdateText
-    {
-        get => _updateText;
-        private set => Set(ref _updateText, value);
-    }
-
-    private async Task CheckForUpdateAsync()
-    {
-        if (_updating)
-            return;
-        var (update, message) = await Services.Updater.CheckAsync();
-        _logger.Info("Update check: " + message);
-        _update = update;
-        UpdateText = update == null ? "" : "Update to " + update.Version;
-        OnChanged(nameof(UpdateAvailable));
-    }
-
-    private async Task InstallUpdateAsync()
-    {
-        var update = _update;
-        if (update == null || _updating)
-            return;
-        _updating = true;
-        UpdateText = "Downloading…";
-        _logger.Info("Updating to HeavyPro " + update.Version + " from " + update.Url);
-        var progress = new Progress<double>(f => UpdateText = $"Downloading {f:P0}");
-        var problem = await Services.Updater.DownloadAndStartAsync(update, progress);
-        if (problem != null)
-        {
-            _logger.Warn("Update failed: " + problem);
-            UpdateText = "Update to " + update.Version;
-            _updating = false;
-            System.Windows.MessageBox.Show(problem, "HeavyPro update");
-            return;
-        }
-        // Setup closes and reopens HeavyPro; leave cleanly so settings are saved.
-        UpdateText = "Installing…";
-        System.Windows.Application.Current?.Shutdown();
-    }
     public ICommand ApplyProfileCommand { get; }
     public ICommand DeleteProfileCommand { get; }
     public ICommand ShareProfileCommand { get; }
@@ -1341,7 +1284,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     /// </summary>
     public string? TakeWhatsNew()
     {
-        var current = Services.Updater.Current.ToString(3);
+        var current = AppVersion.Current.ToString(3);
         if (_settings.LastSeenVersion == current)
             return null;
         _settings.LastSeenVersion = current;
@@ -1350,7 +1293,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         if (stream == null)
             return null;
         using var reader = new System.IO.StreamReader(stream);
-        return Changelog.WhatsNew(reader.ReadToEnd(), Services.Updater.Current);
+        return Changelog.WhatsNew(reader.ReadToEnd(), AppVersion.Current);
     }
 
     private void ApplySnapshot(FlightSnapshot snap)
