@@ -135,6 +135,25 @@ jobs:
           if (-not (Test-Path "$pkg/app/HeavyPro.exe")) { throw 'The RotaHub package has no app/HeavyPro.exe.' }
           if (-not (Test-Path "$pkg/community/rotaidem-heavypro-panel/manifest.json")) { throw 'The RotaHub package has no panel.' }
           Compress-Archive -Path "$pkg/*" -DestinationPath publish/HeavyPro-rotahub.zip -Force
+      - name: Release notes from CHANGELOG.md
+        # This version's section of CHANGELOG.md: the same lines the app shows as "What's new",
+        # used for the GitHub release and for the notes RotaHub shows. Tags only.
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $section = @()
+          $inside = $false
+          foreach ($line in Get-Content CHANGELOG.md -Encoding utf8) {
+            if ($line -match '^## ') {
+              if ($inside) { break }
+              $inside = $line -match "^## v?$([regex]::Escape($env:HP_VERSION))(\s|$)"
+              continue
+            }
+            if ($inside) { $section += $line }
+          }
+          $notes = ($section -join "`n").Trim()
+          if ($notes) { Set-Content -Path release-notes.md -Value $notes -Encoding utf8 }
+          else { Write-Warning "CHANGELOG.md has no section for $env:HP_VERSION; the release gets generated notes." }
       - name: Sign the RotaHub manifest
         # rotahub.jws tells RotaHub about this release, signed with the same key as update.jws.
         if: startsWith(github.ref, 'refs/tags/v')
@@ -147,7 +166,8 @@ jobs:
           & packaging/New-HubManifest.ps1 -Product rotaidem-heavypro -Name HeavyPro -Version $env:HP_VERSION `
             -Package publish/HeavyPro-rotahub.zip -Url $url -Out publish/rotahub.jws `
             -AppDir '%LOCALAPPDATA%\HeavyPro' -AppExe HeavyPro.exe -Shortcut HeavyPro -Processes HeavyPro `
-            -Community rotaidem-heavypro-panel:msfs2024
+            -Community rotaidem-heavypro-panel:msfs2024 `
+            -Notes $(if (Test-Path release-notes.md) { Get-Content release-notes.md -Raw -Encoding utf8 } else { '' })
       - uses: actions/upload-artifact@v4
         with:
           name: HeavyProSetup
@@ -178,23 +198,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = $env:GITHUB_REF_NAME
-          # Release notes: this version's section of CHANGELOG.md, the same lines the app
-          # shows as "What's new". Falls back to GitHub's generated list if there is none.
-          $section = @()
-          $inside = $false
-          foreach ($line in Get-Content CHANGELOG.md -Encoding utf8) {
-            if ($line -match '^## ') {
-              if ($inside) { break }
-              $inside = $line -match "^## v?$([regex]::Escape($env:HP_VERSION))(\s|$)"
-              continue
-            }
-            if ($inside) { $section += $line }
-          }
-          $notes = ($section -join "`n").Trim()
+          $notes = if (Test-Path release-notes.md) { (Get-Content release-notes.md -Raw -Encoding utf8).Trim() } else { '' }
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
             if ($notes) {
-              Set-Content -Path release-notes.md -Value $notes -Encoding utf8
               gh release create $tag --title "HeavyPro $tag" --notes-file release-notes.md --latest
             } else {
               Write-Warning "CHANGELOG.md has no section for $env:HP_VERSION; using generated notes."

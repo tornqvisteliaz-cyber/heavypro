@@ -4,6 +4,8 @@ Each release's lines show in HeavyPro as "What's new" and on its GitHub release 
 
 ## 0.5.2
 
+- **RotaHub:** install and update HeavyPro from RotaHub, Rotaidem's add-on manager. It also links the in-game panel into MSFS 2024 for you. The Update button inside HeavyPro is gone; RotaHub handles updates.
+- HeavyPro shows its real version number (some builds said 0.4.0).
 - **Realistic answers sooner:** it no longer sits at the slowest possible stick travel, so small inputs get a response right away. It is still clearly heavier than Medium. If you used Realistic, your settings move to the new values by themselves.
 - **No more twitching on Direct:** when MSFS still has your stick bound, HeavyPro passes the stick through untouched instead of fighting the binding, and tells you exactly which MSFS profile to clear.
 - **MSFS bindings route:** the app shows your pitch and roll even when an add-on like the PMDG 777 takes the stick before HeavyPro.
