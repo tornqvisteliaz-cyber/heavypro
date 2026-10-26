@@ -40,6 +40,12 @@ public interface ISimClient : IDisposable
     /// </summary>
     bool CounterMsfsBindings { get; set; }
 
+    /// <summary>
+    /// An MSFS control profile still binds the stick (from the profile files). On the
+    /// direct route HeavyPro then passes the stick through instead of fighting it.
+    /// </summary>
+    bool KnownBindingConflict { get; set; }
+
     /// <summary>The HeavyPro WASM bridge is running in the sim.</summary>
     bool BridgeLoaded { get; }
 

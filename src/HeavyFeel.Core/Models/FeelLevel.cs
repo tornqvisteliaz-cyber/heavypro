@@ -37,14 +37,20 @@ public static class FeelPresets
         GroundInertia: 52,
         TurbulenceResponse: 24);
 
+    // 0.5.1 had 94/88/76/92/16/88: every axis sat on the 4 s travel ceiling and a C152
+    // took 1.25 s to answer a 60 % input, which felt like no response. Now 0.77 s there,
+    // still well above Medium (0.45 s); heavy jets stay at the ceiling as before.
     public static FeelPreset Realistic { get; } = new(
-        Inertia: 94,
-        PitchDamping: 88,
-        RollDamping: 76,
-        YawDamping: 92,
-        ControlResponse: 16,
-        GroundInertia: 88,
+        Inertia: 84,
+        PitchDamping: 72,
+        RollDamping: 58,
+        YawDamping: 80,
+        ControlResponse: 26,
+        GroundInertia: 78,
         TurbulenceResponse: 16);
+
+    /// <summary>Realistic as 0.5.1 shipped it, to move saved settings to the new values.</summary>
+    public static FeelPreset RealisticBefore052 { get; } = new(94, 88, 76, 92, 16, 88, 16);
 
     public static FeelPreset For(FeelLevel level) => level switch
     {
@@ -61,7 +67,7 @@ public static class FeelPresets
         return FeelLevel.Custom;
     }
 
-    private static bool Matches(AppSettings settings, FeelPreset preset)
+    public static bool Matches(AppSettings settings, FeelPreset preset)
     {
         return Nearly(settings.Inertia, preset.Inertia)
             && Nearly(settings.PitchDamping, preset.PitchDamping)
