@@ -358,6 +358,10 @@ static class PanelInstaller
             // While MSFS runs it holds the package's files: overwrite them in place instead
             // of deleting the folder, so a locked file can never leave half a package.
             var simRunning = Process.GetProcessesByName("FlightSimulator2024").Length > 0;
+            // RotaHub links the panel in as a junction into its library: it owns it and updates
+            // it itself. Deleting through the link would empty RotaHub's copy.
+            if (Directory.Exists(target) && new DirectoryInfo(target).Attributes.HasFlag(FileAttributes.ReparsePoint))
+                return target;
             if (Directory.Exists(target))
             {
                 // Only ever replace our own package.
