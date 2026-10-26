@@ -124,6 +124,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         SaveProfileCommand = new RelayCommand(SaveProfile);
         ApplyProfileCommand = new RelayCommand(ApplyProfile);
         ToggleAircraftLinkCommand = new RelayCommand(ToggleAircraftLink);
+        FixBindingsCommand = new RelayCommand(FixMsfsBindings);
         DeleteProfileCommand = new RelayCommand(DeleteProfile);
         ShareProfileCommand = new RelayCommand(() => _ = ShareProfileAsync());
         GetSharedProfileCommand = new RelayCommand(() => _ = GetSharedProfileAsync());
@@ -179,6 +180,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ObservableCollection<CustomProfile> CustomProfiles { get; }
     public ICommand SaveProfileCommand { get; }
     public ICommand ToggleAircraftLinkCommand { get; }
+    public ICommand FixBindingsCommand { get; }
 
     public ICommand ApplyProfileCommand { get; }
     public ICommand DeleteProfileCommand { get; }
@@ -1052,7 +1054,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         "SET UP STICK" => "Pick your stick under Stick setup, or press Detect and move it.",
         "UNBIND IN MSFS" => _client.InputConflict != null
             ? "MSFS still sends your " + _client.InputConflict + " axis. HeavyPro passes your stick through untouched so it cannot twitch, which also means no weight. In MSFS Controls, clear Elevator / Aileron / Rudder Axis for that device, then reconnect."
-            : "MSFS still binds " + _profileConflict + ". On Direct, HeavyPro passes your stick through untouched so it cannot twitch, which also means no weight. In MSFS Controls, clear those axes in that profile, or use the MSFS bindings route.",
+            : "MSFS still binds " + _profileConflict + ". On Direct, HeavyPro passes your stick through untouched so it cannot twitch, which also means no weight. Press \"Fix MSFS bindings for me\" under Stick setup (with MSFS closed).",
         "FAULT" => "SimConnect refused a stick write. Disconnect and connect again.",
         "PASS-THROUGH" => "Your stick goes to the sim untouched. Turn on Master Enable to add weight.",
         "AP ON · PAUSED" => "Autopilot is flying. HeavyPro hands the stick back until you disconnect it.",
@@ -1082,35 +1084,37 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         _lastBindingScan = DateTime.UtcNow;
         string? found = null;
+        var bindings = new List<MsfsAxisBinding>();
         try
         {
             var files = MsfsProfileFiles();
-            var conflicts = new List<string>();
             if (MsfsInputProfiles.ProductIdFromKey(_settings.StickDevice) is int stick
                 && MsfsInputProfiles.FindBinding(files, stick, new[] { "pitch", "roll" }) is { } stickBinding)
-                conflicts.Add(stickBinding.ToString());
+                bindings.Add(stickBinding);
             if (MsfsInputProfiles.ProductIdFromKey(_settings.RudderDevice) is int pedals
                 && MsfsInputProfiles.FindBinding(files, pedals, new[] { "yaw" }) is { } pedalBinding)
-                conflicts.Add(pedalBinding.ToString());
-            found = conflicts.Count == 0 ? null : string.Join("; ", conflicts);
+                bindings.Add(pedalBinding);
+            found = bindings.Count == 0 ? null : string.Join("; ", bindings);
         }
         catch (Exception ex)
         {
             _logger.Warn("Could not read the MSFS control profiles: " + ex.Message);
         }
+        _profileBindings = bindings;
         if (found == _profileConflict)
             return;
         _profileConflict = found;
         _client.KnownBindingConflict = found != null;
+        OnChanged(nameof(CanFixBindings));
         _logger.Info(found == null
             ? "MSFS control profiles: no stick axes bound for HeavyPro's devices."
             : "MSFS control profile still binds " + found + ". Clear those axes in MSFS Controls.");
     }
 
     /// <summary>MSFS 2024 (Steam) control profiles: Steam\userdata\*\2537590\remote\inputprofile_*.</summary>
-    private static List<(DateTime Modified, string Xml)> MsfsProfileFiles()
+    private static List<(string Path, DateTime Modified, string Xml)> MsfsProfileFiles()
     {
-        var result = new List<(DateTime, string)>();
+        var result = new List<(string, DateTime, string)>();
         var steam = Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null) as string;
         if (string.IsNullOrEmpty(steam))
             return result;
@@ -1123,9 +1127,78 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             if (!System.IO.Directory.Exists(remote))
                 continue;
             foreach (var file in System.IO.Directory.GetFiles(remote, "inputprofile_*"))
-                result.Add((System.IO.File.GetLastWriteTimeUtc(file), System.IO.File.ReadAllText(file)));
+                result.Add((file, System.IO.File.GetLastWriteTimeUtc(file), System.IO.File.ReadAllText(file)));
         }
         return result;
+    }
+
+    private List<MsfsAxisBinding> _profileBindings = new();
+
+    /// <summary>MSFS still binds the stick and HeavyPro knows which profile files to fix.</summary>
+    public bool CanFixBindings => _profileConflict != null;
+
+    /// <summary>
+    /// "Fix MSFS bindings for me": clears exactly the stick axes HeavyPro feeds in the MSFS
+    /// control profiles that bind them, after a backup, then switches to the Direct route
+    /// (measured smooth on the PMDG 777 once nothing else sends the stick).
+    /// </summary>
+    private void FixMsfsBindings()
+    {
+        ScanMsfsBindings();
+        var bindings = _profileBindings.Where(b => b.File.Length > 0).ToList();
+        if (bindings.Count == 0)
+        {
+            System.Windows.MessageBox.Show("MSFS does not bind your stick or pedals any more. Nothing to fix.", "HeavyPro");
+            return;
+        }
+        if (System.Diagnostics.Process.GetProcessesByName("FlightSimulator2024").Length > 0)
+        {
+            System.Windows.MessageBox.Show("Close MSFS 2024 first. It saves its control profiles when it exits, which would put these bindings back.", "HeavyPro");
+            return;
+        }
+        var list = string.Join("\n", bindings.Select(b => "• " + string.Join(", ", b.Axes) + " on " + b.DeviceName + " (profile \"" + b.ProfileName + "\")"));
+        var answer = System.Windows.MessageBox.Show(
+            "HeavyPro will clear these axes in your MSFS 2024 controls, so your stick reaches the aircraft only through HeavyPro:\n\n"
+            + list + "\n\nEverything else in those profiles stays as it is, and a backup of each is kept. Continue?",
+            "Fix MSFS bindings", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+        if (answer != System.Windows.MessageBoxResult.Yes)
+            return;
+
+        var backupDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "HeavyPro", "msfs-profile-backups", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+        try
+        {
+            System.IO.Directory.CreateDirectory(backupDir);
+            foreach (var binding in bindings)
+            {
+                var bytes = System.IO.File.ReadAllBytes(binding.File);
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(backupDir, System.IO.Path.GetFileName(binding.File)), bytes);
+                var bom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+                var text = System.IO.File.ReadAllText(binding.File);
+                var cleared = MsfsInputProfiles.ClearAxes(text, binding.Axes);
+                // Never write a file the edit did not fix, or one that no longer parses.
+                var check = MsfsInputProfiles.Parse(cleared);
+                if (check == null || check.BoundAxes.Intersect(binding.Axes).Any())
+                    throw new InvalidOperationException("the edit of " + System.IO.Path.GetFileName(binding.File) + " did not check out; it was left unchanged");
+                System.IO.File.WriteAllText(binding.File, cleared, new System.Text.UTF8Encoding(bom));
+                _logger.Info($"Cleared {string.Join(", ", binding.Axes)} in MSFS profile \"{binding.ProfileName}\" ({binding.File}); backup in {backupDir}.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Fixing the MSFS bindings failed", ex);
+            System.Windows.MessageBox.Show("HeavyPro could not change the MSFS profiles: " + ex.Message + "\n\nBackups are in " + backupDir, "HeavyPro");
+            ScanMsfsBindings();
+            return;
+        }
+
+        SelectedInputRoute = RouteDirectLabel;
+        _lastBindingScan = DateTime.MinValue;
+        ScanMsfsBindings();
+        System.Windows.MessageBox.Show(
+            "Done. MSFS no longer sends your stick on its own, and HeavyPro is on the Direct route.\n\n"
+            + "Start MSFS 2024 and fly. If Steam asks about cloud saves for MSFS, choose the files on this PC.\n\nBackups: " + backupDir,
+            "HeavyPro");
     }
 
     // ---------------- In-game panel ----------------

@@ -267,7 +267,8 @@ public sealed record InputDynamicsProfile(
         var identity = (snapshot.Aircraft.DisplayName + " " + snapshot.Aircraft.AtcModel + " " + snapshot.Aircraft.AtcId)
             .ToUpperInvariant();
 
-        if (identity.Contains("PMDG") && (identity.Contains("777") || snapshot.Aircraft.IsPmdg777))
+        // MSFS 2024 names the PMDG 777 just "777-300ER" / "777F", without "PMDG".
+        if (snapshot.Aircraft.IsPmdg777 || (identity.Contains("PMDG") && identity.Contains("777")))
             return new("PMDG 777", Slow(AirlinerPitch, 0.72), Slow(AirlinerRoll, 0.8), Slow(AirlinerYaw, 0.8));
         if (identity.Contains("PMDG") && identity.Contains("737"))
             return new("PMDG 737", AirlinerPitch, AirlinerRoll, AirlinerYaw);
