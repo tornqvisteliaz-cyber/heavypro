@@ -75,6 +75,18 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _settings.SettingsVersion = 4;
             settingsStore.Save(_settings);
         }
+        if (_settings.SettingsVersion < 6)
+        {
+            // 0.5.2: Realistic answers sooner. Move saved Realistic tuning to the new values.
+            if (FeelPresets.Matches(_settings, FeelPresets.RealisticBefore052))
+            {
+                var r = FeelPresets.Realistic;
+                (_settings.Inertia, _settings.PitchDamping, _settings.RollDamping, _settings.YawDamping) = (r.Inertia, r.PitchDamping, r.RollDamping, r.YawDamping);
+                (_settings.ControlResponse, _settings.GroundInertia, _settings.TurbulenceResponse) = (r.ControlResponse, r.GroundInertia, r.TurbulenceResponse);
+            }
+            _settings.SettingsVersion = 6;
+            settingsStore.Save(_settings);
+        }
         if (_settings.SettingsVersion < 5)
         {
             // 0.5.0 built-ins pinned an aircraft; applying the C172 one made an A350 fly as GA.
@@ -649,7 +661,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _stickPitch = pitch;
         _stickRoll = roll;
         var offCentre = Math.Max(Math.Abs(pitch ?? 0), Math.Abs(roll ?? 0)) > 0.25;
-        if (!_client.DirectInput && _client.IsConnected && offCentre && _client.RouteStatus != InputRouteStatus.Active)
+        var pitchRollCaptured = _snap.CapturedPitch.HasValue || _snap.CapturedRoll.HasValue;
+        if (!_client.DirectInput && _client.IsConnected && offCentre && !pitchRollCaptured)
         {
             _stickHiddenSince ??= now;
             if (!_stickHidden && now - _stickHiddenSince.Value > TimeSpan.FromSeconds(1.5))
@@ -659,7 +672,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                     + "Connect HeavyPro in the main menu, before loading the flight.");
             }
         }
-        else if (_client.RouteStatus == InputRouteStatus.Active || !_client.IsConnected)
+        else if (pitchRollCaptured || !_client.IsConnected)
         {
             _stickHiddenSince = null;
             _stickHidden = false;
@@ -1067,9 +1080,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private bool _stickHidden;
 
     // When no stick event reaches HeavyPro, show the stick from the device itself.
-    public double MeterPitchIn => _snap.CapturedPitch ?? (_stickHidden ? _stickPitch ?? 0 : _lastCmd.RawPitch);
+    public double MeterPitchIn => _snap.CapturedPitch ?? (!_client.DirectInput && _stickPitch.HasValue ? _stickPitch.Value : _lastCmd.RawPitch);
     public double MeterPitchOut => _lastCmd.Active ? _lastCmd.OutPitch : MeterPitchIn;
-    public double MeterRollIn => _snap.CapturedRoll ?? (_stickHidden ? _stickRoll ?? 0 : _lastCmd.RawRoll);
+    public double MeterRollIn => _snap.CapturedRoll ?? (!_client.DirectInput && _stickRoll.HasValue ? _stickRoll.Value : _lastCmd.RawRoll);
     public double MeterRollOut => _lastCmd.Active ? _lastCmd.OutRoll : MeterRollIn;
     public double MeterYawIn => _snap.CapturedYaw ?? _lastCmd.RawYaw;
     public double MeterYawOut => _lastCmd.Active ? _lastCmd.OutYaw : MeterYawIn;
@@ -1095,8 +1108,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         "OFFLINE" => "Start MSFS 2024 and load a flight. HeavyPro connects on its own.",
         "SET UP STICK" => "Pick your stick under Stick setup, or press Detect and move it.",
         "UNBIND IN MSFS" => _client.InputConflict != null
-            ? "MSFS still sends your " + _client.InputConflict + " axis, so it fights HeavyPro and twitches. In MSFS Controls, clear Elevator / Aileron / Rudder Axis for that device."
-            : "MSFS still binds " + _profileConflict + ". In PMDG and iniBuilds the yoke then jumps with the raw stick and back to HeavyPro's slower value. In MSFS Controls, clear those axes in that profile.",
+            ? "MSFS still sends your " + _client.InputConflict + " axis. HeavyPro passes your stick through untouched so it cannot twitch, which also means no weight. In MSFS Controls, clear Elevator / Aileron / Rudder Axis for that device, then reconnect."
+            : "MSFS still binds " + _profileConflict + ". On Direct, HeavyPro passes your stick through untouched so it cannot twitch, which also means no weight. In MSFS Controls, clear those axes in that profile, or use the MSFS bindings route.",
         "FAULT" => "SimConnect refused a stick write. Disconnect and connect again.",
         "PASS-THROUGH" => "Your stick goes to the sim untouched. Turn on Master Enable to add weight.",
         "AP ON · PAUSED" => "Autopilot is flying. HeavyPro hands the stick back until you disconnect it.",
@@ -1145,6 +1158,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         if (found == _profileConflict)
             return;
         _profileConflict = found;
+        _client.KnownBindingConflict = found != null;
         _logger.Info(found == null
             ? "MSFS control profiles: no stick axes bound for HeavyPro's devices."
             : "MSFS control profile still binds " + found + ". Clear those axes in MSFS Controls.");

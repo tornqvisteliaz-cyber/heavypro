@@ -598,6 +598,31 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         && DateTime.UtcNow - _lastInfluence < ArmedTimeout
         && DateTime.UtcNow >= _writesPausedUntil;
 
+    public bool KnownBindingConflict { get; set; }
+    private bool _bindingSeenThisSession;
+
+    /// <summary>
+    /// Direct route with the stick still bound in MSFS: the aircraft gets the raw stick
+    /// and HeavyPro's shaped one in turn, so it jumps between them. Until the binding
+    /// is cleared HeavyPro passes the stick through untouched, which cannot twitch.
+    /// A binding seen live stays known until reconnecting: while HeavyPro passes the
+    /// stick through, the binding sends the same values and no longer looks foreign.
+    /// </summary>
+    private bool BindingFight
+    {
+        get
+        {
+            if (!DirectInput)
+                return false;
+            if (!_bindingSeenThisSession && InputConflict != null)
+            {
+                _bindingSeenThisSession = true;
+                _logger.Warn("Direct route with the stick still bound in MSFS: passing the stick through untouched until the binding is cleared (then reconnect).");
+            }
+            return KnownBindingConflict || _bindingSeenThisSession;
+        }
+    }
+
     private void NoteMaskedAxis(Events ev, uint data)
     {
         var raw = unchecked((int)data);
@@ -911,7 +936,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             return;
 
         var now = DateTime.UtcNow;
-        var armed = command.Armed && !_writesDisabled && now >= _writesPausedUntil;
+        var armed = command.Armed && !_writesDisabled && now >= _writesPausedUntil && !BindingFight;
         if (_shapingArmed && !armed)
             ReleaseToPhysical();
         _shapingArmed = armed;
@@ -1187,6 +1212,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _shapingArmed = false;
         _flightLayoutBroken = false;
         _panelReady = false;
+        _bindingSeenThisSession = false;
         _bridgeReady = false;
         _bridgeLoaded = false;
         _bridgeShaped.Clear();
