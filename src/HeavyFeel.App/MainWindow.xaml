@@ -345,6 +345,9 @@
                                 <CheckBox Content="Log telemetry" IsChecked="{Binding LogTelemetry}"/>
                                 <CheckBox Content="Show debug data" IsChecked="{Binding DebugMode}"/>
                                 <CheckBox Content="Cockpit view cue" IsChecked="{Binding ViewCue}"/>
+                                <CheckBox Content="PMDG 777: FF777-style flight model" IsChecked="{Binding FlightModelOverride}" Margin="0,8,0,0"
+                                          ToolTip="Builds a copy of your PMDG 777's own flight model with more pitch and roll inertia and damping, so it feels big and planted, and loads it after PMDG's. PMDG's files are never changed; turn this off to get PMDG's flight model back. Takes effect the next time you load the 777; changes wait until MSFS is closed."/>
+                                <TextBlock Text="{Binding FlightModelStatus}" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
                                 <TextBlock Text="{Binding WriteStatus}" TextWrapping="Wrap" FontFamily="Consolas"
                                            FontSize="10" Foreground="{StaticResource BrushAccent}" Margin="0,11,0,0"/>
                             </StackPanel>
