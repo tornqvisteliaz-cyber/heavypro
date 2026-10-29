@@ -7,7 +7,7 @@
     <Product>HeavyFeel</Product>
     <!-- Keep equal to the newest "## x.y.z" in CHANGELOG.md (a test checks it), so every build,
          not only tagged ones, says which version it is. -->
-    <Version>0.6.2</Version>
+    <Version>0.6.3</Version>
     <!-- Release builds: CI sets HP_VERSION from the tag (v1.0.1 -> 1.0.1), which the Update button compares against. -->
     <Version Condition="'$(HP_VERSION)' != ''">$(HP_VERSION)</Version>
     <Authors>HeavyFeel</Authors>

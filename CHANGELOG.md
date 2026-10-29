@@ -2,6 +2,10 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.6.3
+
+- **Fix MSFS bindings keeps your buttons:** it now removes only the stick axis from your MSFS 2024 controls and never a button, not even a button bound to the elevator, aileron or rudder itself. Everything else in your profiles stays exactly as it was, and each profile is still backed up.
+
 ## 0.6.2
 
 - **The 777 flies FF777-style on REAL1, by itself:** load the PMDG 777-300ER or 777F on the REAL1 route and HeavyPro gives it a feel modelled on the FlightFactor 777: big and settled, a calm wheel around centre so a resting hand never rolls it, precise small corrections in pitch, a touch more control mass, and a column that firms up with airspeed. Nothing to set up. HeavyPro changes how your stick reaches the aircraft; the PMDG 777's own flight model and fly-by-wire stay PMDG's.
