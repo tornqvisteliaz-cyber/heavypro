@@ -6,6 +6,8 @@ namespace HeavyFeel.Core.Physics;
 /// One aircraft family's REAL1 tuning. Times are full-travel seconds at the reference
 /// airspeed (small inputs are quicker than full ones); MomentSeconds is how long the
 /// control's rate takes to build up, the moment of inertia flight-model mods add.
+/// RollDeadzone / RollExpo give the wheel its own centre when it should be calmer than
+/// the column; left out, roll shapes like pitch.
 /// </summary>
 public sealed record Real1Tuning(
     string Family,
@@ -20,7 +22,9 @@ public sealed record Real1Tuning(
     double ReturnRate,
     double Damping,
     bool RealisticRudder,
-    double MomentSeconds);
+    double MomentSeconds,
+    double? RollDeadzone = null,
+    double? RollExpo = null);
 
 /// <summary>
 /// REAL1: the input route that sends the stick the Direct way and tunes the feel by
@@ -40,6 +44,10 @@ public sealed record Real1Tuning(
 ///   inertia, so the rate builds slowly and carries on a touch (MomentSeconds); the
 ///   centre is softened so small corrections are progressive; full deflection keeps full
 ///   authority; and damping is not overdone, which only makes an aircraft sluggish.
+/// - The Boeing 777 flies like the FlightFactor 777 (FF777): big and settled, with a calm
+///   wheel around centre so it never twitches in roll, precise small corrections in pitch,
+///   more control mass than the other Boeings and a column that firms up with airspeed.
+///   REAL1 picks it by itself whenever a 777 loads; nothing to set up.
 /// - The Normal / Medium / Realistic buttons scale how strong REAL1 is.
 ///
 /// Later versions get higher numbers (REAL2, REAL3, …) so users can tell them apart.
@@ -60,7 +68,8 @@ public static class Real1
     private static readonly Real1Tuning AirbusWide =
         new("Airbus widebody fly-by-wire (A330/A350/A380)", 0.03, 0.02, 0.15, 2.90, 2.60, 3.40, 0.0, 0.03, 1.1, 55, true, 0.20);
     private static readonly Real1Tuning Boeing777 =
-        new("Boeing 777 artificial feel", 0.02, 0.05, 0.22, 3.90, 3.40, 4.10, 1.0, 0.08, 0.9, 60, true, 0.25);
+        new("Boeing 777 artificial feel, FF777-style", 0.03, 0.05, 0.22, 3.90, 3.40, 4.10, 1.0, 0.08, 0.9, 60, true, 0.28,
+            RollDeadzone: 0.05, RollExpo: 0.20);
     private static readonly Real1Tuning Boeing737 =
         new("Boeing 737 artificial feel", 0.02, 0.03, 0.18, 3.00, 2.65, 3.20, 1.0, 0.05, 1.0, 55, true, 0.20);
     private static readonly Real1Tuning Boeing787 =
@@ -158,6 +167,10 @@ public static class Real1
         var reach = 1.0 - Numeric.Clamp(tuning.Extremity, 0, 0.2);
         return Numeric.Clamp(x / reach, -1, 1);
     }
+
+    /// <summary>The wheel: its own calmer centre where the family has one, else like pitch.</summary>
+    public static double ShapeRoll(double raw, Real1Tuning tuning) =>
+        Shape(raw, tuning with { Deadzone = tuning.RollDeadzone ?? tuning.Deadzone, Expo = tuning.RollExpo ?? tuning.Expo });
 
     /// <summary>Artificial-feel travel multiplier: 1 at taxi, firmer with dynamic pressure.</summary>
     public static double AirspeedScale(Real1Tuning tuning, FlightSnapshot snapshot, ControlFeel feel)

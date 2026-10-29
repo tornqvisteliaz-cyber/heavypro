@@ -2,6 +2,10 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.6.2
+
+- **The 777 flies FF777-style on REAL1, by itself:** load the PMDG 777-300ER or 777F on the REAL1 route and HeavyPro gives it a feel modelled on the FlightFactor 777: big and settled, a calm wheel around centre so a resting hand never rolls it, precise small corrections in pitch, a touch more control mass, and a column that firms up with airspeed. Nothing to set up. HeavyPro changes how your stick reaches the aircraft; the PMDG 777's own flight model and fly-by-wire stay PMDG's.
+
 ## 0.6.1
 
 - **REAL1 no longer twitches or feels like nothing changed on the PMDG 777:** MSFS 2024 picks a control profile per aircraft, and HeavyPro only checked the one you changed last. An older airplane profile that still bound your stick (used by the PMDG 777, the iniBuilds A350-900, the 747 and many more) sent the raw stick next to REAL1's. HeavyPro now checks every airplane profile, shows UNBIND IN MSFS when any of them binds your stick or pedals, and "Fix MSFS bindings" clears them all (close MSFS first; each profile is backed up).
