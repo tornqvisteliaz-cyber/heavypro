@@ -24,7 +24,7 @@ public sealed class InputDynamicsEngine
             deltaTime = 1.0 / 60.0;
         deltaTime = Numeric.Clamp(deltaTime, 1.0 / 240.0, 0.1);
         if (Real1.IsActive(settings))
-            return StepReal1(snapshot, deltaTime);
+            return StepReal1(settings, snapshot, deltaTime);
 
         var profile = InputDynamicsProfile.For(snapshot, settings.AircraftProfile);
         var curve = ParseCurve(settings.InputCurve);
@@ -124,9 +124,9 @@ public sealed class InputDynamicsEngine
     /// <summary>
     /// REAL1: everything from the aircraft family's tuning (see <see cref="Real1"/>), none
     /// of it from the sliders or the global travel scale, so every aircraft gets the feel
-    /// it should have out of the box.
+    /// it should have out of the box. Only the feel level scales its strength.
     /// </summary>
-    private InputDynamicsFrame StepReal1(FlightSnapshot snapshot, double deltaTime)
+    private InputDynamicsFrame StepReal1(AppSettings settings, FlightSnapshot snapshot, double deltaTime)
     {
         var tuning = Real1.For(snapshot);
         var feel = ControlFeel.For(snapshot);
@@ -153,15 +153,16 @@ public sealed class InputDynamicsEngine
 
         var phase = FlightPhaseResolver.Resolve(snapshot);
         var speed = Real1.AirspeedScale(tuning, snapshot, feel);
-        var scale = ControlInertia.PhaseScale(phase) * speed;
-        var pitchTime = Numeric.Clamp(tuning.PitchSeconds * scale, 0.08, 3.0);
-        var rollTime = Numeric.Clamp(tuning.RollSeconds * scale, 0.08, 3.0);
-        var yawTime = Numeric.Clamp(tuning.YawSeconds * scale * feel.RudderFeelScale(rudderSettings, snapshot), 0.08, 3.0);
-        var damping = DampingScale(tuning.Damping);
+        var strength = Real1.Strength(settings);
+        var scale = ControlInertia.PhaseScale(phase) * speed * strength;
+        var pitchTime = Numeric.Clamp(tuning.PitchSeconds * scale, 0.08, 5.0);
+        var rollTime = Numeric.Clamp(tuning.RollSeconds * scale, 0.08, 5.0);
+        var yawTime = Numeric.Clamp(tuning.YawSeconds * scale * feel.RudderFeelScale(rudderSettings, snapshot), 0.08, 5.0);
+        var moment = tuning.MomentSeconds * strength * DampingScale(tuning.Damping);
 
-        var elevator = ControlInertia.Step(_elevator, shapedElevator, deltaTime, pitchTime, 1, 1, damping, tuning.ReturnDelaySeconds, tuning.ReturnRate);
-        var aileron = ControlInertia.Step(_aileron, shapedAileron, deltaTime, rollTime, 1, 1, damping, tuning.ReturnDelaySeconds, tuning.ReturnRate);
-        var rudder = ControlInertia.Step(_rudder, shapedRudder, deltaTime, yawTime, 1, 1, damping, tuning.ReturnDelaySeconds, tuning.ReturnRate);
+        var elevator = Real1.StepAxis(_elevator, shapedElevator, deltaTime, pitchTime, moment, tuning.ReturnDelaySeconds, tuning.ReturnRate);
+        var aileron = Real1.StepAxis(_aileron, shapedAileron, deltaTime, rollTime, moment, tuning.ReturnDelaySeconds, tuning.ReturnRate);
+        var rudder = Real1.StepAxis(_rudder, shapedRudder, deltaTime, yawTime, moment, tuning.ReturnDelaySeconds, tuning.ReturnRate);
 
         _clock += deltaTime;
         var buffet = snapshot.OnGround

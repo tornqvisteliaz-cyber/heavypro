@@ -4,7 +4,7 @@ Each release's lines show in HeavyPro as "What's new" and on its GitHub release 
 
 ## 0.6.0
 
-- **REAL1, the new best route:** pick "REAL1" next to Direct and MSFS bindings. HeavyPro then tunes the feel for each aircraft by itself, the way the best add-ons do it: a linear, planted sidestick for the Airbus fly-by-wire (iniBuilds A320 and A350; a lighter touch on the Fenix, which models its own), a soft-centred column that firms up with airspeed for the PMDG 777 and 737, and light, direct cables for Asobo GA. Every family gets realistic rudder pedals and a spring return to centre. New installs start on REAL1; future versions will be REAL2, REAL3 and so on.
+- **REAL1, the new best route:** pick "REAL1" next to Direct and MSFS bindings. HeavyPro then tunes the feel for each aircraft by itself, the way the best add-ons do it: a linear, planted sidestick for the Airbus fly-by-wire (iniBuilds A320 and A350; a lighter touch on the Fenix, which models its own), a soft-centred column that firms up with airspeed for the PMDG 777 and 737, and light, direct cables for Asobo GA. Like the best flight-model mods on flightsim.to, REAL1 gives the controls real mass: the response builds up and carries on a touch, small corrections stay smooth and quick, and full stick still gives full authority. Normal / Medium / Realistic (also in the in-game panel) set how strong it is. Every family gets realistic rudder pedals and a spring return to centre. New installs start on REAL1; future versions will be REAL2, REAL3 and so on.
 - **In-game panel in the MSFS 2024 style:** smoked glass, white type and white selected buttons, like the sim's own menus.
 
 ## 0.5.3

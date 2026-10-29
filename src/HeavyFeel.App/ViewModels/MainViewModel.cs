@@ -480,7 +480,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public string SetupNote => IsReal1
-        ? "REAL1 tunes the feel for each aircraft by itself (PMDG 777/737, iniBuilds A350/A320, Fenix, GA and more); the feel sliders are not used. "
+        ? "REAL1 tunes the feel for each aircraft by itself (PMDG 777/737, iniBuilds A350/A320, Fenix, GA and more), with real control mass like the best flight-model mods. Normal / Medium / Realistic set how strong it is; the sliders are not used. "
           + "Like Direct, it needs the stick unbound in MSFS: use Fix MSFS bindings if HeavyPro shows UNBIND IN MSFS."
         : IsDirect
         ? "In MSFS Controls, clear Elevator Axis and Aileron Axis"
