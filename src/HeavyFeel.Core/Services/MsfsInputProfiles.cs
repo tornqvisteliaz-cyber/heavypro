@@ -26,26 +26,24 @@ public static class MsfsInputProfiles
     };
 
     /// <summary>
-    /// For one device (by USB product id), the airplane profile MSFS changed last, and
-    /// which of the wanted axes ("pitch", "roll", "yaw") it binds. Null when none.
+    /// For one device (by USB product id), every airplane profile that binds any of the
+    /// wanted axes ("pitch", "roll", "yaw"), most recently changed first. MSFS 2024 picks
+    /// a profile per aircraft, so the one changed last is not the one every aircraft uses:
+    /// the PMDG 777 can sit on an older profile that still binds the stick.
     /// </summary>
-    public static MsfsAxisBinding? FindBinding(IEnumerable<(DateTime Modified, string Xml)> profiles, int productId, IReadOnlyCollection<string> axes) =>
-        FindBinding(profiles.Select(p => ("", p.Modified, p.Xml)), productId, axes);
+    public static IReadOnlyList<MsfsAxisBinding> FindBindings(IEnumerable<(DateTime Modified, string Xml)> profiles, int productId, IReadOnlyCollection<string> axes) =>
+        FindBindings(profiles.Select(p => ("", p.Modified, p.Xml)), productId, axes);
 
-    /// <summary>As above, from files on disk: the binding names the file it is in.</summary>
-    public static MsfsAxisBinding? FindBinding(IEnumerable<(string Path, DateTime Modified, string Xml)> profiles, int productId, IReadOnlyCollection<string> axes)
-    {
-        var latest = profiles
+    /// <summary>As above, from files on disk: each binding names the file it is in.</summary>
+    public static IReadOnlyList<MsfsAxisBinding> FindBindings(IEnumerable<(string Path, DateTime Modified, string Xml)> profiles, int productId, IReadOnlyCollection<string> axes) =>
+        profiles
             .Select(p => (p.Path, p.Modified, Profile: Parse(p.Xml)))
             .Where(p => p.Profile != null && p.Profile.ProductId == productId
                 && string.Equals(p.Profile.Category, "AIRPLANE", StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(p => p.Modified)
-            .FirstOrDefault();
-        if (latest.Profile == null)
-            return null;
-        var bound = latest.Profile.BoundAxes.Where(axes.Contains).ToList();
-        return bound.Count == 0 ? null : new MsfsAxisBinding(latest.Profile.Name, latest.Profile.DeviceName, bound, latest.Path);
-    }
+            .Select(p => new MsfsAxisBinding(p.Profile!.Name, p.Profile.DeviceName, p.Profile.BoundAxes.Where(axes.Contains).ToList(), p.Path))
+            .Where(b => b.Axes.Count > 0)
+            .ToList();
 
     /// <summary>
     /// The profile with those axes unbound: each bound action becomes the empty

@@ -1114,12 +1114,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         try
         {
             var files = MsfsProfileFiles();
-            if (MsfsInputProfiles.ProductIdFromKey(_settings.StickDevice) is int stick
-                && MsfsInputProfiles.FindBinding(files, stick, new[] { "pitch", "roll" }) is { } stickBinding)
-                bindings.Add(stickBinding);
-            if (MsfsInputProfiles.ProductIdFromKey(_settings.RudderDevice) is int pedals
-                && MsfsInputProfiles.FindBinding(files, pedals, new[] { "yaw" }) is { } pedalBinding)
-                bindings.Add(pedalBinding);
+            if (MsfsInputProfiles.ProductIdFromKey(_settings.StickDevice) is int stick)
+                bindings.AddRange(MsfsInputProfiles.FindBindings(files, stick, new[] { "pitch", "roll" }));
+            if (MsfsInputProfiles.ProductIdFromKey(_settings.RudderDevice) is int pedals)
+                bindings.AddRange(MsfsInputProfiles.FindBindings(files, pedals, new[] { "yaw" }));
             found = bindings.Count == 0 ? null : string.Join("; ", bindings);
         }
         catch (Exception ex)

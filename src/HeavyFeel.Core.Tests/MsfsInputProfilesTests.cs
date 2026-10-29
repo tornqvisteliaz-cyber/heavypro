@@ -25,7 +25,7 @@ public class MsfsInputProfilesTests
         : $@"<Action ActionName=""{name}"" ValueEvent=""0.000000"" Delay=""0.000000"" Flag=""2""/>";
 
     [Fact]
-    public void Finds_the_bound_stick_axes_of_the_latest_airplane_profile()
+    public void Finds_the_bound_stick_axes_of_every_airplane_profile()
     {
         var files = new[]
         {
@@ -33,10 +33,40 @@ public class MsfsInputProfilesTests
             (new DateTime(2026, 10, 10), Profile("throttle'", 48167, "AIRPLANE", true, true, false)),
             (new DateTime(2026, 10, 19), Profile("other", 48167, "OTHER", true, true, true)),
         };
-        var binding = MsfsInputProfiles.FindBinding(files, 48167, new[] { "pitch", "roll" });
-        Assert.NotNull(binding);
-        Assert.Equal("throttle'", binding!.ProfileName);
+        var binding = Assert.Single(MsfsInputProfiles.FindBindings(files, 48167, new[] { "pitch", "roll" }));
+        Assert.Equal("throttle'", binding.ProfileName);
         Assert.Equal(new[] { "pitch", "roll" }, binding.Axes);
+    }
+
+    [Fact]
+    public void An_older_airplane_profile_still_bound_is_found_after_the_latest_was_cleared()
+    {
+        // As on this PC: "Fix MSFS bindings" cleared "throttle'", the profile changed last,
+        // but MSFS 2024 picks profiles per aircraft and the PMDG 777 uses an older one
+        // that still binds the stick, so the 777 got the raw stick and REAL1 at once.
+        var files = new[]
+        {
+            (new DateTime(2026, 9, 6), Profile("My new airplanes profile_1", 48167, "AIRPLANE", true, true, false)),
+            (new DateTime(2026, 10, 26), Profile("throttle'", 48167, "AIRPLANE", false, false, false)),
+            (new DateTime(2026, 10, 28), Profile("My new gliders profile", 48167, "GLIDER", true, true, false)),
+        };
+        var binding = Assert.Single(MsfsInputProfiles.FindBindings(files, 48167, new[] { "pitch", "roll" }));
+        Assert.Equal("My new airplanes profile_1", binding.ProfileName);
+        Assert.Equal(new[] { "pitch", "roll" }, binding.Axes);
+    }
+
+    [Fact]
+    public void Several_bound_airplane_profiles_are_all_found_newest_first()
+    {
+        var files = new[]
+        {
+            (new DateTime(2026, 6, 1), Profile("old", 48167, "AIRPLANE", true, false, false)),
+            (new DateTime(2026, 9, 6), Profile("newer", 48167, "AIRPLANE", false, true, false)),
+        };
+        var bindings = MsfsInputProfiles.FindBindings(files, 48167, new[] { "pitch", "roll" });
+        Assert.Equal(new[] { "newer", "old" }, bindings.Select(b => b.ProfileName));
+        Assert.Equal(new[] { "roll" }, bindings[0].Axes);
+        Assert.Equal(new[] { "pitch" }, bindings[1].Axes);
     }
 
     [Fact]
@@ -51,8 +81,8 @@ public class MsfsInputProfilesTests
     public void Clean_profile_or_other_device_is_no_conflict()
     {
         var files = new[] { (DateTime.Now, Profile("clean", 48167, "AIRPLANE", false, false, false)) };
-        Assert.Null(MsfsInputProfiles.FindBinding(files, 48167, new[] { "pitch", "roll" }));
-        Assert.Null(MsfsInputProfiles.FindBinding(files, 46713, new[] { "yaw" }));
+        Assert.Empty(MsfsInputProfiles.FindBindings(files, 48167, new[] { "pitch", "roll" }));
+        Assert.Empty(MsfsInputProfiles.FindBindings(files, 46713, new[] { "yaw" }));
     }
 
     [Fact]
@@ -87,7 +117,7 @@ public class MsfsInputProfilesTests
     public void Binding_found_on_disk_names_its_file()
     {
         var files = new[] { (@"C:\x\inputprofile_1", DateTime.Now, Profile("p", 48167, "AIRPLANE", true, false, false)) };
-        Assert.Equal(@"C:\x\inputprofile_1", MsfsInputProfiles.FindBinding(files, 48167, new[] { "pitch" })!.File);
+        Assert.Equal(@"C:\x\inputprofile_1", Assert.Single(MsfsInputProfiles.FindBindings(files, 48167, new[] { "pitch" })).File);
     }
 
     [Fact]
