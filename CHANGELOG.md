@@ -2,6 +2,10 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.6.4
+
+- **PMDG 777: FF777-style flight model (new switch under Setup):** turn it on and HeavyPro builds a copy of your PMDG 777's own flight model with 15% more pitch and roll inertia and damping, so the 777-300ER and 777F feel big, settled and planted, and MSFS loads it after PMDG's. PMDG's files are never changed; turn the switch off to get PMDG's flight model back. It rebuilds by itself after a PMDG update, and waits until MSFS is closed to change anything. Turn it off before contacting PMDG support.
+
 ## 0.6.3
 
 - **Fix MSFS bindings keeps your buttons:** it now removes only the stick axis from your MSFS 2024 controls and never a button, not even a button bound to the elevator, aileron or rudder itself. Everything else in your profiles stays exactly as it was, and each profile is still backed up.

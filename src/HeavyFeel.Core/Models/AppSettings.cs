@@ -50,6 +50,9 @@ public sealed class AppSettings
     public string RudderDevice { get; set; } = "";
     public string RudderAxis { get; set; } = "R";
     public bool InvertRudder { get; set; }
+
+    /// <summary>FF777-style flight model for the PMDG 777 (an override package in Community). Off until the user turns it on.</summary>
+    public bool FlightModelOverride { get; set; }
     public int SettingsVersion { get; set; }
 
     public List<CustomProfile> CustomProfiles { get; set; } = new();

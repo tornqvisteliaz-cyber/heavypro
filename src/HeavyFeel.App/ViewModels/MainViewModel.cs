@@ -160,8 +160,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 Connect();
             if (DateTime.UtcNow - _lastBindingScan > TimeSpan.FromSeconds(20))
                 ScanMsfsBindings();
+            // Picks up a PMDG update, or finishes a build that waited for MSFS to close.
+            if (DateTime.UtcNow - _lastFlightModelSync > TimeSpan.FromSeconds(20))
+                SyncFlightModel();
         };
         ScanMsfsBindings();
+        SyncFlightModel();
 
         _logger.Info("HeavyFeel started. Backend=" + backendName);
         _logger.Info("Master Enable writes AXIS_ELEVATOR/AILERONS/RUDDER_SET only while the stick is held (body rates disabled).");
@@ -798,6 +802,57 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             }
             OnChanged();
             ScheduleSave();
+        }
+    }
+
+    /// <summary>
+    /// FF777-style flight model for the PMDG 777: an override package HeavyPro builds in the
+    /// Community folder from the user's own PMDG file (see <see cref="FlightModelOverrides"/>).
+    /// </summary>
+    public bool FlightModelOverride
+    {
+        get => _settings.FlightModelOverride;
+        set
+        {
+            _settings.FlightModelOverride = value;
+            _logger.Info("FF777-style flight model for the PMDG 777 " + (value ? "on" : "off") + ".");
+            OnChanged();
+            ScheduleSave();
+            SyncFlightModel();
+        }
+    }
+
+    private string _flightModelStatus = "";
+    public string FlightModelStatus
+    {
+        get => _flightModelStatus;
+        private set => Set(ref _flightModelStatus, value);
+    }
+
+    private DateTime _lastFlightModelSync = DateTime.MinValue;
+
+    /// <summary>Builds, rebuilds after a PMDG update, or removes the 777 override packages.</summary>
+    private void SyncFlightModel()
+    {
+        _lastFlightModelSync = DateTime.UtcNow;
+        try
+        {
+            var community = MsfsCommunity.Find2024();
+            if (community == null)
+            {
+                FlightModelStatus = _settings.FlightModelOverride ? "MSFS 2024 Community folder not found." : "";
+                return;
+            }
+            var simRunning = System.Diagnostics.Process.GetProcessesByName("FlightSimulator2024").Length > 0;
+            var messages = FlightModelOverrides.Sync(community, _settings.FlightModelOverride, simRunning);
+            foreach (var message in messages.Where(m => !m.EndsWith(" on.") && !m.EndsWith("when MSFS is closed.")))
+                _logger.Info("Flight model: " + message);
+            FlightModelStatus = string.Join("\n", messages);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Updating the PMDG 777 flight model override failed", ex);
+            FlightModelStatus = "Could not update the 777 flight model: " + ex.Message;
         }
     }
 
