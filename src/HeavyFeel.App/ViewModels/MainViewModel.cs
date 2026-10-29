@@ -1162,7 +1162,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool CanFixBindings => _profileConflict != null;
 
     /// <summary>
-    /// "Fix MSFS bindings for me": clears exactly the stick axes HeavyPro feeds in the MSFS
+    /// "Fix MSFS bindings for me": clears exactly the stick axes HeavyPro feeds (never a button) in the MSFS
     /// control profiles that bind them, after a backup, then switches to the Direct route
     /// (measured smooth on the PMDG 777 once nothing else sends the stick).
     /// </summary>
@@ -1183,7 +1183,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         var list = string.Join("\n", bindings.Select(b => "• " + string.Join(", ", b.Axes) + " on " + b.DeviceName + " (profile \"" + b.ProfileName + "\")"));
         var answer = System.Windows.MessageBox.Show(
             "HeavyPro will clear these axes in your MSFS 2024 controls, so your stick reaches the aircraft only through HeavyPro:\n\n"
-            + list + "\n\nEverything else in those profiles stays as it is, and a backup of each is kept. Continue?",
+            + list + "\n\nOnly the stick axes are removed: every button, including buttons on these same controls, and everything else in those profiles stays as it is. A backup of each is kept. Continue?",
             "Fix MSFS bindings", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
         if (answer != System.Windows.MessageBoxResult.Yes)
             return;

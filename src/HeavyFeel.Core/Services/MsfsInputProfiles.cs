@@ -45,10 +45,30 @@ public static class MsfsInputProfiles
             .Where(b => b.Axes.Count > 0)
             .ToList();
 
+    // MSFS key codes: buttons below 256, hat switches from 256, axes from 512
+    // (L-Axis X 1026, Y 1042, Z 1058, sliders 514...). The names are in the user's
+    // language ("Joystick Knapp 11", "V-axel Y"), so only the code says what a key is.
+    private const int FirstAxisCode = 512;
+
+    private static readonly Regex Slot = new(@"[ \t]*<(Primary|Secondary)>.*?</\1>(\r?\n)?", RegexOptions.Singleline);
+    private static readonly Regex KeyCode = new(@"<KEY\b[^>]*>\s*(\d+)\s*</KEY>");
+
     /// <summary>
-    /// The profile with those axes unbound: each bound action becomes the empty
-    /// <c>&lt;Action … Flag="2"/&gt;</c> MSFS itself writes for an unbound one.
-    /// Everything else in the file stays byte for byte the same.
+    /// A Primary or Secondary slot made only of axes, so moving the stick drives it.
+    /// A slot with a button or hat in it is the user's button binding, never ours to clear.
+    /// </summary>
+    private static bool IsAxisSlot(IEnumerable<int> codes)
+    {
+        var list = codes.ToList();
+        return list.Count > 0 && list.All(c => c >= FirstAxisCode);
+    }
+
+    /// <summary>
+    /// The profile with those axes unbound: only the slots that hold a stick axis are
+    /// removed from the stick actions, and an action left with no slot becomes the empty
+    /// <c>&lt;Action … Flag="2"/&gt;</c> MSFS itself writes for an unbound one. Buttons,
+    /// even ones bound to those same actions, and everything else in the file stay byte
+    /// for byte the same.
     /// </summary>
     public static string ClearAxes(string xml, IReadOnlyCollection<string> axes)
     {
@@ -57,7 +77,16 @@ public static class MsfsInputProfiles
             if (!axes.Contains(axis))
                 continue;
             var bound = new Regex("<Action ActionName=\"" + action + "\"[^>]*(?<!/)>.*?</Action>", RegexOptions.Singleline);
-            xml = bound.Replace(xml, "<Action ActionName=\"" + action + "\" ValueEvent=\"0.000000\" Delay=\"0.000000\" Flag=\"2\"/>");
+            xml = bound.Replace(xml, m =>
+            {
+                var kept = Slot.Replace(m.Value, s =>
+                    IsAxisSlot(KeyCode.Matches(s.Value).Cast<Match>().Select(k => int.Parse(k.Groups[1].Value))) ? "" : s.Value);
+                if (kept == m.Value)
+                    return m.Value;
+                return Slot.IsMatch(kept)
+                    ? kept
+                    : "<Action ActionName=\"" + action + "\" ValueEvent=\"0.000000\" Delay=\"0.000000\" Flag=\"2\"/>";
+            });
         }
         return xml;
     }
@@ -79,10 +108,11 @@ public static class MsfsInputProfiles
             var bound = new List<string>();
             foreach (var (action, axis) in StickAxes)
             {
-                var hasKey = device.Descendants("Action")
+                var hasAxis = device.Descendants("Action")
                     .Where(a => (string?)a.Attribute("ActionName") == action)
-                    .Any(a => a.Descendants().Any(k => !string.IsNullOrWhiteSpace((string?)k.Attribute("Information"))));
-                if (hasKey)
+                    .Any(a => a.Elements().Where(s => s.Name == "Primary" || s.Name == "Secondary")
+                        .Any(s => IsAxisSlot(s.Elements("KEY").Select(k => int.TryParse(k.Value.Trim(), out var c) ? c : -1))));
+                if (hasAxis)
                     bound.Add(axis);
             }
             return new Profile((string?)root.Element("FriendlyName") ?? "", (string?)device.Attribute("DeviceName") ?? "",

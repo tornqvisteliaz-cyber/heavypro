@@ -14,14 +14,14 @@ public class MsfsInputProfilesTests
 <Device DeviceName=""WINCTRL URSA MINOR 32 Joystick L"" GUID=""{{0}}"" ProductID=""{productId}"" CompositeID=""0"" HWVer=""1.0.0.0"">
 	<AircraftInfo CategoryName=""{category}""/>
 	<Context ContextName=""SURFACES"">
-		{Action("KEY_AXIS_AILERONS_SET", aileron, "Joystick L-Axis X")}
-		{Action("KEY_AXIS_ELEVATOR_SET", elevator, "Joystick L-Axis Y")}
-		{Action("KEY_AXIS_RUDDER_SET", rudder, "Joystick L-Axis Z")}
+		{Action("KEY_AXIS_AILERONS_SET", aileron, "Joystick L-Axis X", 1026)}
+		{Action("KEY_AXIS_ELEVATOR_SET", elevator, "Joystick L-Axis Y", 1042)}
+		{Action("KEY_AXIS_RUDDER_SET", rudder, "Joystick L-Axis Z", 1058)}
 	</Context>
 </Device>";
 
-    private static string Action(string name, bool bound, string key) => bound
-        ? $@"<Action ActionName=""{name}"" Flag=""2""><Primary><KEY Information=""{key} ""/></Primary></Action>"
+    private static string Action(string name, bool bound, string key, int code) => bound
+        ? $@"<Action ActionName=""{name}"" Flag=""2""><Primary><KEY Information=""{key} "">{code}</KEY></Primary></Action>"
         : $@"<Action ActionName=""{name}"" ValueEvent=""0.000000"" Delay=""0.000000"" Flag=""2""/>";
 
     [Fact]
@@ -111,6 +111,38 @@ public class MsfsInputProfilesTests
         var cleared = MsfsInputProfiles.ClearAxes(xml, new[] { "pitch", "roll" });
         Assert.Empty(MsfsInputProfiles.Parse(cleared)!.BoundAxes);
         Assert.DoesNotContain("1042", cleared);
+    }
+
+    // As MSFS 2024 writes a stick action bound on the stick axis and on buttons, plus a
+    // button-only action (localized key names, as on a Swedish install).
+    private const string AxisSlot = "\t\t\t<Primary>\r\n\t\t\t\t<KEY Information=\"Joystick V-axel X \">1026</KEY>\r\n\t\t\t</Primary>\r\n";
+
+    private const string AxisAndButtons = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<Version Num=\"-1\"/>\r\n<FriendlyName>p</FriendlyName>\r\n"
+        + "<Device DeviceName=\"WINCTRL URSA MINOR 32 Joystick L\" ProductID=\"48167\">\r\n\t<AircraftInfo CategoryName=\"AIRPLANE\"/>\r\n\t<Context ContextName=\"SURFACES\">\r\n"
+        + "\t\t<Action ActionName=\"KEY_AXIS_AILERONS_SET\" ValueEvent=\"0.000000\" Delay=\"2.000000\" Flag=\"4\">\r\n" + AxisSlot
+        + "\t\t\t<Secondary>\r\n\t\t\t\t<KEY Information=\"Joystick Knapp 11\">10</KEY>\r\n\t\t\t</Secondary>\r\n\t\t</Action>\r\n"
+        + "\t\t<Action ActionName=\"KEY_AXIS_ELEVATOR_SET\" ValueEvent=\"0.000000\" Delay=\"2.000000\" Flag=\"4\">\r\n"
+        + "\t\t\t<Primary>\r\n\t\t\t\t<KEY Information=\"Joystick Knapp 12\">11</KEY>\r\n\t\t\t</Primary>\r\n\t\t</Action>\r\n"
+        + "\t\t<Action ActionName=\"KEY_BRAKES\" ValueEvent=\"0.000000\" Delay=\"2.000000\" Flag=\"2\">\r\n"
+        + "\t\t\t<Primary>\r\n\t\t\t\t<KEY Information=\"Joystick Knapp 1\">0</KEY>\r\n\t\t\t</Primary>\r\n\t\t</Action>\r\n"
+        + "\t</Context>\r\n</Device>";
+
+    [Fact]
+    public void A_button_on_a_stick_action_is_not_a_stick_binding()
+    {
+        // Elevator is bound to a button only: that is the user's button, not the stick.
+        Assert.Equal(new[] { "roll" }, MsfsInputProfiles.Parse(AxisAndButtons)!.BoundAxes);
+    }
+
+    [Fact]
+    public void Clearing_removes_only_the_axis_and_keeps_every_button()
+    {
+        var cleared = MsfsInputProfiles.ClearAxes(AxisAndButtons, new[] { "pitch", "roll" });
+        Assert.Empty(MsfsInputProfiles.Parse(cleared)!.BoundAxes);
+        Assert.DoesNotContain("V-axel X", cleared);
+        // The aileron action keeps its button slot, the elevator and brake actions are untouched.
+        Assert.Equal(AxisAndButtons.Replace(AxisSlot, ""), cleared);
+        Assert.Equal(cleared, MsfsInputProfiles.ClearAxes(cleared, new[] { "pitch", "roll" }));
     }
 
     [Fact]
