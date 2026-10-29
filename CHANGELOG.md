@@ -2,6 +2,10 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.6.1
+
+- **REAL1 no longer twitches or feels like nothing changed on the PMDG 777:** MSFS 2024 picks a control profile per aircraft, and HeavyPro only checked the one you changed last. An older airplane profile that still bound your stick (used by the PMDG 777, the iniBuilds A350-900, the 747 and many more) sent the raw stick next to REAL1's. HeavyPro now checks every airplane profile, shows UNBIND IN MSFS when any of them binds your stick or pedals, and "Fix MSFS bindings" clears them all (close MSFS first; each profile is backed up).
+
 ## 0.6.0
 
 - **REAL1, the new best route:** pick "REAL1" next to Direct and MSFS bindings. HeavyPro then tunes the feel for each aircraft by itself, the way the best add-ons do it: a linear, planted sidestick for the Airbus fly-by-wire (iniBuilds A320 and A350; a lighter touch on the Fenix, which models its own), a soft-centred column that firms up with airspeed for the PMDG 777 and 737, and light, direct cables for Asobo GA. Like the best flight-model mods on flightsim.to, REAL1 gives the controls real mass: the response builds up and carries on a touch, small corrections stay smooth and quick, and full stick still gives full authority. Normal / Medium / Realistic (also in the in-game panel) set how strong it is. Every family gets realistic rudder pedals and a spring return to centre. New installs start on REAL1; future versions will be REAL2, REAL3 and so on.
