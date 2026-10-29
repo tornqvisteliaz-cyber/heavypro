@@ -8,3 +8,4 @@ lib/SimConnect.dll
 *.log
 dist/
 release-notes.md
+dist-logo/

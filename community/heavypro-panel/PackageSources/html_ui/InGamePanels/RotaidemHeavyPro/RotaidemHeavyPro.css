@@ -1,32 +1,68 @@
-/* Rotaidem colours, matching the HeavyPro app and rotaidem.com */
+/* HeavyPro in-game panel, styled after the MSFS 2024 frontend: smoked glass, white type,
+   small spaced uppercase labels, white "selected" states with dark text, thin separators.
+   Plain colours only (no CSS variables) for the sim's Coherent GT engine. */
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; }
 rotaidem-heavypro { display: block; width: 100%; height: 100%; }
-rotaidem-heavypro .hp { background: #111315; color: #eef0f2; padding: 14px 16px 16px; font-family: "Segoe UI", Roboto, sans-serif; font-size: 14px; width: 100%; height: 100%; box-sizing: border-box; }
-rotaidem-heavypro .hp-head { display: flex; align-items: center; }
-rotaidem-heavypro .hp-logo { width: 26px; height: 26px; margin-right: 8px; flex-shrink: 0; }
-rotaidem-heavypro .hp-brand { font-size: 18px; font-weight: 600; flex: 1; }
-rotaidem-heavypro .hp-brand span { color: #878d94; font-size: 12px; font-weight: 400; }
-rotaidem-heavypro .hp-badge { border: 1px solid #262a2e; background: #16191c; border-radius: 6px; padding: 3px 8px; font-size: 11px; font-weight: 700; }
-rotaidem-heavypro .hp-badge.good { border-color: #4cc38a; background: #1b3127; }
-rotaidem-heavypro .hp-badge.bad { border-color: #e5484d; background: #3a1f1f; }
-rotaidem-heavypro .hp-hint { color: #878d94; font-size: 12px; margin: 8px 0 12px; min-height: 30px; }
-rotaidem-heavypro .hp-label { color: #aab6c2; font-size: 11px; font-weight: 600; margin: 12px 0 6px; }
-rotaidem-heavypro .hp-label span { color: #eef0f2; float: right; }
-rotaidem-heavypro button { background: #16191c; color: #eef0f2; border: 1px solid #262a2e; border-radius: 6px; padding: 7px 0; font-size: 13px; font-weight: 600; cursor: pointer; }
-rotaidem-heavypro button:hover { border-color: #aab6c2; }
-rotaidem-heavypro .hp-master { width: 100%; padding: 10px 0; }
-rotaidem-heavypro .hp-master.on { background: #aab6c2; color: #0b0c0e; border-color: #aab6c2; }
+
+rotaidem-heavypro .hp {
+  width: 100%; height: 100%; box-sizing: border-box;
+  padding: 16px 18px 18px;
+  background: rgba(14, 17, 22, 0.92);
+  color: #ffffff;
+  font-family: "Roboto", "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+/* Header: logo, name, state pill */
+rotaidem-heavypro .hp-head { display: flex; align-items: center; padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.10); }
+rotaidem-heavypro .hp-logo { width: 26px; height: 26px; margin-right: 10px; flex-shrink: 0; }
+rotaidem-heavypro .hp-brand { flex: 1; font-size: 17px; font-weight: 500; letter-spacing: 0.02em; }
+rotaidem-heavypro .hp-brand span { display: block; color: rgba(255, 255, 255, 0.55); font-size: 10px; font-weight: 400; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 2px; }
+rotaidem-heavypro .hp-badge {
+  padding: 4px 10px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.10); color: rgba(255, 255, 255, 0.85);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase;
+}
+rotaidem-heavypro .hp-badge.good { background: rgba(76, 195, 138, 0.20); color: #7ee0ae; }
+rotaidem-heavypro .hp-badge.bad { background: rgba(229, 72, 77, 0.22); color: #ff8a8d; }
+
+rotaidem-heavypro .hp-hint { color: rgba(255, 255, 255, 0.60); font-size: 12px; line-height: 17px; margin: 12px 0 14px; min-height: 34px; }
+
+/* Section labels like the MSFS 2024 menus */
+rotaidem-heavypro .hp-label {
+  color: rgba(255, 255, 255, 0.55); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+  margin: 16px 0 8px;
+}
+rotaidem-heavypro .hp-label span { color: #ffffff; float: right; letter-spacing: 0.04em; }
+
+/* Buttons: pills that turn white when selected */
+rotaidem-heavypro button {
+  background: rgba(255, 255, 255, 0.07); color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 18px;
+  padding: 8px 0; font-family: "Roboto", "Segoe UI", sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.06em;
+  cursor: pointer;
+}
+rotaidem-heavypro button:hover { background: rgba(255, 255, 255, 0.16); border-color: rgba(255, 255, 255, 0.35); }
+
+rotaidem-heavypro .hp-master { width: 100%; padding: 11px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; }
+rotaidem-heavypro .hp-master.on { background: #ffffff; color: #0e1116; border-color: #ffffff; }
+
 rotaidem-heavypro .hp-presets { display: flex; }
 rotaidem-heavypro .hp-preset { flex: 1; margin-right: 6px; }
 rotaidem-heavypro .hp-preset:last-child { margin-right: 0; }
-rotaidem-heavypro .hp-preset.on { background: #aab6c2; color: #0b0c0e; border-color: #aab6c2; }
+rotaidem-heavypro .hp-preset.on { background: #ffffff; color: #0e1116; border-color: #ffffff; }
+
+/* Inertia: steppers around a slim track */
 rotaidem-heavypro .hp-steps { display: flex; align-items: center; }
-rotaidem-heavypro .hp-step { width: 48px; }
-rotaidem-heavypro .hp-track { flex: 1; height: 4px; margin: 0 8px; background: #262a2e; border-radius: 2px; position: relative; }
-rotaidem-heavypro .hp-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #aab6c2; border-radius: 2px; }
-rotaidem-heavypro .hp-meter { display: flex; align-items: center; margin: 6px 0; }
-rotaidem-heavypro .hp-meter span { color: #878d94; font-size: 11px; width: 50px; }
-rotaidem-heavypro .hp-bar { flex: 1; height: 12px; background: #16191c; border-radius: 3px; position: relative; overflow: hidden; }
-rotaidem-heavypro .hp-out { position: absolute; top: 2px; bottom: 2px; background: #aab6c2; border-radius: 2px; }
-rotaidem-heavypro .hp-in { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #eef0f2; }
-rotaidem-heavypro.offline button { opacity: 0.45; }
+rotaidem-heavypro .hp-step { width: 50px; }
+rotaidem-heavypro .hp-track { flex: 1; height: 3px; margin: 0 10px; background: rgba(255, 255, 255, 0.14); border-radius: 2px; position: relative; }
+rotaidem-heavypro .hp-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #ffffff; border-radius: 2px; }
+
+/* Stick meters: white bar is what the aircraft gets, the thin mark is your stick */
+rotaidem-heavypro .hp-meter { display: flex; align-items: center; margin: 7px 0; }
+rotaidem-heavypro .hp-meter span { color: rgba(255, 255, 255, 0.55); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; width: 54px; }
+rotaidem-heavypro .hp-bar { flex: 1; height: 10px; background: rgba(255, 255, 255, 0.08); border-radius: 5px; position: relative; overflow: hidden; }
+rotaidem-heavypro .hp-out { position: absolute; top: 2px; bottom: 2px; background: rgba(255, 255, 255, 0.85); border-radius: 3px; }
+rotaidem-heavypro .hp-in { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #59c7ff; }
+
+rotaidem-heavypro.offline button { opacity: 0.40; }

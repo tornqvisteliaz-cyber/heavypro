@@ -58,6 +58,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _backend = backendName;
         _settings = settingsStore.Load();
         _settings.MasterEnable = false;
+        // A fresh install has never saved settings: it starts on REAL1, the best route.
+        var freshInstall = _settings.SettingsVersion == 0;
         if (_settings.SettingsVersion < 3)
         {
             // 0.3.x shipped a 25 % deadzone slider and let a profile be pinned;
@@ -95,11 +97,16 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _settings.SettingsVersion = 5;
             settingsStore.Save(_settings);
         }
+        if (freshInstall)
+        {
+            _settings.InputRoute = Real1.RouteName;
+            settingsStore.Save(_settings);
+        }
         ApplyTransport();
         StickDevices = new ObservableCollection<JoystickDevice>();
         RudderDevices = new ObservableCollection<JoystickDevice>();
         AxisNames = new ObservableCollection<string>(JoystickReader.AxisNames);
-        InputRoutes = new ObservableCollection<string> { RouteDirectLabel, RouteMaskedLabel };
+        InputRoutes = new ObservableCollection<string> { RouteReal1Label, RouteDirectLabel, RouteMaskedLabel };
         RefreshDevices();
         DetectPitchCommand = new RelayCommand(() => StartDetect("pitch"));
         DetectRollCommand = new RelayCommand(() => StartDetect("roll"));
@@ -372,7 +379,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ObservableCollection<string> LogLines { get; }
 
     // ---------------- Stick setup (direct route) ----------------
-    private const string RouteDirectLabel = "Direct — all aircraft (recommended)";
+    private const string RouteReal1Label = "REAL1 — realistic feel tuned per aircraft (best)";
+    private const string RouteDirectLabel = "Direct — your own feel settings";
     private const string RouteMaskedLabel = "MSFS bindings — default aircraft only";
     public ObservableCollection<string> InputRoutes { get; }
     public ObservableCollection<JoystickDevice> StickDevices { get; }
@@ -383,16 +391,30 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ICommand DetectRudderCommand { get; }
     public ICommand RefreshDevicesCommand { get; }
 
+    /// <summary>Direct and REAL1 both send the stick where hardware enters; only MSFS bindings masks it.</summary>
     public bool IsDirect => !string.Equals(_settings.InputRoute, "Masked", StringComparison.OrdinalIgnoreCase);
+
+    public bool IsReal1 => Real1.IsActive(_settings);
 
     public string SelectedInputRoute
     {
-        get => IsDirect ? RouteDirectLabel : RouteMaskedLabel;
+        get => IsReal1 ? RouteReal1Label : IsDirect ? RouteDirectLabel : RouteMaskedLabel;
         set
         {
-            var direct = value != RouteMaskedLabel;
-            if (direct == IsDirect) return;
-            _settings.InputRoute = direct ? "Direct" : "Masked";
+            var route = value == RouteReal1Label ? Real1.RouteName : value == RouteMaskedLabel ? "Masked" : "Direct";
+            if (string.Equals(route, _settings.InputRoute, StringComparison.OrdinalIgnoreCase)) return;
+            var reconnect = (route == "Masked") != !IsDirect;
+            _settings.InputRoute = route;
+            _logger.Info("Input route set to " + _settings.InputRoute + (reconnect ? ". Reconnecting." : "."));
+            if (!reconnect)
+            {
+                // REAL1 and Direct send the stick the same way: no reconnect, the feel switches next frame.
+                OnChanged();
+                OnChanged(nameof(IsReal1));
+                OnChanged(nameof(SetupNote));
+                ScheduleSave();
+                return;
+            }
             _logger.Info("Input route set to " + _settings.InputRoute + ". Reconnecting.");
             ApplyTransport();
             if (_client.IsConnected)
@@ -402,6 +424,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             }
             OnChanged();
             OnChanged(nameof(IsDirect));
+            OnChanged(nameof(IsReal1));
             OnChanged(nameof(SetupNote));
             RaiseMeters();
             ScheduleSave();
@@ -456,7 +479,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         private set => Set(ref _stickStatus, value);
     }
 
-    public string SetupNote => IsDirect
+    public string SetupNote => IsReal1
+        ? "REAL1 tunes the feel for each aircraft by itself (PMDG 777/737, iniBuilds A350/A320, Fenix, GA and more); the feel sliders are not used. "
+          + "Like Direct, it needs the stick unbound in MSFS: use Fix MSFS bindings if HeavyPro shows UNBIND IN MSFS."
+        : IsDirect
         ? "In MSFS Controls, clear Elevator Axis and Aileron Axis"
           + (string.IsNullOrEmpty(_settings.RudderDevice) ? "" : " and Rudder Axis")
           + " for these devices. HeavyPro feeds them itself; a binding left in MSFS fights it and twitches."
@@ -1192,7 +1218,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
 
-        SelectedInputRoute = RouteDirectLabel;
+        if (!IsDirect)
+            SelectedInputRoute = RouteReal1Label;
         _lastBindingScan = DateTime.MinValue;
         ScanMsfsBindings();
         System.Windows.MessageBox.Show(

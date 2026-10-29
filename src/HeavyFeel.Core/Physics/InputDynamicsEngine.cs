@@ -23,6 +23,8 @@ public sealed class InputDynamicsEngine
         if (!IsFinite(deltaTime) || deltaTime <= 0)
             deltaTime = 1.0 / 60.0;
         deltaTime = Numeric.Clamp(deltaTime, 1.0 / 240.0, 0.1);
+        if (Real1.IsActive(settings))
+            return StepReal1(snapshot, deltaTime);
 
         var profile = InputDynamicsProfile.For(snapshot, settings.AircraftProfile);
         var curve = ParseCurve(settings.InputCurve);
@@ -96,6 +98,83 @@ public sealed class InputDynamicsEngine
             Profile = profile.Name,
             AirspeedFactor = speedScale,
             Feel = feel.Label,
+            RudderAuthority = rudderAuthority,
+            RawElevator = rawElevator,
+            FilteredElevator = elevator.Target,
+            FinalElevator = finalElevator,
+            RawAileron = rawAileron,
+            FilteredAileron = aileron.Target,
+            FinalAileron = finalAileron,
+            RawRudder = rawRudder,
+            FilteredRudder = rudder.Target,
+            FinalRudder = rudder.Output,
+            PitchVelocity = elevator.Velocity,
+            PitchAcceleration = elevator.Acceleration,
+            RollVelocity = aileron.Velocity,
+            RollAcceleration = aileron.Acceleration,
+            YawVelocity = rudder.Velocity,
+            YawAcceleration = rudder.Acceleration,
+            PitchSeconds = pitchTime,
+            RollSeconds = rollTime,
+            YawSeconds = yawTime,
+            Compatibility = ControlInertia.Compatibility(snapshot)
+        };
+    }
+
+    /// <summary>
+    /// REAL1: everything from the aircraft family's tuning (see <see cref="Real1"/>), none
+    /// of it from the sliders or the global travel scale, so every aircraft gets the feel
+    /// it should have out of the box.
+    /// </summary>
+    private InputDynamicsFrame StepReal1(FlightSnapshot snapshot, double deltaTime)
+    {
+        var tuning = Real1.For(snapshot);
+        var feel = ControlFeel.For(snapshot);
+        var rudderSettings = new AppSettings { RealisticRudder = tuning.RealisticRudder, RudderLimiter = true };
+
+        var rawElevator = Clamp(snapshot.StickY);
+        var rawAileron = Clamp(snapshot.StickX);
+        var rawRudder = Clamp(snapshot.RudderInput);
+        var shapedElevator = Real1.Shape(rawElevator, tuning);
+        var shapedAileron = Real1.Shape(rawAileron, tuning);
+        var shapedRudder = Real1.Shape(rawRudder, tuning);
+        if (tuning.RealisticRudder)
+            shapedRudder = ControlFeel.RudderPedalCurve(shapedRudder);
+        var rudderAuthority = feel.RudderAuthority(rudderSettings, snapshot.AirspeedIndicatedKnots);
+        shapedRudder *= rudderAuthority;
+
+        if (_seed)
+        {
+            _elevator.Position = shapedElevator;
+            _aileron.Position = shapedAileron;
+            _rudder.Position = shapedRudder;
+            _seed = false;
+        }
+
+        var phase = FlightPhaseResolver.Resolve(snapshot);
+        var speed = Real1.AirspeedScale(tuning, snapshot, feel);
+        var scale = ControlInertia.PhaseScale(phase) * speed;
+        var pitchTime = Numeric.Clamp(tuning.PitchSeconds * scale, 0.08, 3.0);
+        var rollTime = Numeric.Clamp(tuning.RollSeconds * scale, 0.08, 3.0);
+        var yawTime = Numeric.Clamp(tuning.YawSeconds * scale * feel.RudderFeelScale(rudderSettings, snapshot), 0.08, 3.0);
+        var damping = DampingScale(tuning.Damping);
+
+        var elevator = ControlInertia.Step(_elevator, shapedElevator, deltaTime, pitchTime, 1, 1, damping, tuning.ReturnDelaySeconds, tuning.ReturnRate);
+        var aileron = ControlInertia.Step(_aileron, shapedAileron, deltaTime, rollTime, 1, 1, damping, tuning.ReturnDelaySeconds, tuning.ReturnRate);
+        var rudder = ControlInertia.Step(_rudder, shapedRudder, deltaTime, yawTime, 1, 1, damping, tuning.ReturnDelaySeconds, tuning.ReturnRate);
+
+        _clock += deltaTime;
+        var buffet = snapshot.OnGround
+            ? 0
+            : 0.16 * 0.03 * Numeric.Clamp(ControlFeel.DynamicPressure(snapshot) / feel.ReferenceQ, 0, 1.5);
+        var finalElevator = Numeric.Clamp(elevator.Output + buffet * Math.Min(1, Math.Abs(elevator.Target) * 5) * Noise(_clock, 0), -1, 1);
+        var finalAileron = Numeric.Clamp(aileron.Output + buffet * 0.7 * Math.Min(1, Math.Abs(aileron.Target) * 5) * Noise(_clock, 1.7), -1, 1);
+
+        return new InputDynamicsFrame
+        {
+            Profile = Real1.DisplayName,
+            AirspeedFactor = speed,
+            Feel = tuning.Family,
             RudderAuthority = rudderAuthority,
             RawElevator = rawElevator,
             FilteredElevator = elevator.Target,
