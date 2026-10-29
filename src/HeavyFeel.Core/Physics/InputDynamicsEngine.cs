@@ -136,7 +136,7 @@ public sealed class InputDynamicsEngine
         var rawAileron = Clamp(snapshot.StickX);
         var rawRudder = Clamp(snapshot.RudderInput);
         var shapedElevator = Real1.Shape(rawElevator, tuning);
-        var shapedAileron = Real1.Shape(rawAileron, tuning);
+        var shapedAileron = Real1.ShapeRoll(rawAileron, tuning);
         var shapedRudder = Real1.Shape(rawRudder, tuning);
         if (tuning.RealisticRudder)
             shapedRudder = ControlFeel.RudderPedalCurve(shapedRudder);

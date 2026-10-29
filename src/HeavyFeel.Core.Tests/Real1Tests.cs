@@ -131,6 +131,26 @@ public class Real1Tests
         Assert.True(Travel(FeelLevel.Medium) < Travel(FeelLevel.Realistic));
     }
 
+    [Theory]
+    [InlineData("777-300ER", "ATCCOM.AC_MODEL B77W.0.text")]
+    [InlineData("777F", "ATCCOM.AC_MODEL B77L.0.text")]
+    public void The_777_gets_the_ff777_feel_by_itself(string title, string model)
+    {
+        var frame = new InputDynamicsEngine().Step(Real1Route, Snap(title, model, AircraftClass.WideBody, 500_000, 250, 0.4), 1.0 / 60, 1.4);
+        Assert.Contains("FF777", frame.Feel);
+    }
+
+    [Fact]
+    public void The_777_wheel_is_calm_around_centre_but_keeps_full_authority()
+    {
+        var b777 = Real1.For(Snap("777-300ER", "B77W", AircraftClass.WideBody, 0, 0));
+        Assert.Equal(0.0, Real1.ShapeRoll(0.05, b777), 6);                 // a resting hand never rolls it
+        Assert.True(Real1.ShapeRoll(0.2, b777) < Real1.Shape(0.2, b777), "wheel calmer than column near centre");
+        Assert.Equal(1.0, Real1.ShapeRoll(0.98, b777), 6);
+        var a320 = Real1.For(Snap("iniBuilds A320neo", "A20N", AircraftClass.NarrowBody, 0, 0));
+        Assert.Equal(Real1.Shape(0.3, a320), Real1.ShapeRoll(0.3, a320), 9); // families without their own wheel centre shape roll like pitch
+    }
+
     [Fact]
     public void Real1_frame_names_the_route_and_family()
     {
