@@ -65,7 +65,8 @@ public class Real1Tests
         Assert.Equal(0.0, Real1.Shape(0.015, b777), 6);
         Assert.True(Real1.Shape(0.3, b777) < 0.3, "soft centre on the 777");
         var a320 = Real1.For(Snap("iniBuilds A320neo", "A20N", AircraftClass.NarrowBody, 0, 0));
-        Assert.Equal(0.5, Real1.Shape(0.5, a320), 1);                                  // close to linear, like Fenix/iniBuilds recommend
+        // A gentler soft centre than the 777, like the A32NX realism mods: progressive small corrections.
+        Assert.InRange(Real1.Shape(0.5, a320), Real1.Shape(0.5, b777), 0.5);
     }
 
     [Fact]
@@ -81,6 +82,53 @@ public class Real1Tests
         var heavy = new AppSettings { InputRoute = Real1.RouteName, Inertia = 100, PitchDamping = 100 };
         Assert.Equal(Seconds(light), Seconds(heavy), 6);
         Assert.NotEqual(Seconds(new AppSettings { Inertia = 100, PitchDamping = 100 }), Seconds(heavy), 3);
+    }
+
+    [Fact]
+    public void Real1_is_clearly_heavy_on_the_777_like_realistic()
+    {
+        // The 0.6.0 beta gave the 777 about 1 s of travel and felt like nothing changed.
+        var engine = new InputDynamicsEngine();
+        var settings = new AppSettings { InputRoute = Real1.RouteName };
+        engine.Step(settings, Snap("777-300ER", "B77W", AircraftClass.WideBody, 500_000, 250), 1.0 / 60, 1.4);
+        InputDynamicsFrame frame = null!;
+        for (var i = 0; i < 60; i++)
+            frame = engine.Step(settings, Snap("777-300ER", "B77W", AircraftClass.WideBody, 500_000, 250, 1.0), 1.0 / 60, 1.4);
+        Assert.InRange(frame.FinalElevator, 0.05, 0.40);                     // one second in: still well short of full
+        for (var i = 0; i < 600; i++)
+            frame = engine.Step(settings, Snap("777-300ER", "B77W", AircraftClass.WideBody, 500_000, 250, 1.0), 1.0 / 60, 1.4);
+        Assert.Equal(1.0, frame.FinalElevator, 2);                          // full authority is kept
+    }
+
+    [Fact]
+    public void Axis_has_mass_its_rate_builds_up_and_settles_without_a_bounce()
+    {
+        var state = new AxisDynamicsState();
+        var first = Real1.StepAxis(state, 0.5, 1.0 / 60, 3.0, 0.7, 0, 1);
+        Assert.True(first.Velocity < 0.05, "rate starts slowly: the axis has inertia");
+        double peak = 0;
+        for (var i = 0; i < 900; i++)
+            peak = Math.Max(peak, Real1.StepAxis(state, 0.5, 1.0 / 60, 3.0, 0.7, 0, 1).Output);
+        Assert.InRange(peak, 0.5, 0.52);                                     // a touch of carry, no bounce
+        Assert.Equal(0.5, state.Position, 3);
+    }
+
+    [Fact]
+    public void Feel_level_buttons_scale_real1()
+    {
+        static double Travel(FeelLevel level)
+        {
+            var p = FeelPresets.For(level);
+            var s = new AppSettings
+            {
+                InputRoute = Real1.RouteName, Inertia = p.Inertia, PitchDamping = p.PitchDamping, RollDamping = p.RollDamping,
+                YawDamping = p.YawDamping, ControlResponse = p.ControlResponse, GroundInertia = p.GroundInertia,
+                TurbulenceResponse = p.TurbulenceResponse
+            };
+            return new InputDynamicsEngine().Step(s, Snap("777-300ER", "B77W", AircraftClass.WideBody, 500_000, 250, 0.5), 1.0 / 60, 1.4).PitchSeconds;
+        }
+        Assert.True(Travel(FeelLevel.Normal) < Travel(FeelLevel.Medium));
+        Assert.True(Travel(FeelLevel.Medium) < Travel(FeelLevel.Realistic));
     }
 
     [Fact]
