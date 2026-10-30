@@ -2,6 +2,11 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.6.6
+
+- **The MSFS bindings route works like before again:** "Fix MSFS bindings" is no longer offered on that route. The route needs your stick bound in MSFS, and Fix there cleared it from every airplane profile, so the GA planes got no stick. Fix still appears on REAL1 and Direct, where it belongs; if you pressed it, Restore MSFS bindings (Setup) puts your stick axes back.
+- **No more wrong USE REAL1 badge:** the PMDG 777 and other add-ons fly on the MSFS bindings route as they did in 0.5.3.
+
 ## 0.6.5
 
 - **BlueBird 757:** REAL1 now recognises every BlueBird 757-200 and gives it its own feel: a big Boeing column, heavier than the 737 and lighter than the 777, crisp in roll. It works on REAL1 and Direct; BlueBird models its own rudder ratio changer, so HeavyPro's rudder limiter stays out of the way.
