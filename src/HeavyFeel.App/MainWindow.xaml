@@ -53,9 +53,6 @@
                                         <Setter Property="Background" Value="#3A1F1F"/>
                                         <Setter Property="BorderBrush" Value="{StaticResource BrushBad}"/>
                                     </DataTrigger>
-                                    <DataTrigger Binding="{Binding RouteBadge}" Value="USE REAL1">
-                                        <Setter Property="BorderBrush" Value="{StaticResource BrushWarn}"/>
-                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding RouteBadge}" Value="SET UP STICK">
                                         <Setter Property="BorderBrush" Value="{StaticResource BrushWarn}"/>
                                     </DataTrigger>

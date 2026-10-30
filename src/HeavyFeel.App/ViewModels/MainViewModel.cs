@@ -436,6 +436,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             OnChanged(nameof(IsDirect));
             OnChanged(nameof(IsReal1));
             OnChanged(nameof(SetupNote));
+            OnChanged(nameof(CanFixBindings));
             RaiseMeters();
             ScheduleSave();
         }
@@ -1125,7 +1126,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         get
         {
             if (!_client.IsConnected) return "OFFLINE";
-            if (!IsDirect && _snap.Aircraft.NeedsDirectRoute) return "USE REAL1";
             if (_client.DirectInput && !StickConfigured) return "SET UP STICK";
             if (IsDirect && (_client.InputConflict != null || _profileConflict != null)) return "UNBIND IN MSFS";
             if (_client.RouteStatus == InputRouteStatus.Fault) return "FAULT";
@@ -1140,7 +1140,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         "OFFLINE" => "Start MSFS 2024 and load a flight. HeavyPro connects on its own.",
         "SET UP STICK" => "Pick your stick under Stick setup, or press Detect and move it.",
-        "USE REAL1" => _snap.Aircraft.DisplayName + " runs its own control model, which the MSFS bindings route cannot reach: the yoke would not move. Pick REAL1 under Stick setup.",
         "UNBIND IN MSFS" => _client.InputConflict != null
             ? "MSFS still sends your " + _client.InputConflict + " axis. HeavyPro passes your stick through untouched so it cannot twitch, which also means no weight. In MSFS Controls, clear Elevator / Aileron / Rudder Axis for that device, then reconnect."
             : "MSFS still binds " + _profileConflict + ". On Direct, HeavyPro passes your stick through untouched so it cannot twitch, which also means no weight. Press \"Fix MSFS bindings for me\" under Stick setup (with MSFS closed).",
@@ -1222,7 +1221,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private List<MsfsAxisBinding> _profileBindings = new();
 
     /// <summary>MSFS still binds the stick and HeavyPro knows which profile files to fix.</summary>
-    public bool CanFixBindings => _profileConflict != null;
+    /// <remarks>
+    /// Only on REAL1 and Direct. The MSFS bindings route needs those bindings: offered there,
+    /// Fix cleared the stick from every airplane profile and the GA planes lost their stick.
+    /// </remarks>
+    public bool CanFixBindings => IsDirect && _profileConflict != null;
 
     /// <summary>
     /// "Fix MSFS bindings for me": clears exactly the stick axes HeavyPro feeds (never a button) in the MSFS
@@ -1422,7 +1425,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             "PASS-THROUGH" => 1,
             "SHAPING" => 2,
             "AP ON · PAUSED" => 3,
-            "SET UP STICK" or "USE REAL1" => 4, // the panel's hint sends you to the app for both
+            "SET UP STICK" => 4,
             "UNBIND IN MSFS" => 5,
             "MOVE STICK" => 6,
             _ => 7
