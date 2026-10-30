@@ -91,6 +91,26 @@ public static class MsfsInputProfiles
         return xml;
     }
 
+    /// <summary>
+    /// The current profile with its elevator, aileron and rudder actions put back as they
+    /// are in the backup ("Restore MSFS bindings"). Buttons and anything else changed since
+    /// the backup stay as they are now. An action is only restored when both files have it
+    /// the same number of times, so a profile MSFS has reshaped is left alone.
+    /// </summary>
+    public static string RestoreAxes(string current, string backup)
+    {
+        foreach (var (action, _) in StickAxes)
+        {
+            var any = new Regex("<Action ActionName=\"" + action + "\"(?:[^>]*/>|[^>]*(?<!/)>.*?</Action>)", RegexOptions.Singleline);
+            var saved = any.Matches(backup);
+            if (saved.Count == 0 || saved.Count != any.Matches(current).Count)
+                continue;
+            var i = 0;
+            current = any.Replace(current, _ => saved[i++].Value);
+        }
+        return current;
+    }
+
     public sealed record Profile(string Name, string DeviceName, int ProductId, string Category, IReadOnlyList<string> BoundAxes);
 
     /// <summary>Parses one inputprofile file. Null if it is not a device profile.</summary>

@@ -2,6 +2,14 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.6.5
+
+- **BlueBird 757:** REAL1 now recognises every BlueBird 757-200 and gives it its own feel: a big Boeing column, heavier than the 737 and lighter than the 777, crisp in roll. It works on REAL1 and Direct; BlueBird models its own rudder ratio changer, so HeavyPro's rudder limiter stays out of the way.
+- **Restore MSFS bindings (Setup):** undoes "Fix MSFS bindings" for flying without HeavyPro. It puts back only the stick axes; your buttons and anything you changed since stay as they are.
+- **USE REAL1 badge:** on the MSFS bindings route, an add-on that route can't reach (PMDG, iniBuilds, BlueBird) now says so instead of a yoke that silently doesn't move.
+- **Beta:** HeavyPro asks you to accept its Terms of Service on first start (Terms at the bottom of the app shows them). Copy beta report puts what we need for a bug report on the clipboard, without your Windows user name or licence key. Creators may stream and publish videos of HeavyPro, monetised ones included (Terms section 3).
+- HeavyPro is © 2026 Rotaidem, all rights reserved.
+
 ## 0.6.4
 
 - **PMDG 777: FF777-style flight model (new switch under Setup):** turn it on and HeavyPro builds a copy of your PMDG 777's own flight model with 15% more pitch and roll inertia and damping, so the 777-300ER and 777F feel big, settled and planted, and MSFS loads it after PMDG's. PMDG's files are never changed; turn the switch off to get PMDG's flight model back. It rebuilds by itself after a PMDG update, and waits until MSFS is closed to change anything. Turn it off before contacting PMDG support.

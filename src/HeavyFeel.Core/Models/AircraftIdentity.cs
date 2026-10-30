@@ -28,16 +28,29 @@ public sealed class AircraftIdentity
     }
 
     /// <summary>
-    /// PMDG and iniBuilds run their own control model, which only the Direct route
-    /// reaches; on the Masked route the yoke does not move at all.
+    /// PMDG, iniBuilds and the BlueBird 757 run their own control model, which only the
+    /// Direct route reaches; on the Masked route the yoke does not move at all.
     /// </summary>
     public bool NeedsDirectRoute
     {
         get
         {
             var blob = $"{Title} {AtcModel} {AtcType}".ToUpperInvariant();
-            return IsPmdg777 || blob.Contains("PMDG") || blob.Contains("INIBUILDS")
+            return IsPmdg777 || IsBlueBird757 || blob.Contains("PMDG") || blob.Contains("INIBUILDS")
                 || blob.Contains("A350") || blob.Contains("A359") || blob.Contains("A35K");
+        }
+    }
+
+    /// <summary>
+    /// BlueBird Simulations 757 ("BlueBird 757-200 PW", ATC type BBS752PW). Its own WASM
+    /// reads the elevator and aileron axis events, like PMDG.
+    /// </summary>
+    public bool IsBlueBird757
+    {
+        get
+        {
+            var blob = $"{Title} {AtcModel} {AtcType}".ToUpperInvariant();
+            return blob.Contains("BLUEBIRD") || blob.Contains("BBS75");
         }
     }
 

@@ -48,6 +48,7 @@ public sealed record Real1Tuning(
 ///   wheel around centre so it never twitches in roll, precise small corrections in pitch,
 ///   more control mass than the other Boeings and a column that firms up with airspeed.
 ///   REAL1 picks it by itself whenever a 777 loads; nothing to set up.
+/// - The 757 (BlueBird Simulations) sits between the 737 and the 777.
 /// - The Normal / Medium / Realistic buttons scale how strong REAL1 is.
 ///
 /// Later versions get higher numbers (REAL2, REAL3, …) so users can tell them apart.
@@ -70,6 +71,10 @@ public static class Real1
     private static readonly Real1Tuning Boeing777 =
         new("Boeing 777 artificial feel, FF777-style", 0.03, 0.05, 0.22, 3.90, 3.40, 4.10, 1.0, 0.08, 0.9, 60, true, 0.28,
             RollDeadzone: 0.05, RollExpo: 0.20);
+    // The 757 sits between the 737 and the 777: a big column on the same kind of feel
+    // unit, but famously crisp in roll for its size.
+    private static readonly Real1Tuning Boeing757 =
+        new("Boeing 757 artificial feel", 0.02, 0.04, 0.20, 3.30, 2.85, 3.60, 1.0, 0.06, 0.95, 58, true, 0.23);
     private static readonly Real1Tuning Boeing737 =
         new("Boeing 737 artificial feel", 0.02, 0.03, 0.18, 3.00, 2.65, 3.20, 1.0, 0.05, 1.0, 55, true, 0.20);
     private static readonly Real1Tuning Boeing787 =
@@ -92,6 +97,8 @@ public static class Real1
             return Fenix;
         if (a.IsPmdg777 || Has(id, "777", "B77W", "B77L", "B772", "B773"))
             return Boeing777;
+        if (a.IsBlueBird757 || Has(id, "757", "B752", "B753"))
+            return Boeing757;
         if (Has(id, "787", "B788", "B789", "B78X"))
             return Boeing787;
         if (Has(id, "737", "B737", "B738", "B739", "B38M", "B39M", "B736"))

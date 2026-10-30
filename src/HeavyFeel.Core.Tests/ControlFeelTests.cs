@@ -60,6 +60,10 @@ public class ControlFeelTests
         var pmdg = ControlFeel.For(Snap("PMDG 777-300ER", AircraftClass.WideBody, 300));
         Assert.Equal(1.0, pmdg.RudderAuthority(settings, 300));
 
+        // The BlueBird 757 models its own rudder ratio changer.
+        var b757 = ControlFeel.For(Snap("BlueBird 757-200 PW", AircraftClass.NarrowBody, 300));
+        Assert.Equal(1.0, b757.RudderAuthority(settings, 300));
+
         var ga = ControlFeel.For(Snap("Cessna 172", AircraftClass.LightGa, 140));
         Assert.Equal(1.0, ga.RudderAuthority(settings, 140));
 

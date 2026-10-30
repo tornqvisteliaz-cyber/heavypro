@@ -23,6 +23,7 @@ public class Real1Tests
     [InlineData("A350-1000 (No Cabin)", "A350-1000", AircraftClass.WideBody, "Airbus widebody")]
     [InlineData("iFly 737-MAX8", "ATCCOM.AC_MODEL B738.0.text", AircraftClass.NarrowBody, "Boeing 737")]
     [InlineData("PMDG 737-800", "B738", AircraftClass.NarrowBody, "Boeing 737")]
+    [InlineData("BlueBird 757-200 PW", "TT:ATCCOM.AC_MODEL B752.0.text", AircraftClass.NarrowBody, "Boeing 757")]
     [InlineData("iniBuilds A320neo", "A20N", AircraftClass.NarrowBody, "Airbus A320")]
     [InlineData("Fenix A320 CFM", "A320", AircraftClass.NarrowBody, "Fenix")]
     [InlineData("Cessna C152", "ATCCOM.AC_MODEL C152.0.text", AircraftClass.LightGa, "Light aircraft")]
@@ -42,8 +43,9 @@ public class Real1Tests
         var a350 = Pitch("A350-1000", "A35K", AircraftClass.WideBody);
         var b737 = Pitch("737-800", "B738", AircraftClass.NarrowBody);
         var b777 = Pitch("777-300ER", "B77W", AircraftClass.WideBody);
+        var b757 = Pitch("BlueBird 757-200 PW", "B752", AircraftClass.NarrowBody);
         Assert.True(fenix < a320, "Fenix models its own FBW, so REAL1 adds less");
-        Assert.True(ga < a320 && a320 < a350 && a350 < b737 && b737 < b777);
+        Assert.True(ga < a320 && a320 < a350 && a350 < b737 && b737 < b757 && b757 < b777);
     }
 
     [Fact]

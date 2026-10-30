@@ -1,5 +1,7 @@
 # HeavyPro (HeavyFeel)
 
+> **Private and confidential.** © 2025-2026 Rotaidem. All rights reserved. This is a private program: no one may use, copy, modify or share this code without Rotaidem's written permission. See [LICENSE](LICENSE).
+
 Windows desktop app for **Microsoft Flight Simulator 2024** that makes your stick feel like it is moving real control surfaces on a heavy aircraft: the sim follows your stick with weight, momentum and a damped return instead of snapping instantly.
 
 ## Install (players)
@@ -10,7 +12,9 @@ Windows desktop app for **Microsoft Flight Simulator 2024** that makes your stic
 3. In MSFS **Controls**, clear **Elevator Axis** and **Aileron Axis** (and **Rudder Axis** if HeavyPro has your pedals) for those devices. HeavyPro now feeds them itself.
 4. Load a flight and tick **MASTER ENABLE**.
 
-The **Direct** route works with every aircraft we tested, including the PMDG 777 and add-ons that run their own control model. The older **MSFS bindings** route (stick stays bound in MSFS, HeavyPro intercepts it) still exists for default aircraft, but PMDG and iniBuilds aircraft fight it.
+The **REAL1** and **Direct** routes work with every aircraft we tested, including the PMDG 777, the BlueBird 757 and other add-ons that run their own control model. The older **MSFS bindings** route (stick stays bound in MSFS, HeavyPro intercepts it) still exists for default aircraft; PMDG, iniBuilds and BlueBird aircraft can't be reached from it, and the badge says `USE REAL1` when one loads.
+
+**Fix MSFS bindings for me** (Setup) clears only the stick axes in your MSFS 2024 profiles and keeps a backup; **Restore MSFS bindings** puts that backup back, for flying without HeavyPro.
 
 If you leave an axis bound in MSFS while on the Direct route, MSFS and HeavyPro both drive the yoke and it twitches.
 
@@ -23,7 +27,16 @@ The header badge tells you what is happening:
 | `MOVE STICK` | Connected, waiting for the stick. |
 | `PASS-THROUGH` | Master Enable is off. Your stick reaches the sim untouched. |
 | `AP ON · PAUSED` | Autopilot engaged. HeavyPro hands the stick back until you disconnect it. |
+| `USE REAL1` | You are on the MSFS bindings route with an add-on (PMDG, iniBuilds, BlueBird) it can't reach. Pick REAL1 under Stick setup. |
 | `OFFLINE` | MSFS is not running yet. HeavyPro connects on its own. |
+
+## Beta testers and creators
+
+HeavyPro is in beta. On first start it asks you to accept the [Terms of Service](TERMS.md) (again whenever they change; **Terms** at the bottom of the app shows them). Found a problem? Press **Copy beta report** at the bottom of the app and paste it into your report to Eliaz@rotaidem.com: it holds your version, aircraft, route and recent log, without your Windows user name or licence key.
+
+Creators may stream, record and publish videos of HeavyPro, monetised ones included (Terms section 3). Please credit "HeavyPro by Rotaidem" and keep your licence key off screen.
+
+HeavyPro is © 2026 Rotaidem, all rights reserved. The source code is private: see [LICENSE](LICENSE).
 
 ## What's new in 0.4.0
 

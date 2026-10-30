@@ -44,6 +44,14 @@ public partial class App : System.Windows.Application
 
         // No window yet, so closing the licence dialog must not end the app by itself.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+        // The beta terms come first, and again whenever they change.
+        if (!HeavyFeel.App.Services.Terms.Accepted && new TermsWindow(mustAccept: true).ShowDialog() != true)
+        {
+            Shutdown();
+            return;
+        }
+
         var confirmedRecently = await EnsureLicensedAsync();
         if (confirmedRecently is null)
         {

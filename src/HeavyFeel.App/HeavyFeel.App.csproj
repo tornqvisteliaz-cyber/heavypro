@@ -21,6 +21,7 @@
     <EmbeddedResource Include="..\..\packaging\licence-public-key.json" LogicalName="HeavyPro.LicensePublicKey.json" Condition="Exists('..\..\packaging\licence-public-key.json')" />
     <!-- "What's new" after an update comes from the same file as the release notes. -->
     <EmbeddedResource Include="..\..\CHANGELOG.md" LogicalName="HeavyPro.Changelog.md" />
+    <EmbeddedResource Include="..\..\TERMS.md" LogicalName="HeavyPro.Terms.md" />
     <Reference Include="System.Net.Http" />
   </ItemGroup>
   <ItemGroup>

@@ -9,6 +9,18 @@ public class VersionAndInstallTests
     private static string Repo(string file) => Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", file);
 
     [Fact]
+    public void Terms_carry_a_date_and_the_beta_and_creator_sections()
+    {
+        // The app re-asks for acceptance when "Last updated" changes, so it must be there.
+        var terms = File.ReadAllText(Repo("TERMS.md"));
+        Assert.Matches(@"Last updated: \w+ \d{1,2}, \d{4}", terms);
+        Assert.Contains("## 2. Beta", terms);
+        Assert.Contains("## 3. Creators", terms);
+        Assert.Contains("All rights reserved", File.ReadAllText(Repo("LICENSE")));
+        Assert.DoesNotContain("Permission is hereby granted, free of charge", File.ReadAllText(Repo("LICENSE")));
+    }
+
+    [Fact]
     public void Build_version_is_the_newest_changelog_release()
     {
         var props = File.ReadAllText(Repo("Directory.Build.props"));

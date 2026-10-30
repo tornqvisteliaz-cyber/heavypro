@@ -23,7 +23,7 @@ public static class AircraftCatalog
             return AircraftClass.WideBody;
 
         if (ContainsAny(blob, "A318", "A319", "A320", "A321", "A32N", "A20N", "A21N",
-                "737", "738", "739", "MAX", "B38M", "B39M", "717", "MD-80", "MD-90",
+                "737", "738", "739", "MAX", "B38M", "B39M", "717", "757", "B752", "B753", "MD-80", "MD-90",
                 "E170", "E175", "E190", "E195", "CRJ", "A220", "CS1", "CS3", "CS100", "CS300",
                 "SUKHOI", "SSJ", "SUPERJET", "MRJ", "M90"))
             return AircraftClass.NarrowBody;
