@@ -146,6 +146,30 @@ public class MsfsInputProfilesTests
     }
 
     [Fact]
+    public void Restoring_puts_back_only_the_stick_axes_and_keeps_newer_buttons()
+    {
+        var backup = AxisAndButtons;
+        // Since the fix: the axis was cleared, and the user rebound the brakes to another button.
+        var current = MsfsInputProfiles.ClearAxes(backup, new[] { "pitch", "roll" })
+            .Replace("<KEY Information=\"Joystick Knapp 1\">0</KEY>", "<KEY Information=\"Joystick Knapp 7\">6</KEY>");
+        var restored = MsfsInputProfiles.RestoreAxes(current, backup);
+        Assert.Equal(new[] { "roll" }, MsfsInputProfiles.Parse(restored)!.BoundAxes);
+        Assert.Contains("Joystick V-axel X", restored);
+        Assert.Contains("Joystick Knapp 7", restored);
+        Assert.DoesNotContain("Joystick Knapp 1\"", restored);
+        // Only the stick actions differ from the current file.
+        Assert.Equal(backup.Replace("<KEY Information=\"Joystick Knapp 1\">0</KEY>", "<KEY Information=\"Joystick Knapp 7\">6</KEY>"), restored);
+    }
+
+    [Fact]
+    public void Restoring_the_cleared_profile_from_a_fix_round_trips()
+    {
+        var original = Profile("throttle'", 48167, "AIRPLANE", true, true, true);
+        var cleared = MsfsInputProfiles.ClearAxes(original, new[] { "pitch", "roll" });
+        Assert.Equal(original, MsfsInputProfiles.RestoreAxes(cleared, original));
+    }
+
+    [Fact]
     public void Binding_found_on_disk_names_its_file()
     {
         var files = new[] { (@"C:\x\inputprofile_1", DateTime.Now, Profile("p", 48167, "AIRPLANE", true, false, false)) };

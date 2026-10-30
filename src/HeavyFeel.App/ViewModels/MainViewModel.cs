@@ -132,6 +132,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         ApplyProfileCommand = new RelayCommand(ApplyProfile);
         ToggleAircraftLinkCommand = new RelayCommand(ToggleAircraftLink);
         FixBindingsCommand = new RelayCommand(FixMsfsBindings);
+        RestoreBindingsCommand = new RelayCommand(RestoreMsfsBindings);
+        ShowTermsCommand = new RelayCommand(() => new TermsWindow(mustAccept: false) { Owner = System.Windows.Application.Current.MainWindow }.ShowDialog());
+        CopyBetaReportCommand = new RelayCommand(CopyBetaReport);
         DeleteProfileCommand = new RelayCommand(DeleteProfile);
         ShareProfileCommand = new RelayCommand(() => _ = ShareProfileAsync());
         GetSharedProfileCommand = new RelayCommand(() => _ = GetSharedProfileAsync());
@@ -192,6 +195,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ICommand SaveProfileCommand { get; }
     public ICommand ToggleAircraftLinkCommand { get; }
     public ICommand FixBindingsCommand { get; }
+    public ICommand RestoreBindingsCommand { get; }
+    public ICommand ShowTermsCommand { get; }
+    public ICommand CopyBetaReportCommand { get; }
 
     public ICommand ApplyProfileCommand { get; }
     public ICommand DeleteProfileCommand { get; }
@@ -484,7 +490,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public string SetupNote => IsReal1
-        ? "REAL1 tunes the feel for each aircraft by itself (PMDG 777/737, iniBuilds A350/A320, Fenix, GA and more), with real control mass like the best flight-model mods. Normal / Medium / Realistic set how strong it is; the sliders are not used. "
+        ? "REAL1 tunes the feel for each aircraft by itself (PMDG 777/737, BlueBird 757, iniBuilds A350/A320, Fenix, GA and more), with real control mass like the best flight-model mods. Normal / Medium / Realistic set how strong it is; the sliders are not used. "
           + "Like Direct, it needs the stick unbound in MSFS: use Fix MSFS bindings if HeavyPro shows UNBIND IN MSFS."
         : IsDirect
         ? "In MSFS Controls, clear Elevator Axis and Aileron Axis"
@@ -1119,6 +1125,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         get
         {
             if (!_client.IsConnected) return "OFFLINE";
+            if (!IsDirect && _snap.Aircraft.NeedsDirectRoute) return "USE REAL1";
             if (_client.DirectInput && !StickConfigured) return "SET UP STICK";
             if (IsDirect && (_client.InputConflict != null || _profileConflict != null)) return "UNBIND IN MSFS";
             if (_client.RouteStatus == InputRouteStatus.Fault) return "FAULT";
@@ -1133,6 +1140,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         "OFFLINE" => "Start MSFS 2024 and load a flight. HeavyPro connects on its own.",
         "SET UP STICK" => "Pick your stick under Stick setup, or press Detect and move it.",
+        "USE REAL1" => _snap.Aircraft.DisplayName + " runs its own control model, which the MSFS bindings route cannot reach: the yoke would not move. Pick REAL1 under Stick setup.",
         "UNBIND IN MSFS" => _client.InputConflict != null
             ? "MSFS still sends your " + _client.InputConflict + " axis. HeavyPro passes your stick through untouched so it cannot twitch, which also means no weight. In MSFS Controls, clear Elevator / Aileron / Rudder Axis for that device, then reconnect."
             : "MSFS still binds " + _profileConflict + ". On Direct, HeavyPro passes your stick through untouched so it cannot twitch, which also means no weight. Press \"Fix MSFS bindings for me\" under Stick setup (with MSFS closed).",
@@ -1275,10 +1283,134 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             SelectedInputRoute = RouteReal1Label;
         _lastBindingScan = DateTime.MinValue;
         ScanMsfsBindings();
+        OnChanged(nameof(CanRestoreBindings));
         System.Windows.MessageBox.Show(
             "Done. MSFS no longer sends your stick on its own, and HeavyPro is on the Direct route.\n\n"
             + "Start MSFS 2024 and fly. If Steam asks about cloud saves for MSFS, choose the files on this PC.\n\nBackups: " + backupDir,
             "HeavyPro");
+    }
+
+    private static string BindingBackupRoot => System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HeavyPro", "msfs-profile-backups");
+
+    /// <summary>The newest "Fix MSFS bindings" backup not yet restored, or null.</summary>
+    private static string? LatestBindingBackup()
+    {
+        if (!System.IO.Directory.Exists(BindingBackupRoot))
+            return null;
+        return System.IO.Directory.GetDirectories(BindingBackupRoot)
+            .Where(d => !d.EndsWith("-restored", StringComparison.OrdinalIgnoreCase)
+                && System.IO.Directory.GetFiles(d, "inputprofile_*").Length > 0)
+            .OrderByDescending(d => System.IO.Path.GetFileName(d), StringComparer.Ordinal)
+            .FirstOrDefault();
+    }
+
+    /// <summary>A "Fix MSFS bindings" backup is there to put back.</summary>
+    public bool CanRestoreBindings => LatestBindingBackup() != null;
+
+    /// <summary>
+    /// "Restore MSFS bindings": puts the stick axes from the newest Fix backup back, for
+    /// beta testers flying without HeavyPro or removing it. Only the elevator, aileron and
+    /// rudder actions change; buttons and anything set since stay. What is there now is
+    /// kept too, in msfs-profile-replaced, so the restore itself can be undone by hand.
+    /// </summary>
+    private void RestoreMsfsBindings()
+    {
+        var backup = LatestBindingBackup();
+        if (backup == null)
+        {
+            System.Windows.MessageBox.Show("There is no \"Fix MSFS bindings\" backup to restore.", "HeavyPro");
+            return;
+        }
+        if (System.Diagnostics.Process.GetProcessesByName("FlightSimulator2024").Length > 0)
+        {
+            System.Windows.MessageBox.Show("Close MSFS 2024 first. It saves its control profiles when it exits, which would undo the restore.", "HeavyPro");
+            return;
+        }
+        var current = MsfsProfileFiles().ToDictionary(f => System.IO.Path.GetFileName(f.Path), f => f.Path, StringComparer.OrdinalIgnoreCase);
+        var files = System.IO.Directory.GetFiles(backup, "inputprofile_*")
+            .Where(f => current.ContainsKey(System.IO.Path.GetFileName(f))).ToList();
+        if (files.Count == 0)
+        {
+            System.Windows.MessageBox.Show("The profiles in the newest backup are no longer in MSFS, so there is nothing to restore.\n\nBackup: " + backup, "HeavyPro");
+            return;
+        }
+        var names = files.Select(f => "• " + (MsfsInputProfiles.Parse(System.IO.File.ReadAllText(f))?.Name ?? System.IO.Path.GetFileName(f)));
+        var answer = System.Windows.MessageBox.Show(
+            "HeavyPro will put the stick axes in these MSFS 2024 control profiles back as they were before \"Fix MSFS bindings\" (from " + System.IO.Path.GetFileName(backup) + "):\n\n"
+            + string.Join("\n", names) + "\n\nOnly the stick axes change; your buttons and anything you set since stay as they are. MSFS then sends your stick by itself again, and HeavyPro passes it through untouched until you fix the bindings again. Continue?",
+            "Restore MSFS bindings", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+        if (answer != System.Windows.MessageBoxResult.Yes)
+            return;
+
+        var replaced = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "HeavyPro", "msfs-profile-replaced", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+        try
+        {
+            System.IO.Directory.CreateDirectory(replaced);
+            foreach (var file in files)
+            {
+                var target = current[System.IO.Path.GetFileName(file)];
+                var bytes = System.IO.File.ReadAllBytes(target);
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(replaced, System.IO.Path.GetFileName(target)), bytes);
+                var bom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+                var restored = MsfsInputProfiles.RestoreAxes(System.IO.File.ReadAllText(target), System.IO.File.ReadAllText(file));
+                if (MsfsInputProfiles.Parse(restored) == null)
+                    throw new InvalidOperationException("the restore of " + System.IO.Path.GetFileName(target) + " did not check out; it was left unchanged");
+                System.IO.File.WriteAllText(target, restored, new System.Text.UTF8Encoding(bom));
+            }
+            System.IO.Directory.Move(backup, backup + "-restored");
+            _logger.Info($"Restored {files.Count} MSFS profile(s) from {backup}; the replaced ones are in {replaced}.");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Restoring the MSFS bindings failed", ex);
+            System.Windows.MessageBox.Show("HeavyPro could not restore the MSFS profiles: " + ex.Message + "\n\nThe files it replaced are in " + replaced, "HeavyPro");
+            return;
+        }
+        _lastBindingScan = DateTime.MinValue;
+        ScanMsfsBindings();
+        OnChanged(nameof(CanRestoreBindings));
+        System.Windows.MessageBox.Show("Done. Your stick axes are bound in MSFS again, as they were.\n\nStart MSFS 2024 and fly. If Steam asks about cloud saves for MSFS, choose the files on this PC.", "HeavyPro");
+    }
+
+    // ---------------- Beta ----------------
+    public string FooterText => $"HeavyPro {AppVersion.Current.ToString(3)} beta  ·  © 2026 Rotaidem. All rights reserved.";
+
+    /// <summary>
+    /// "Copy beta report": what a tester's bug report needs, on the clipboard. The Windows
+    /// user folder and any licence key are taken out, so it is safe to post.
+    /// </summary>
+    private void CopyBetaReport()
+    {
+        var a = _snap.Aircraft;
+        var lines = new List<string>
+        {
+            $"HeavyPro {AppVersion.Current.ToString(3)} beta report, {DateTime.Now:yyyy-MM-dd HH:mm}",
+            $"Windows {Environment.OSVersion.Version}, MSFS {(System.Diagnostics.Process.GetProcessesByName("FlightSimulator2024").Length > 0 ? "running" : "not running")}, {ConnectionLabel}",
+            $"Aircraft: {a.DisplayName} | {a.AtcModel} | {a.AtcType}",
+            $"Route: {_settings.InputRoute}, feel {_settings.FeelLevel}, master {(MasterEnable ? "on" : "off")}, badge {RouteBadge}",
+            IsReal1 ? $"REAL1 family: {Real1.For(_snap).Family}" : "REAL1 off",
+            $"Stick: {_settings.StickDevice} ({_settings.PitchAxis}/{_settings.RollAxis}), pedals: {_settings.RudderDevice} ({_settings.RudderAxis})",
+            $"MSFS bindings: {_profileConflict ?? "none fighting HeavyPro"}",
+            $"777 flight model: {(_settings.FlightModelOverride ? "on" : "off")} {FlightModelStatus.Replace("\n", " / ")}",
+            "",
+            "Recent log (newest first):"
+        };
+        lines.AddRange(LogLines.Take(80));
+        var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var text = System.Text.RegularExpressions.Regex.Replace(string.Join(Environment.NewLine, lines).Replace(profile, "%USERPROFILE%"),
+            @"HPRO(-[A-Z0-9]{4}){3}", "HPRO-****-****-****", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        try
+        {
+            System.Windows.Clipboard.SetText(text);
+            Status = "Beta report copied. Paste it in your report to Eliaz@rotaidem.com.";
+        }
+        catch (Exception ex)
+        {
+            _logger.Error("Copying the beta report failed", ex);
+            Status = "Could not copy the beta report: " + ex.Message;
+        }
     }
 
     // ---------------- In-game panel ----------------
@@ -1290,7 +1422,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             "PASS-THROUGH" => 1,
             "SHAPING" => 2,
             "AP ON · PAUSED" => 3,
-            "SET UP STICK" => 4,
+            "SET UP STICK" or "USE REAL1" => 4, // the panel's hint sends you to the app for both
             "UNBIND IN MSFS" => 5,
             "MOVE STICK" => 6,
             _ => 7

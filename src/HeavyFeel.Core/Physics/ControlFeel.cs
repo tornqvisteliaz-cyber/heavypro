@@ -48,7 +48,7 @@ public sealed record ControlFeel(
     {
         var id = (snapshot.Aircraft.Title + " " + snapshot.Aircraft.AtcModel + " " + snapshot.Aircraft.AtcType).ToUpperInvariant();
         var studyLevel = snapshot.Aircraft.IsFenixA320 || snapshot.Aircraft.IsPmdg777
-            || ContainsAny(id, "PMDG", "FENIX", "INIBUILDS", "FLYBYWIRE", "A32NX", "A380X", "IFLY", "FSLABS", "MADDOG", "HEADWIND", "LEONARDO");
+            || ContainsAny(id, "PMDG", "FENIX", "INIBUILDS", "BLUEBIRD", "BBS75", "FLYBYWIRE", "A32NX", "A380X", "IFLY", "FSLABS", "MADDOG", "HEADWIND", "LEONARDO");
 
         // A widebody FBW Airbus has the same sidestick spring, but pilots fly it with
         // smaller, slower inputs than an A320, so it gets more of the shaping.
