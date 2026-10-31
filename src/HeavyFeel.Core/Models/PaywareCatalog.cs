@@ -19,7 +19,8 @@ public enum FeelFamily
 /// <summary>A payware aircraft HeavyPro knows by name.</summary>
 /// <param name="Name">What the app shows, e.g. "PMDG 777-300ER".</param>
 /// <param name="ModelsOwnRudderLimit">A study-level add-on that models its own rudder limiting, so HeavyPro's stays out (only where HeavyPro already treated it so).</param>
-public sealed record PaywareAircraft(string Name, FeelFamily Family, bool ModelsOwnRudderLimit);
+/// <param name="ReadsStickItself">Its own code takes the stick from the MSFS binding (BlueBird 757, Aerosoft A330/A340): it cannot be shaped while the stick is bound.</param>
+public sealed record PaywareAircraft(string Name, FeelFamily Family, bool ModelsOwnRudderLimit, bool ReadsStickItself = false);
 
 /// <summary>
 /// The major payware aircraft for MSFS 2024, recognised from the title and ATC codes MSFS
@@ -33,10 +34,10 @@ public sealed record PaywareAircraft(string Name, FeelFamily Family, bool Models
 /// </summary>
 public static class PaywareCatalog
 {
-    private sealed record Entry(Func<string, AircraftIdentity, bool> Matches, Func<string, string> Name, FeelFamily Family, bool OwnRudder);
+    private sealed record Entry(Func<string, AircraftIdentity, bool> Matches, Func<string, string> Name, FeelFamily Family, bool OwnRudder, bool ReadsStick = false);
 
-    private static Entry E(Func<string, bool> matches, string name, FeelFamily family, bool ownRudder = false) =>
-        new((blob, _) => matches(blob), _ => name, family, ownRudder);
+    private static Entry E(Func<string, bool> matches, string name, FeelFamily family, bool ownRudder = false, bool readsStick = false) =>
+        new((blob, _) => matches(blob), _ => name, family, ownRudder, readsStick);
 
     private static bool Has(string blob, params string[] any) => any.Any(blob.Contains);
 
@@ -48,7 +49,7 @@ public static class PaywareCatalog
         E(b => Has(b, "PMDG 737", "PMDG737"), "PMDG 737", FeelFamily.Boeing737, true),
         E(b => Has(b, "IFLY") && Has(b, "737"), "iFly 737 MAX 8", FeelFamily.Boeing737, true),
         E(b => Has(b, "CSS B737", "CSS 737"), "CSS 737 Classic", FeelFamily.Boeing737),
-        new((b, id) => id.IsBlueBird757, _ => "BlueBird 757-200", FeelFamily.Boeing757, true),
+        new((b, id) => id.IsBlueBird757, _ => "BlueBird 757-200", FeelFamily.Boeing757, true, true),
         E(b => Has(b, "BOEING 727", "B721", "B722", "B727"), "FSS Boeing 727", FeelFamily.Airliner),
         E(b => Has(b, "B789") && Has(b, "787-9") && !Has(b, "ASOBO"), "Horizon Simulations 787-9", FeelFamily.Boeing787),
         E(b => Has(b, "PMDG DC-6", "PMDG DC6"), "PMDG DC-6", FeelFamily.Airliner),
@@ -57,8 +58,8 @@ public static class PaywareCatalog
         new((b, id) => id.IsFenixA320, FenixName, FeelFamily.Fenix, true),
         E(b => Has(b, "FSLABS", "FSL ("), "FSLabs A321", FeelFamily.AirbusNarrow, true),
         E(b => Has(b, "INIBUILDS A32", "INIBUILDS A20N", "INIBUILDS A21N"), "iniBuilds A320neo", FeelFamily.AirbusNarrow, true),
-        E(b => Has(b, "A346 PRO", "AEROSOFT A346", "AEROSOFT A340"), "Aerosoft A340-600 Pro", FeelFamily.AirbusWide),
-        E(b => Has(b, "AEROSOFT A330", "A339RR", "AEROSOFT A339"), "Aerosoft A330-900neo", FeelFamily.AirbusWide),
+        E(b => Has(b, "A346 PRO", "AEROSOFT A346", "AEROSOFT A340"), "Aerosoft A340-600 Pro", FeelFamily.AirbusWide, readsStick: true),
+        E(b => Has(b, "AEROSOFT A330", "A339RR", "AEROSOFT A339"), "Aerosoft A330-900neo", FeelFamily.AirbusWide, readsStick: true),
         new((b, _) => Has(b, "A350", "A359", "A35K"), b => Has(b, "A35K", "A350-1000") ? "iniBuilds A350-1000" : "iniBuilds A350-900", FeelFamily.AirbusWide, true),
         E(b => Has(b, "A300-600", "A306", "A300"), "iniBuilds A300-600", FeelFamily.HeavyAirliner),
         E(b => Has(b, "A310"), "iniBuilds A310", FeelFamily.HeavyAirliner),
@@ -94,7 +95,7 @@ public static class PaywareCatalog
         foreach (var e in Entries)
         {
             if (e.Matches(blob, id))
-                return new PaywareAircraft(e.Name(blob), e.Family, e.OwnRudder);
+                return new PaywareAircraft(e.Name(blob), e.Family, e.OwnRudder, e.ReadsStick);
         }
         return null;
     }

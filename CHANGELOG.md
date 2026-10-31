@@ -2,6 +2,13 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.6.9
+
+- **No more jumping on the 777 and the BlueBird 757:** HeavyPro never puts an aircraft on Direct while your stick is still bound in MSFS (the aircraft got the raw stick and HeavyPro's in turn). The 777, 787, A320neo and GA keep the MSFS bindings route.
+- **The Aerosoft A330/A340 move again, and the 757 is smooth:** they read the MSFS binding themselves, so HeavyPro now hands them the stick untouched (PASS-THROUGH, without HeavyPro's weight). Give them an MSFS controls profile without the stick axes and pick REAL1 to get the weight.
+- **Back to the usual route at the main menu** after one of those, before the next aircraft loads, so the PMDG 777 gets the stick in the right order.
+- **Pick your own route:** Stick setup has Auto (recommended), REAL1, Direct and MSFS bindings again, and shows which route is in use and why.
+
 ## 0.6.8
 
 - **Major payware aircraft recognised by name:** HeavyPro shows which aircraft you are flying ("PMDG 777-300ER", "iniBuilds A350-1000", "Fenix A320"…) and REAL1 gives each the feel of its real controls: Boeing columns for the PMDG 737 and 777, iFly 737 MAX, CSS 737, BlueBird 757, 727, MD-82, DC-9 and E-Jets; heavy columns for the A300, A310, TriStar, MD-11 and Concorde; Airbus sidesticks for Fenix, FSLabs, iniBuilds and Aerosoft Airbuses; a regional feel for the HondaJet, Citation, F406, Islander, Kodiak and Black Square; light cables for A2A, Just Flight and Carenado. The full list is under Setup.

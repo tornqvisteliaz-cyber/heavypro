@@ -14,9 +14,10 @@ Windows desktop app for **Microsoft Flight Simulator 2024** that makes your stic
 **The route is picked for you** (Setup shows which one and why):
 
 - Stick bound in MSFS (the usual setup): HeavyPro shapes the stick through that binding, the **MSFS bindings** route.
-- The BlueBird 757 reads the stick itself, so with the stick bound it gets the stick **directly** and HeavyPro's in-sim bridge answers the MSFS binding with the shaped value.
+- The BlueBird 757 and the Aerosoft A330/A340 read the MSFS binding themselves, so with the stick bound HeavyPro hands them the stick **untouched**: they fly normally, without HeavyPro's weight. Give them an MSFS controls profile without the stick axes and pick REAL1 to get the weight.
 - Stick not bound in MSFS: **REAL1**, the feel tuned for each aircraft, or **Direct** with your own sliders when you linked one of your profiles to the aircraft.
-- If the stick never reaches HeavyPro through MSFS for an aircraft, that aircraft switches to REAL1.
+- After one of those, HeavyPro goes back to the usual route at the main menu, before the next aircraft loads.
+- Prefer one route? Pick it under Stick setup; **Auto** goes back to picking per aircraft.
 
 **Fix MSFS bindings for me** clears only the stick axes in your MSFS 2024 profiles and keeps a backup; **Restore MSFS bindings** puts that backup back.
 

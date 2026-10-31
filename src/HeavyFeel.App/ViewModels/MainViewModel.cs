@@ -162,6 +162,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (_settings.AutoConnect && !_client.IsConnected)
                 Connect();
+            ResetRouteAtMenu();
             if (DateTime.UtcNow - _lastBindingScan > TimeSpan.FromSeconds(20))
                 ScanMsfsBindings();
             // Picks up a PMDG update, or finishes a build that waited for MSFS to close.
@@ -496,8 +497,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public string SetupNote =>
-        "HeavyPro picks the route by itself for every aircraft. With your stick bound in MSFS it shapes the stick through that binding (the BlueBird 757 gets it directly, with HeavyPro's in-sim bridge answering the binding). "
-        + "With the stick unbound it uses REAL1, the feel tuned for each aircraft, or your own profile if you linked one to the aircraft. Normal / Medium / Realistic set how strong it is.";
+        "Auto picks the route for each aircraft. With your stick bound in MSFS it shapes the stick through that binding; the BlueBird 757 and Aerosoft A330/A340 read the binding themselves, so they get the stick untouched (no weight). "
+        + "With the stick unbound it uses REAL1, the feel tuned for each aircraft, or your own profile if you linked one to the aircraft. Pick a route yourself to use it for every aircraft. Normal / Medium / Realistic set how strong it is.";
 
     private bool StickConfigured => !string.IsNullOrEmpty(_settings.StickDevice);
 
@@ -650,9 +651,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             if (!_stickHidden && now - _stickHiddenSince.Value > TimeSpan.FromSeconds(1.5))
             {
                 _stickHidden = true;
-                _logger.Warn("The stick moves but no stick event reaches HeavyPro through MSFS for this aircraft: switching it to REAL1.");
-                _stickMissingFor = AircraftProfileLinks.Key(_snap.Aircraft);
-                PickRoute();
+                // No switch to Direct here: with the stick bound that gives the aircraft both sticks (the 777 jumped).
+                _logger.Warn("The stick moves but no stick event reaches HeavyPro: the aircraft took it first. "
+                    + "Connect HeavyPro in the main menu, before loading the flight.");
             }
         }
         else if (pitchRollCaptured || !_client.IsConnected)
@@ -1163,6 +1164,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (!_client.IsConnected) return "OFFLINE";
             if (_client.DirectInput && !StickConfigured) return "SET UP STICK";
+            if (IsDirect && _route.PassThrough) return "PASS-THROUGH";
             if (IsDirect && !_client.CounterMsfsBindings && (_client.InputConflict != null || (_profileConflict != null && _client.KnownBindingConflict))) return "UNBIND IN MSFS";
             if (_client.RouteStatus == InputRouteStatus.Fault) return "FAULT";
             if (!MasterEnable) return "PASS-THROUGH";
@@ -1180,7 +1182,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             ? "MSFS still sends your " + _client.InputConflict + " axis. HeavyPro passes your stick through untouched so it cannot twitch, which also means no weight. In MSFS Controls, clear Elevator / Aileron / Rudder Axis for that device, then reconnect."
             : "MSFS still binds " + _profileConflict + ". On Direct, HeavyPro passes your stick through untouched so it cannot twitch, which also means no weight. Press \"Fix MSFS bindings for me\" under Stick setup (with MSFS closed).",
         "FAULT" => "SimConnect refused a stick write. Disconnect and connect again.",
-        "PASS-THROUGH" => "Your stick goes to the sim untouched. Turn on Master Enable to add weight.",
+        "PASS-THROUGH" => _route.PassThrough
+            ? _route.Reason + ": it flies normally, without HeavyPro's weight. To get the weight, give this aircraft an MSFS controls profile without the stick axes and pick REAL1 under Stick setup."
+            : "Your stick goes to the sim untouched. Turn on Master Enable to add weight.",
         "AP ON · PAUSED" => "Autopilot is flying. HeavyPro hands the stick back until you disconnect it.",
         "MOVE STICK" => IsDirect ? "Waiting for the stick. Check it is plugged in."
             : _stickHidden ? "Your stick moves, but the aircraft takes it before HeavyPro can (the A350 does this when it loads first). Disconnect, go to the MSFS main menu, connect HeavyPro, then load the flight."
@@ -1193,7 +1197,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         _client.DirectInput = IsDirect;
         // The BlueBird 757 with the stick bound in MSFS: the in-sim bridge answers the binding.
-        _client.CounterMsfsBindings = IsDirect && _route.BridgeAnswersBindings;
+        _client.CounterMsfsBindings = false;
     }
 
     // ---------------- MSFS bindings that fight HeavyPro ----------------
@@ -1237,41 +1241,85 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         PickRoute();
     }
 
-    // ---------------- One route, picked by itself ----------------
+    // ---------------- Route: picked by itself, or by you ----------------
     private bool _stickBoundInMsfs;
-    private string _stickMissingFor = "";
     private RouteChoice _route = new(Real1.RouteName, false, "starting");
+    // The aircraft the route was picked for. Cleared at the main menu (see ResetRouteAtMenu).
+    private AircraftIdentity _routeAircraft = new();
+    private DateTime? _notFlyingSince;
 
-    /// <summary>Which route HeavyPro picked and why, for the Setup card and the header tooltip.</summary>
+    private const string RouteAutoLabel = "Auto (recommended)";
+    public IReadOnlyList<string> RouteOptions { get; } = new[] { RouteAutoLabel, RouteReal1Label, RouteDirectLabel, RouteMaskedLabel };
+
+    /// <summary>Auto, or the route you picked yourself, which then stays for every aircraft.</summary>
+    public string SelectedRouteOption
+    {
+        get => _settings.RouteOverride switch
+        {
+            "Real1" => RouteReal1Label,
+            "Direct" => RouteDirectLabel,
+            "Masked" => RouteMaskedLabel,
+            _ => RouteAutoLabel
+        };
+        set
+        {
+            var picked = value == RouteReal1Label ? Real1.RouteName : value == RouteDirectLabel ? "Direct" : value == RouteMaskedLabel ? "Masked" : RoutePicker.Auto;
+            if (picked == _settings.RouteOverride)
+                return;
+            _settings.RouteOverride = picked;
+            _logger.Info("Route: " + (picked.Length == 0 ? "auto" : picked + " (picked by you)") + ".");
+            OnChanged();
+            ScheduleSave();
+            PickRoute();
+        }
+    }
+
+    /// <summary>Which route is in use and why, for the Setup card.</summary>
     public string RouteText => RoutePicker.Label(_route) + " — " + _route.Reason;
 
     /// <summary>
-    /// Picks the route from what HeavyPro can see (see <see cref="RoutePicker"/>): whether the
-    /// stick is bound in MSFS, the aircraft, and a profile you linked to it. Runs at start,
-    /// on every aircraft, and whenever the MSFS bindings change.
+    /// Picks the route (see <see cref="RoutePicker"/>): your pick, or from whether the stick is
+    /// bound in MSFS, the aircraft, and a profile you linked to it. Runs at start, on every
+    /// aircraft, whenever the MSFS bindings change, and back at the main menu.
     /// </summary>
     private void PickRoute()
     {
-        var aircraft = _snap.Aircraft;
-        var key = AircraftProfileLinks.Key(aircraft);
-        var choice = RoutePicker.Choose(_stickBoundInMsfs, aircraft, AircraftProfileLinks.Find(_settings, aircraft) != null,
-            key.Length > 0 && key == _stickMissingFor);
-        // A binding in another MSFS profile is no conflict for an aircraft whose profile does not have it.
-        _client.KnownBindingConflict = _profileConflict != null && !choice.StickMissingFallback;
+        var aircraft = _routeAircraft;
+        var choice = RoutePicker.Choose(_stickBoundInMsfs, aircraft, AircraftProfileLinks.Find(_settings, aircraft) != null, _settings.RouteOverride);
+        // Direct with the stick bound passes it through untouched instead of fighting it.
+        _client.KnownBindingConflict = choice.PassThrough || _profileConflict != null;
         if (choice == _route)
             return;
-        var bridgeChanged = choice.BridgeAnswersBindings != _route.BridgeAnswersBindings;
         _route = choice;
-        _logger.Info("Route picked: " + RouteText + ".");
+        _logger.Info("Route: " + RouteText + ".");
         var label = choice.Route == "Masked" ? RouteMaskedLabel : choice.Route == "Direct" ? RouteDirectLabel : RouteReal1Label;
         if (label != SelectedInputRoute)
             SelectedInputRoute = label;
-        if (bridgeChanged)
-            ApplyTransport();
         OnChanged(nameof(RouteText));
         OnChanged(nameof(RouteBadge));
         OnChanged(nameof(RouteHint));
         OnChanged(nameof(CanFixBindings));
+    }
+
+    /// <summary>
+    /// After a hands-off aircraft (757, Aerosoft A330), back at the main menu: return to the
+    /// usual route before the next aircraft loads. Switching after it loaded let the PMDG 777
+    /// take the stick first, so the MSFS bindings route saw nothing.
+    /// </summary>
+    private void ResetRouteAtMenu()
+    {
+        var flying = _client.State == ConnectionState.SimRunning;
+        if (flying)
+        {
+            _notFlyingSince = null;
+            return;
+        }
+        _notFlyingSince ??= DateTime.UtcNow;
+        if (!_route.PassThrough || DateTime.UtcNow - _notFlyingSince.Value < TimeSpan.FromSeconds(5))
+            return;
+        _logger.Info("Back at the menu: the route goes back to the usual one before the next aircraft.");
+        _routeAircraft = new AircraftIdentity();
+        PickRoute();
     }
 
     /// <summary>MSFS 2024 (Steam) control profiles: Steam\userdata\*\2537590\remote\inputprofile_*.</summary>
@@ -1302,7 +1350,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     /// Only on REAL1 and Direct. The MSFS bindings route needs those bindings: offered there,
     /// Fix cleared the stick from every airplane profile and the GA planes lost their stick.
     /// </remarks>
-    public bool CanFixBindings => IsDirect && !_route.BridgeAnswersBindings && _profileConflict != null;
+    public bool CanFixBindings => IsDirect && !_route.PassThrough && _profileConflict != null;
 
     /// <summary>
     /// "Fix MSFS bindings for me": clears exactly the stick axes HeavyPro feeds (never a button) in the MSFS
@@ -1575,6 +1623,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private void ApplyIdentity(AircraftIdentity id)
     {
         _snap = new FlightSnapshot { Aircraft = id };
+        _routeAircraft = id;
         var known = PaywareCatalog.Find(id);
         DetectedProfile = known?.Name ?? id.SuggestedProfile;
         if (known != null)

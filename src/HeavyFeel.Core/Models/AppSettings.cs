@@ -54,6 +54,9 @@ public sealed class AppSettings
     /// <summary>Real 777 feel for the PMDG 777 (an override package in Community). Off until the user turns it on.</summary>
     public bool FlightModelOverride { get; set; }
 
+    /// <summary>"" picks the route by itself; "Real1", "Direct" or "Masked" is your own pick for every aircraft.</summary>
+    public string RouteOverride { get; set; } = "";
+
     /// <summary>Closing the window keeps HeavyPro running in the tray, still shaping.</summary>
     public bool RunInBackground { get; set; } = true;
     public int SettingsVersion { get; set; }
