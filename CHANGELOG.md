@@ -2,6 +2,14 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.6.7
+
+- **One route, picked for you:** no more choosing between REAL1, Direct and MSFS bindings. With your stick bound in MSFS, HeavyPro shapes it through that binding, as in 0.5.3; with it unbound, REAL1 (or Direct with your own profile if you linked one to the aircraft). If the stick never reaches HeavyPro through MSFS in an aircraft, that aircraft switches to REAL1 by itself. Setup shows which route is in use and why.
+- **BlueBird 757:** it reads the stick itself, so with your stick bound in MSFS it now gets the stick directly from HeavyPro, and HeavyPro's in-sim bridge answers your MSFS binding with the shaped value. This is new: if the 757 does not feel right, press Copy beta report after the flight and send it to us.
+- **Real 777 feel:** the PMDG 777 switch (and its feel) is now called "PMDG 777: Real 777 feel".
+- **Runs in the background:** closing the window keeps HeavyPro shaping from the tray; right-click its icon to open or exit. "Start with Windows (in the background)" under Aircraft & App starts it there when you log in.
+- The Terms of Service were updated for the new name; HeavyPro asks you to accept them once more.
+
 ## 0.6.6
 
 - **The MSFS bindings route works like before again:** "Fix MSFS bindings" is no longer offered on that route. The route needs your stick bound in MSFS, and Fix there cleared it from every airplane profile, so the GA planes got no stick. Fix still appears on REAL1 and Direct, where it belongs; if you pressed it, Restore MSFS bindings (Setup) puts your stick axes back.

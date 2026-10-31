@@ -9,14 +9,20 @@ Windows desktop app for **Microsoft Flight Simulator 2024** that makes your stic
 1. Download [HeavyProSetup.exe](https://github.com/tornqvisteliaz-cyber/heavypro/releases/download/beta/HeavyProSetup.exe) (newest beta; also on [rotaidem.com/downloads](https://rotaidem.com/downloads)), run it, enter your licence key and press Install. Setup also adds the HeavyPro panel to your MSFS 2024 Community folder (a white R in the in-game toolbar) and removes the toolbar package older versions installed there.
    Windows may say *"Windows protected your PC"* because the installer is not code-signed yet: click **More info → Run anyway**.
 2. Start HeavyPro. Under **Stick setup** press **Detect** next to Pitch and pull the stick fully back, then **Detect** next to Roll and roll fully right. Do the same for your rudder pedals if you want HeavyPro to shape them.
-3. In MSFS **Controls**, clear **Elevator Axis** and **Aileron Axis** (and **Rudder Axis** if HeavyPro has your pedals) for those devices. HeavyPro now feeds them itself.
-4. Load a flight and tick **MASTER ENABLE**.
+3. Load a flight and tick **MASTER ENABLE**.
 
-The **REAL1** and **Direct** routes work with every aircraft we tested, including the PMDG 777, the BlueBird 757 and other add-ons that run their own control model. The **MSFS bindings** route keeps the stick bound in MSFS and HeavyPro shapes it from there.
+**The route is picked for you** (Setup shows which one and why):
 
-**Fix MSFS bindings for me** (Setup, REAL1 and Direct only) clears only the stick axes in your MSFS 2024 profiles and keeps a backup; **Restore MSFS bindings** puts that backup back. The MSFS bindings route needs those bindings, so Fix is not offered there.
+- Stick bound in MSFS (the usual setup): HeavyPro shapes the stick through that binding, the **MSFS bindings** route.
+- The BlueBird 757 reads the stick itself, so with the stick bound it gets the stick **directly** and HeavyPro's in-sim bridge answers the MSFS binding with the shaped value.
+- Stick not bound in MSFS: **REAL1**, the feel tuned for each aircraft, or **Direct** with your own sliders when you linked one of your profiles to the aircraft.
+- If the stick never reaches HeavyPro through MSFS for an aircraft, that aircraft switches to REAL1.
 
-If you leave an axis bound in MSFS while on the Direct route, MSFS and HeavyPro both drive the yoke and it twitches.
+**Fix MSFS bindings for me** clears only the stick axes in your MSFS 2024 profiles and keeps a backup; **Restore MSFS bindings** puts that backup back.
+
+**Runs in the background:** closing the window keeps HeavyPro shaping from the tray (right-click its icon to open or exit). **Start with Windows** under Aircraft & app starts it there when you log in.
+
+**PMDG 777: Real 777 feel** (off until you turn it on) builds a copy of your own PMDG 777 flight model with more pitch and roll inertia and damping, in a package of its own.
 
 The header badge tells you what is happening:
 

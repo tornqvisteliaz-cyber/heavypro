@@ -51,8 +51,11 @@ public sealed class AppSettings
     public string RudderAxis { get; set; } = "R";
     public bool InvertRudder { get; set; }
 
-    /// <summary>FF777-style flight model for the PMDG 777 (an override package in Community). Off until the user turns it on.</summary>
+    /// <summary>Real 777 feel for the PMDG 777 (an override package in Community). Off until the user turns it on.</summary>
     public bool FlightModelOverride { get; set; }
+
+    /// <summary>Closing the window keeps HeavyPro running in the tray, still shaping.</summary>
+    public bool RunInBackground { get; set; } = true;
     public int SettingsVersion { get; set; }
 
     public List<CustomProfile> CustomProfiles { get; set; } = new();

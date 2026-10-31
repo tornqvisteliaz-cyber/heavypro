@@ -70,7 +70,7 @@ public class FlightModelOverridesTests
             Assert.Equal(Path777W, source.VirtualPath);
 
             var messages = FlightModelOverrides.Sync(community, enabled: true, simRunning: false);
-            Assert.Contains("PMDG 777-300ER: FF777-style flight model built.", messages);
+            Assert.Contains("PMDG 777-300ER: Real 777 feel built.", messages);
             var package = Path.Combine(community, "rotaidem-heavypro-fm-77w");
             var cfg = File.ReadAllText(Path.Combine(package, Path777W.Replace('/', Path.DirectorySeparatorChar)));
             Assert.Equal(FlightModelOverrides.Patch(Cfg777W, FlightModelOverrides.Changes), cfg);
@@ -83,7 +83,7 @@ public class FlightModelOverridesTests
             // PMDG's own file is untouched.
             Assert.Equal(Cfg777W, File.ReadAllText(Path.Combine(community, "pmdg-aircraft-77w", Path777W.Replace('/', Path.DirectorySeparatorChar))));
 
-            Assert.Contains("PMDG 777-300ER: FF777-style flight model on.", FlightModelOverrides.Sync(community, true, false));
+            Assert.Contains("PMDG 777-300ER: Real 777 feel on.", FlightModelOverrides.Sync(community, true, false));
         }
         finally
         {
@@ -103,8 +103,8 @@ public class FlightModelOverridesTests
             File.WriteAllText(pmdgCfg, updated);
 
             // While MSFS runs nothing is written.
-            Assert.Contains("PMDG 777-300ER: FF777-style flight model is built when MSFS is closed.", FlightModelOverrides.Sync(community, true, true));
-            Assert.Contains("PMDG 777-300ER: FF777-style flight model built.", FlightModelOverrides.Sync(community, true, false));
+            Assert.Contains("PMDG 777-300ER: Real 777 feel is built when MSFS is closed.", FlightModelOverrides.Sync(community, true, true));
+            Assert.Contains("PMDG 777-300ER: Real 777 feel built.", FlightModelOverrides.Sync(community, true, false));
             var package = Path.Combine(community, "rotaidem-heavypro-fm-77w");
             Assert.Contains("pitch_stability      = 0.80", File.ReadAllText(Path.Combine(package, Path777W.Replace('/', Path.DirectorySeparatorChar))));
 

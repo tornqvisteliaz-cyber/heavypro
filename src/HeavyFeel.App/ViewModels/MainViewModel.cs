@@ -7,6 +7,7 @@ using System.Text;
 using System.Windows.Input;
 using System.Windows.Threading;
 using HeavyFeel.App.Input;
+using HeavyFeel.App.Services;
 using HeavyFeel.Core.Models;
 using HeavyFeel.Core.Physics;
 using HeavyFeel.Core.Services;
@@ -168,6 +169,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 SyncFlightModel();
         };
         ScanMsfsBindings();
+        PickRoute();
         SyncFlightModel();
 
         _logger.Info("HeavyFeel started. Backend=" + backendName);
@@ -490,14 +492,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         private set => Set(ref _stickStatus, value);
     }
 
-    public string SetupNote => IsReal1
-        ? "REAL1 tunes the feel for each aircraft by itself (PMDG 777/737, BlueBird 757, iniBuilds A350/A320, Fenix, GA and more), with real control mass like the best flight-model mods. Normal / Medium / Realistic set how strong it is; the sliders are not used. "
-          + "Like Direct, it needs the stick unbound in MSFS: use Fix MSFS bindings if HeavyPro shows UNBIND IN MSFS."
-        : IsDirect
-        ? "In MSFS Controls, clear Elevator Axis and Aileron Axis"
-          + (string.IsNullOrEmpty(_settings.RudderDevice) ? "" : " and Rudder Axis")
-          + " for these devices. HeavyPro feeds them itself; a binding left in MSFS fights it and twitches."
-        : "Keep the stick bound to Elevator / Aileron / Rudder Axis in MSFS. HeavyPro takes over the binding and sends the shaped stick on.";
+    public string SetupNote =>
+        "HeavyPro picks the route by itself for every aircraft. With your stick bound in MSFS it shapes the stick through that binding (the BlueBird 757 gets it directly, with HeavyPro's in-sim bridge answering the binding). "
+        + "With the stick unbound it uses REAL1, the feel tuned for each aircraft, or your own profile if you linked one to the aircraft. Normal / Medium / Realistic set how strong it is.";
 
     private bool StickConfigured => !string.IsNullOrEmpty(_settings.StickDevice);
 
@@ -650,8 +647,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             if (!_stickHidden && now - _stickHiddenSince.Value > TimeSpan.FromSeconds(1.5))
             {
                 _stickHidden = true;
-                _logger.Warn("The stick moves but no stick event reaches HeavyPro: the aircraft took it first. "
-                    + "Connect HeavyPro in the main menu, before loading the flight.");
+                _logger.Warn("The stick moves but no stick event reaches HeavyPro through MSFS for this aircraft: switching it to REAL1.");
+                _stickMissingFor = AircraftProfileLinks.Key(_snap.Aircraft);
+                PickRoute();
             }
         }
         else if (pitchRollCaptured || !_client.IsConnected)
@@ -813,7 +811,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     }
 
     /// <summary>
-    /// FF777-style flight model for the PMDG 777: an override package HeavyPro builds in the
+    /// Real 777 feel for the PMDG 777: an override package HeavyPro builds in the
     /// Community folder from the user's own PMDG file (see <see cref="FlightModelOverrides"/>).
     /// </summary>
     public bool FlightModelOverride
@@ -822,10 +820,45 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         set
         {
             _settings.FlightModelOverride = value;
-            _logger.Info("FF777-style flight model for the PMDG 777 " + (value ? "on" : "off") + ".");
+            _logger.Info("Real 777 feel for the PMDG 777 " + (value ? "on" : "off") + ".");
             OnChanged();
             ScheduleSave();
             SyncFlightModel();
+        }
+    }
+
+    /// <summary>Closing the window keeps HeavyPro running in the tray.</summary>
+    public bool RunInBackground
+    {
+        get => _settings.RunInBackground;
+        set
+        {
+            _settings.RunInBackground = value;
+            OnChanged();
+            ScheduleSave();
+        }
+    }
+
+    /// <summary>Starts HeavyPro in the tray when Windows starts (the Run key, for this Windows user only).</summary>
+    public bool StartWithWindows
+    {
+        get
+        {
+            try { return BackgroundTray.StartsWithWindows; }
+            catch (Exception) { return false; }
+        }
+        set
+        {
+            try
+            {
+                BackgroundTray.StartsWithWindows = value;
+                _logger.Info("Start with Windows " + (value ? "on" : "off") + ".");
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Could not change Start with Windows", ex);
+            }
+            OnChanged();
         }
     }
 
@@ -1127,7 +1160,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             if (!_client.IsConnected) return "OFFLINE";
             if (_client.DirectInput && !StickConfigured) return "SET UP STICK";
-            if (IsDirect && (_client.InputConflict != null || _profileConflict != null)) return "UNBIND IN MSFS";
+            if (IsDirect && !_client.CounterMsfsBindings && (_client.InputConflict != null || (_profileConflict != null && _client.KnownBindingConflict))) return "UNBIND IN MSFS";
             if (_client.RouteStatus == InputRouteStatus.Fault) return "FAULT";
             if (!MasterEnable) return "PASS-THROUGH";
             if (_snap.AutopilotMaster) return "AP ON · PAUSED";
@@ -1156,7 +1189,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private void ApplyTransport()
     {
         _client.DirectInput = IsDirect;
-        _client.CounterMsfsBindings = false;
+        // The BlueBird 757 with the stick bound in MSFS: the in-sim bridge answers the binding.
+        _client.CounterMsfsBindings = IsDirect && _route.BridgeAnswersBindings;
     }
 
     // ---------------- MSFS bindings that fight HeavyPro ----------------
@@ -1187,14 +1221,54 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _logger.Warn("Could not read the MSFS control profiles: " + ex.Message);
         }
         _profileBindings = bindings;
-        if (found == _profileConflict)
+        var stickPid = MsfsInputProfiles.ProductIdFromKey(_settings.StickDevice);
+        var stickBound = bindings.Any(b => b.Axes.Contains("pitch") || b.Axes.Contains("roll"));
+        if (found == _profileConflict && stickBound == _stickBoundInMsfs)
             return;
         _profileConflict = found;
-        _client.KnownBindingConflict = found != null;
+        _stickBoundInMsfs = stickBound;
         OnChanged(nameof(CanFixBindings));
         _logger.Info(found == null
             ? "MSFS control profiles: no stick axes bound for HeavyPro's devices."
-            : "MSFS control profile still binds " + found + ". Clear those axes in MSFS Controls.");
+            : "MSFS control profile binds " + found + ".");
+        PickRoute();
+    }
+
+    // ---------------- One route, picked by itself ----------------
+    private bool _stickBoundInMsfs;
+    private string _stickMissingFor = "";
+    private RouteChoice _route = new(Real1.RouteName, false, "starting");
+
+    /// <summary>Which route HeavyPro picked and why, for the Setup card and the header tooltip.</summary>
+    public string RouteText => RoutePicker.Label(_route) + " — " + _route.Reason;
+
+    /// <summary>
+    /// Picks the route from what HeavyPro can see (see <see cref="RoutePicker"/>): whether the
+    /// stick is bound in MSFS, the aircraft, and a profile you linked to it. Runs at start,
+    /// on every aircraft, and whenever the MSFS bindings change.
+    /// </summary>
+    private void PickRoute()
+    {
+        var aircraft = _snap.Aircraft;
+        var key = AircraftProfileLinks.Key(aircraft);
+        var choice = RoutePicker.Choose(_stickBoundInMsfs, aircraft, AircraftProfileLinks.Find(_settings, aircraft) != null,
+            key.Length > 0 && key == _stickMissingFor);
+        // A binding in another MSFS profile is no conflict for an aircraft whose profile does not have it.
+        _client.KnownBindingConflict = _profileConflict != null && !choice.StickMissingFallback;
+        if (choice == _route)
+            return;
+        var bridgeChanged = choice.BridgeAnswersBindings != _route.BridgeAnswersBindings;
+        _route = choice;
+        _logger.Info("Route picked: " + RouteText + ".");
+        var label = choice.Route == "Masked" ? RouteMaskedLabel : choice.Route == "Direct" ? RouteDirectLabel : RouteReal1Label;
+        if (label != SelectedInputRoute)
+            SelectedInputRoute = label;
+        if (bridgeChanged)
+            ApplyTransport();
+        OnChanged(nameof(RouteText));
+        OnChanged(nameof(RouteBadge));
+        OnChanged(nameof(RouteHint));
+        OnChanged(nameof(CanFixBindings));
     }
 
     /// <summary>MSFS 2024 (Steam) control profiles: Steam\userdata\*\2537590\remote\inputprofile_*.</summary>
@@ -1225,7 +1299,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     /// Only on REAL1 and Direct. The MSFS bindings route needs those bindings: offered there,
     /// Fix cleared the stick from every airplane profile and the GA planes lost their stick.
     /// </remarks>
-    public bool CanFixBindings => IsDirect && _profileConflict != null;
+    public bool CanFixBindings => IsDirect && !_route.BridgeAnswersBindings && _profileConflict != null;
 
     /// <summary>
     /// "Fix MSFS bindings for me": clears exactly the stick axes HeavyPro feeds (never a button) in the MSFS
@@ -1515,6 +1589,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             }
         }
         OnChanged(nameof(AircraftLinkText));
+        PickRoute();
         RaiseTelemetry();
     }
 
@@ -1562,6 +1637,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
         _linkedAircraft = key;
         OnChanged(nameof(AircraftLinkText));
+        PickRoute();
         ScheduleSave();
     }
 

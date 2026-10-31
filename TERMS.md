@@ -1,6 +1,6 @@
 # HeavyPro Terms of Service
 
-Last updated: October 30, 2026
+Last updated: October 31, 2026
 
 These terms apply to HeavyPro, its installer, its in-game panel and its licence service ("HeavyPro"), made by Rotaidem ("we", "us"). By installing or using HeavyPro you agree to them. They sit alongside the Rotaidem website terms; where the two differ for HeavyPro, these apply.
 
@@ -41,7 +41,7 @@ We may revoke a licence key that is shared or used against these terms.
 
 - It reads your MSFS 2024 control profiles. "Fix MSFS bindings" edits them only when you ask, removes only stick axes (never buttons) and keeps a backup; "Restore MSFS bindings" puts those axes back without touching anything else.
 - It adds its in-game panel to your MSFS Community folder.
-- "PMDG 777: FF777-style flight model" is off until you turn it on. It then builds a copy of your own PMDG 777 flight model, with a few lines changed, in a package of its own. It never edits or shares another developer's files. You are responsible for using it within the licence of your PMDG product, and should turn it off before contacting PMDG support.
+- "PMDG 777: Real 777 feel" is off until you turn it on. It then builds a copy of your own PMDG 777 flight model, with a few lines changed, in a package of its own. It never edits or shares another developer's files. You are responsible for using it within the licence of your PMDG product, and should turn it off before contacting PMDG support.
 
 ## 6. Licence checks and your data
 
@@ -57,7 +57,7 @@ HeavyPro is provided "as is". To the extent the law allows, we are not liable fo
 
 ## 9. Other companies
 
-HeavyPro is not made, sponsored or endorsed by Microsoft, Asobo Studio, PMDG, BlueBird Simulations, FlightFactor, iniBuilds, Fenix Simulations or any other add-on maker. Their names are trademarks of their owners and are used only to say which aircraft HeavyPro works with. "FF777-style" describes a feel; it is not FlightFactor's product.
+HeavyPro is not made, sponsored or endorsed by Microsoft, Asobo Studio, PMDG, BlueBird Simulations, iniBuilds, Fenix Simulations or any other add-on maker. Their names are trademarks of their owners and are used only to say which aircraft HeavyPro works with.
 
 ## 10. Changes
 

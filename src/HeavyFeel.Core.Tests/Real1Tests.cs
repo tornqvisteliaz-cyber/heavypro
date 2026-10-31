@@ -139,7 +139,7 @@ public class Real1Tests
     public void The_777_gets_the_ff777_feel_by_itself(string title, string model)
     {
         var frame = new InputDynamicsEngine().Step(Real1Route, Snap(title, model, AircraftClass.WideBody, 500_000, 250, 0.4), 1.0 / 60, 1.4);
-        Assert.Contains("FF777", frame.Feel);
+        Assert.Contains("Real 777 feel", frame.Feel);
     }
 
     [Fact]

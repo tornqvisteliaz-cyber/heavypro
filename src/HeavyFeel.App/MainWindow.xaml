@@ -300,7 +300,13 @@
                                     <Button Content="Rescan" Command="{Binding RefreshDevicesCommand}" Padding="8,2" FontSize="10"
                                             HorizontalAlignment="Right"/>
                                 </Grid>
-                                <ComboBox ItemsSource="{Binding InputRoutes}" SelectedItem="{Binding SelectedInputRoute}" Margin="0,0,0,8"/>
+                                <Border Background="{StaticResource BrushBg2}" BorderBrush="{StaticResource BrushLine}" BorderThickness="1"
+                                        CornerRadius="8" Padding="12,8" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Text="ROUTE · PICKED AUTOMATICALLY" Style="{StaticResource MutedText}" FontSize="10" FontWeight="Bold"/>
+                                        <TextBlock Text="{Binding RouteText}" TextWrapping="Wrap" FontSize="13" Margin="0,3,0,0"/>
+                                    </StackPanel>
+                                </Border>
                                 <TextBlock Text="Stick" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"/>
                                 <ComboBox ItemsSource="{Binding StickDevices}" SelectedItem="{Binding SelectedStick}" Margin="0,0,0,8"/>
                                 <Grid Margin="0,0,0,6">
@@ -364,7 +370,11 @@
                                 <CheckBox Content="Log telemetry" IsChecked="{Binding LogTelemetry}"/>
                                 <CheckBox Content="Show debug data" IsChecked="{Binding DebugMode}"/>
                                 <CheckBox Content="Cockpit view cue" IsChecked="{Binding ViewCue}"/>
-                                <CheckBox Content="PMDG 777: FF777-style flight model" IsChecked="{Binding FlightModelOverride}" Margin="0,8,0,0"
+                                <CheckBox Content="Keep running in the background when closed" IsChecked="{Binding RunInBackground}" Margin="0,8,0,0"
+                                          ToolTip="Closing the window hides HeavyPro in the tray (by the clock); it keeps shaping your stick. Right-click the tray icon to open or exit it."/>
+                                <CheckBox Content="Start with Windows (in the background)" IsChecked="{Binding StartWithWindows}"
+                                          ToolTip="HeavyPro starts in the tray when you log in to Windows, so it is ready when MSFS starts."/>
+                                <CheckBox Content="PMDG 777: Real 777 feel" IsChecked="{Binding FlightModelOverride}" Margin="0,8,0,0"
                                           ToolTip="Builds a copy of your PMDG 777's own flight model with more pitch and roll inertia and damping, so it feels big and planted, and loads it after PMDG's. PMDG's files are never changed; turn this off to get PMDG's flight model back. Takes effect the next time you load the 777; changes wait until MSFS is closed."/>
                                 <TextBlock Text="{Binding FlightModelStatus}" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
                                 <TextBlock Text="{Binding WriteStatus}" TextWrapping="Wrap" FontFamily="Consolas"

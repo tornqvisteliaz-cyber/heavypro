@@ -44,7 +44,7 @@ public sealed record Real1Tuning(
 ///   inertia, so the rate builds slowly and carries on a touch (MomentSeconds); the
 ///   centre is softened so small corrections are progressive; full deflection keeps full
 ///   authority; and damping is not overdone, which only makes an aircraft sluggish.
-/// - The Boeing 777 flies like the FlightFactor 777 (FF777): big and settled, with a calm
+/// - The Boeing 777 gets the Real 777 feel: big and settled, with a calm
 ///   wheel around centre so it never twitches in roll, precise small corrections in pitch,
 ///   more control mass than the other Boeings and a column that firms up with airspeed.
 ///   REAL1 picks it by itself whenever a 777 loads; nothing to set up.
@@ -69,7 +69,7 @@ public static class Real1
     private static readonly Real1Tuning AirbusWide =
         new("Airbus widebody fly-by-wire (A330/A350/A380)", 0.03, 0.02, 0.15, 2.90, 2.60, 3.40, 0.0, 0.03, 1.1, 55, true, 0.20);
     private static readonly Real1Tuning Boeing777 =
-        new("Boeing 777 artificial feel, FF777-style", 0.03, 0.05, 0.22, 3.90, 3.40, 4.10, 1.0, 0.08, 0.9, 60, true, 0.28,
+        new("Boeing 777: Real 777 feel", 0.03, 0.05, 0.22, 3.90, 3.40, 4.10, 1.0, 0.08, 0.9, 60, true, 0.28,
             RollDeadzone: 0.05, RollExpo: 0.20);
     // The 757 sits between the 737 and the 777: a big column on the same kind of feel
     // unit, but famously crisp in roll for its size.
