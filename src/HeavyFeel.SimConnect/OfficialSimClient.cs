@@ -607,12 +607,14 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     /// is cleared HeavyPro passes the stick through untouched, which cannot twitch.
     /// A binding seen live stays known until reconnecting: while HeavyPro passes the
     /// stick through, the binding sends the same values and no longer looks foreign.
+    /// Not while the WASM bridge is told to answer the binding (CounterMsfsBindings, the
+    /// BlueBird 757): then the binding is expected and the bridge replaces its value.
     /// </summary>
     private bool BindingFight
     {
         get
         {
-            if (!DirectInput)
+            if (!DirectInput || CounterMsfsBindings)
                 return false;
             if (!_bindingSeenThisSession && InputConflict != null)
             {

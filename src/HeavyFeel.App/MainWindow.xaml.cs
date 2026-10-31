@@ -1,5 +1,7 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Interop;
+using HeavyFeel.App.Services;
 using HeavyFeel.App.ViewModels;
 using HeavyFeel.Core.Services;
 using HeavyFeel.Logging;
@@ -10,15 +12,30 @@ namespace HeavyFeel.App;
 public partial class MainWindow : Window
 {
     private readonly AppLogger _logger;
+    private readonly BackgroundTray _tray;
+    private readonly bool _startHidden;
+    private bool _exiting;
     private MainViewModel? _vm;
     private INativeMessageClient? _native;
     private HwndSource? _hwndSource;
 
-    public MainWindow()
+    /// <param name="startHidden">Started with Windows: go straight to the tray.</param>
+    public MainWindow(BackgroundTray tray, bool startHidden)
     {
         InitializeComponent();
         _logger = new AppLogger();
+        _tray = tray;
+        _startHidden = startHidden;
+        tray.OpenRequested += ShowFromTray;
+        tray.ExitRequested += ExitFromTray;
+        if (startHidden)
+        {
+            // Shown once so the app starts up (Loaded), then hidden in OnLoaded.
+            WindowState = WindowState.Minimized;
+            ShowInTaskbar = false;
+        }
         Loaded += OnLoaded;
+        Closing += OnClosing;
         Closed += OnClosed;
     }
 
@@ -45,8 +62,42 @@ public partial class MainWindow : Window
 
         _vm.Start();
 
+        if (_startHidden)
+        {
+            Hide();
+            WindowState = WindowState.Normal;
+            ShowInTaskbar = true;
+            _logger.Info("Started with Windows: running in the background.");
+            return;
+        }
+
         var welcome = new WelcomeWindow(AppVersion.Current.ToString(3), _vm.TakeWhatsNew()) { Owner = this };
         welcome.Show();
+    }
+
+    /// <summary>Closing hides HeavyPro in the tray (it keeps shaping) unless that is turned off or Exit was picked.</summary>
+    private void OnClosing(object? sender, CancelEventArgs e)
+    {
+        if (_exiting || _vm == null || !_vm.RunInBackground)
+            return;
+        e.Cancel = true;
+        _vm.PersistWindow(Width, Height);
+        Hide();
+        _tray.TellStillRunning();
+    }
+
+    private void ShowFromTray()
+    {
+        Show();
+        if (WindowState == WindowState.Minimized)
+            WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    private void ExitFromTray()
+    {
+        _exiting = true;
+        Close();
     }
 
     private void OnClosed(object? sender, EventArgs e)

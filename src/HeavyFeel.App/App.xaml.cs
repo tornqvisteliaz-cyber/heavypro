@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Threading;
 using HeavyPro.Licensing;
 using Rotaidem.Licensing;
+using HeavyFeel.App.Services;
 
 namespace HeavyFeel.App;
 
@@ -12,6 +13,7 @@ public partial class App : System.Windows.Application
 {
     // Two copies would both mask the stick and fight over it, so only one runs.
     private static Mutex? _singleInstance;
+    private HeavyFeel.App.Services.BackgroundTray? _tray;
 
     public App()
     {
@@ -29,7 +31,9 @@ public partial class App : System.Windows.Application
         _singleInstance = new Mutex(true, @"Local\HeavyPro.SingleInstance", out var first);
         if (!first)
         {
-            FocusRunningCopy();
+            // The copy already running may be hidden in the tray: ask it to show itself.
+            if (!BackgroundTray.SignalRunningCopy())
+                FocusRunningCopy();
             Shutdown();
             return;
         }
@@ -59,7 +63,10 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        MainWindow = new MainWindow();
+        // Closing the window hides HeavyPro in the tray; Exit there (or turning the option off) quits.
+        _tray = new BackgroundTray();
+        var background = e.Args.Any(a => string.Equals(a, BackgroundTray.BackgroundArg, StringComparison.OrdinalIgnoreCase));
+        MainWindow = new MainWindow(_tray, background);
         ShutdownMode = ShutdownMode.OnMainWindowClose;
         MainWindow.Show();
 
@@ -133,6 +140,7 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _tray?.Dispose();
         _singleInstance?.Dispose();
         base.OnExit(e);
     }

@@ -12,7 +12,7 @@ public sealed record CfgScale(string Section, string Key, double Factor);
 public sealed record FlightModelSource(string SourcePackage, string VirtualPath, string OverridePackage, string Aircraft);
 
 /// <summary>
-/// FF777-style flight model for the PMDG 777, built on the user's PC: HeavyPro copies the
+/// Real 777 feel for the PMDG 777, built on the user's PC: HeavyPro copies the
 /// 777's own flight_model.cfg, scales a few lines (more pitch and roll inertia and damping,
 /// so the aircraft feels big, settled and planted) and puts the copy in a package of its own
 /// that MSFS loads after PMDG's. PMDG's files are never edited and never shipped with HeavyPro;
@@ -21,7 +21,7 @@ public sealed record FlightModelSource(string SourcePackage, string VirtualPath,
 public static class FlightModelOverrides
 {
     /// <summary>Bump when <see cref="Changes"/> change, so existing overrides are rebuilt.</summary>
-    public const string ChangesVersion = "1";
+    public const string ChangesVersion = "2";
 
     public const string StampFile = "heavypro-override.json";
     private const string OverridePrefix = "rotaidem-heavypro-fm-";
@@ -155,12 +155,12 @@ public static class FlightModelOverrides
             var stampPath = Path.Combine(target, StampFile);
             if (File.Exists(stampPath) && File.ReadAllText(stampPath) == stamp)
             {
-                messages.Add(source.Aircraft + ": FF777-style flight model on.");
+                messages.Add(source.Aircraft + ": Real 777 feel on.");
                 continue;
             }
             if (simRunning)
             {
-                messages.Add(source.Aircraft + ": FF777-style flight model is built when MSFS is closed.");
+                messages.Add(source.Aircraft + ": Real 777 feel is built when MSFS is closed.");
                 continue;
             }
             var patched = Patch(Bytes.GetString(bytes), Changes);
@@ -179,7 +179,7 @@ public static class FlightModelOverrides
             if (Directory.Exists(target))
                 Directory.Delete(target, recursive: true);
             Directory.Move(building, target);
-            messages.Add(source.Aircraft + ": FF777-style flight model built.");
+            messages.Add(source.Aircraft + ": Real 777 feel built.");
         }
         return messages;
     }
@@ -225,7 +225,7 @@ public static class FlightModelOverrides
         File.WriteAllText(Path.Combine(dir, "manifest.json"),
             "{\r\n  \"dependencies\": [\r\n    {\r\n      \"name\": \"" + source.SourcePackage + "\",\r\n      \"package_version\": \"" + (pmdgVersion.Length > 0 ? pmdgVersion : "0.1.0") + "\"\r\n    }\r\n  ],\r\n"
             + "  \"content_type\": \"MISC\",\r\n"
-            + "  \"title\": \"HeavyPro FF777-style flight model for " + source.Aircraft + "\",\r\n"
+            + "  \"title\": \"HeavyPro Real 777 feel for " + source.Aircraft + "\",\r\n"
             + "  \"manufacturer\": \"Rotaidem\",\r\n"
             + "  \"creator\": \"Rotaidem\",\r\n"
             + "  \"package_version\": \"1.0." + ChangesVersion + "\",\r\n"
