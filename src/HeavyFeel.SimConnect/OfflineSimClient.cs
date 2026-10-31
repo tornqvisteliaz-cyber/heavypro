@@ -54,7 +54,7 @@ public sealed class OfflineSimClient : ISimClient
 
     public bool DirectInput { get; set; }
     public bool CounterMsfsBindings { get; set; }
-    public bool KnownBindingConflict { get; set; }
+    public IReadOnlyCollection<string> KnownConflictAxes { get; set; } = Array.Empty<string>();
     public bool BridgeLoaded => false;
 
     public void FeedPhysical(int? elevator, int? aileron, int? rudder)

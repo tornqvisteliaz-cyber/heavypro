@@ -2,6 +2,12 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.7.0
+
+- **Every aircraft, every time: HeavyPro as your stick's only path.** HeavyPro offers it once, with MSFS closed: it clears only the stick and rudder axes in your MSFS controls on every connected controller that has them (buttons stay, a backup is kept), uses REAL1 for every aircraft and starts with Windows in the tray. HeavyPro then sends the stick the way the joystick itself does, so aircraft that read the stick themselves (BlueBird 757, Aerosoft A330/A340, MD-11) get the feel too. Say No to keep your MSFS bindings and the 0.6.9 behaviour; you will not be asked again.
+- **A binding left on one axis only costs that axis its feel:** a stray rudder binding (like a throttle slider) no longer takes the weight off pitch and roll.
+- HeavyPro warns before it really quits while it is your stick's only path. Restore MSFS bindings (Setup) undoes it.
+
 ## 0.6.9
 
 - **No more jumping on the 777 and the BlueBird 757:** HeavyPro never puts an aircraft on Direct while your stick is still bound in MSFS (the aircraft got the raw stick and HeavyPro's in turn). The 777, 787, A320neo and GA keep the MSFS bindings route.

@@ -41,10 +41,11 @@ public interface ISimClient : IDisposable
     bool CounterMsfsBindings { get; set; }
 
     /// <summary>
-    /// An MSFS control profile still binds the stick (from the profile files). On the
-    /// direct route HeavyPro then passes the stick through instead of fighting it.
+    /// Axes ("pitch", "roll", "yaw") an MSFS control profile still binds on HeavyPro's own
+    /// stick or pedals (from the profile files). On the direct route HeavyPro passes those
+    /// axes through instead of fighting them, and keeps shaping the rest.
     /// </summary>
-    bool KnownBindingConflict { get; set; }
+    IReadOnlyCollection<string> KnownConflictAxes { get; set; }
 
     /// <summary>The HeavyPro WASM bridge is running in the sim.</summary>
     bool BridgeLoaded { get; }

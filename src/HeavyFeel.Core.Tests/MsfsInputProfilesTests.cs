@@ -170,6 +170,33 @@ public class MsfsInputProfilesTests
     }
 
     [Fact]
+    public void A_stick_cleared_in_every_airplane_profile_is_unbound_for_the_msfs_bindings_route()
+    {
+        // As on this PC after "Fix MSFS bindings": the GA planes on the MSFS bindings route got no stick.
+        var cleared = new[]
+        {
+            (@"C:\x\a", DateTime.Now, Profile("My new airplanes profile_1", 48167, "AIRPLANE", false, false, false)),
+            (@"C:\x\b", DateTime.Now, Profile("My new gliders profile", 48167, "GLIDER", true, true, false)),
+        };
+        Assert.True(MsfsInputProfiles.Unbound(cleared, 48167, new[] { "pitch", "roll" }));
+
+        var oneBound = cleared.Append((@"C:\x\c", DateTime.Now, Profile("throttle'", 48167, "AIRPLANE", true, false, false))).ToArray();
+        Assert.False(MsfsInputProfiles.Unbound(oneBound, 48167, new[] { "pitch", "roll" }));
+        // No airplane profile at all (MS Store install, new device): nothing to tell from.
+        Assert.False(MsfsInputProfiles.Unbound(cleared, 46713, new[] { "yaw" }));
+    }
+
+    [Fact]
+    public void A_throttle_slider_bound_to_rudder_is_found_for_the_rudder_heavypro_feeds()
+    {
+        // TCA Q-Eng 1&2 (product 1031) with Slider X on KEY_AXIS_RUDDER_SET, as on this PC.
+        var slider = Profile("My new airplanes profile_1", 1031, "AIRPLANE", false, false, true)
+            .Replace("Joystick L-Axis Z \">1058", "Joystick Slider X \">514");
+        var found = Assert.Single(MsfsInputProfiles.FindBindings(new[] { (@"C:\x\q", DateTime.Now, slider) }, 1031, new[] { "pitch", "roll", "yaw" }));
+        Assert.Equal(new[] { "yaw" }, found.Axes);
+    }
+
+    [Fact]
     public void Binding_found_on_disk_names_its_file()
     {
         var files = new[] { (@"C:\x\inputprofile_1", DateTime.Now, Profile("p", 48167, "AIRPLANE", true, false, false)) };

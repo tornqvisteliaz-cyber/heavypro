@@ -11,7 +11,9 @@ Windows desktop app for **Microsoft Flight Simulator 2024** that makes your stic
 2. Start HeavyPro. Under **Stick setup** press **Detect** next to Pitch and pull the stick fully back, then **Detect** next to Roll and roll fully right. Do the same for your rudder pedals if you want HeavyPro to shape them.
 3. Load a flight and tick **MASTER ENABLE**.
 
-**The route is picked for you** (Setup shows which one and why):
+**Every aircraft, every time: make HeavyPro your stick's only path.** HeavyPro offers this once (with MSFS closed): it clears only the stick and rudder axes in your MSFS controls, on every connected controller that has them (buttons stay, a backup is kept), uses REAL1 for every aircraft and starts with Windows in the tray. HeavyPro then sends the stick the way the joystick itself does, as its only source, so even aircraft that read the stick themselves (BlueBird 757, Aerosoft A330/A340, MD-11) get the feel. Without HeavyPro running the stick does nothing, so it warns you before quitting; **Restore MSFS bindings** undoes it. A binding left on one axis only costs that axis its feel.
+
+**If you keep your MSFS bindings, the route is picked for you** (Setup shows which one and why):
 
 - Stick bound in MSFS (the usual setup): HeavyPro shapes the stick through that binding, the **MSFS bindings** route.
 - The BlueBird 757 and the Aerosoft A330/A340 read the MSFS binding themselves, so with the stick bound HeavyPro hands them the stick **untouched**: they fly normally, without HeavyPro's weight. Give them an MSFS controls profile without the stick axes and pick REAL1 to get the weight.

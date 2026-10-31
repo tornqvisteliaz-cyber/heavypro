@@ -64,6 +64,19 @@ public static class MsfsInputProfiles
     }
 
     /// <summary>
+    /// The device has airplane profiles but none binds these axes, so MSFS itself sends
+    /// nothing for them (after "Fix MSFS bindings"). The MSFS bindings route then gets no
+    /// stick at all. False when there is no airplane profile to tell from.
+    /// </summary>
+    public static bool Unbound(IEnumerable<(string Path, DateTime Modified, string Xml)> profiles, int productId, IReadOnlyCollection<string> axes)
+    {
+        var airplane = profiles.Select(p => Parse(p.Xml))
+            .Where(p => p != null && p.ProductId == productId && string.Equals(p.Category, "AIRPLANE", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        return airplane.Count > 0 && !airplane.Any(p => p!.BoundAxes.Any(axes.Contains));
+    }
+
+    /// <summary>
     /// The profile with those axes unbound: only the slots that hold a stick axis are
     /// removed from the stick actions, and an action left with no slot becomes the empty
     /// <c>&lt;Action … Flag="2"/&gt;</c> MSFS itself writes for an unbound one. Buttons,
