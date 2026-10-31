@@ -78,8 +78,20 @@ public partial class MainWindow : Window
     /// <summary>Closing hides HeavyPro in the tray (it keeps shaping) unless that is turned off or Exit was picked.</summary>
     private void OnClosing(object? sender, CancelEventArgs e)
     {
-        if (_exiting || _vm == null || !_vm.RunInBackground)
+        if (_vm == null)
             return;
+        if (!_vm.RunInBackground || _exiting)
+        {
+            // Quitting for real: with HeavyPro as the only path the stick stops moving aircraft.
+            if (_vm.IsOnlyPath && MessageBox.Show(this,
+                    "Your stick reaches MSFS only through HeavyPro. Without HeavyPro running it will not move any aircraft.\n\nQuit HeavyPro anyway?",
+                    "HeavyPro", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            {
+                e.Cancel = true;
+                _exiting = false;
+            }
+            return;
+        }
         e.Cancel = true;
         _vm.PersistWindow(Width, Height);
         Hide();

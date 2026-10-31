@@ -132,7 +132,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         SaveProfileCommand = new RelayCommand(SaveProfile);
         ApplyProfileCommand = new RelayCommand(ApplyProfile);
         ToggleAircraftLinkCommand = new RelayCommand(ToggleAircraftLink);
-        FixBindingsCommand = new RelayCommand(FixMsfsBindings);
+        FixBindingsCommand = new RelayCommand(() => FixMsfsBindings());
         RestoreBindingsCommand = new RelayCommand(RestoreMsfsBindings);
         ShowTermsCommand = new RelayCommand(() => new TermsWindow(mustAccept: false) { Owner = System.Windows.Application.Current.MainWindow }.ShowDialog());
         CopyBetaReportCommand = new RelayCommand(CopyBetaReport);
@@ -163,6 +163,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             if (_settings.AutoConnect && !_client.IsConnected)
                 Connect();
             ResetRouteAtMenu();
+            OfferOnlyPath();
             if (DateTime.UtcNow - _lastBindingScan > TimeSpan.FromSeconds(20))
                 ScanMsfsBindings();
             // Picks up a PMDG update, or finishes a build that waited for MSFS to close.
@@ -1165,7 +1166,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             if (!_client.IsConnected) return "OFFLINE";
             if (_client.DirectInput && !StickConfigured) return "SET UP STICK";
             if (IsDirect && _route.PassThrough) return "PASS-THROUGH";
-            if (IsDirect && !_client.CounterMsfsBindings && (_client.InputConflict != null || (_profileConflict != null && _client.KnownBindingConflict))) return "UNBIND IN MSFS";
+            if (IsDirect && !_client.CounterMsfsBindings && (_client.InputConflict != null || (_profileConflict != null && _client.KnownConflictAxes.Count > 0))) return "UNBIND IN MSFS";
             if (_client.RouteStatus == InputRouteStatus.Fault) return "FAULT";
             if (!MasterEnable) return "PASS-THROUGH";
             if (_snap.AutopilotMaster) return "AP ON · PAUSED";
@@ -1214,13 +1215,38 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _lastBindingScan = DateTime.UtcNow;
         string? found = null;
         var bindings = new List<MsfsAxisBinding>();
+        var own = new List<string>();
+        var stickBound = false;
         try
         {
             var files = MsfsProfileFiles();
-            if (MsfsInputProfiles.ProductIdFromKey(_settings.StickDevice) is int stick)
-                bindings.AddRange(MsfsInputProfiles.FindBindings(files, stick, new[] { "pitch", "roll" }));
-            if (MsfsInputProfiles.ProductIdFromKey(_settings.RudderDevice) is int pedals)
-                bindings.AddRange(MsfsInputProfiles.FindBindings(files, pedals, new[] { "yaw" }));
+            var stick = MsfsInputProfiles.ProductIdFromKey(_settings.StickDevice);
+            var pedals = MsfsInputProfiles.ProductIdFromKey(_settings.RudderDevice);
+            var fed = new List<string>();
+            if (stick != null) { fed.Add("pitch"); fed.Add("roll"); }
+            if (pedals != null) fed.Add("yaw");
+            if (stick is int s)
+            {
+                var onStick = MsfsInputProfiles.FindBindings(files, s, new[] { "pitch", "roll" });
+                bindings.AddRange(onStick);
+                own.AddRange(onStick.SelectMany(b => b.Axes));
+                stickBound = onStick.Count > 0;
+            }
+            if (pedals is int p && p != stick)
+            {
+                var onPedals = MsfsInputProfiles.FindBindings(files, p, new[] { "yaw" });
+                bindings.AddRange(onPedals);
+                own.AddRange(onPedals.SelectMany(b => b.Axes));
+            }
+            // Any other connected controller still bound to an axis HeavyPro feeds fights it
+            // too: on this PC the TCA throttle's slider was still the rudder, so the VL3 got
+            // HeavyPro's pedals and the slider in turn. Only plugged-in devices can send.
+            foreach (var other in StickDevices.Select(d => MsfsInputProfiles.ProductIdFromKey(d.Key)).OfType<int>().Distinct())
+            {
+                if (other == stick || other == pedals)
+                    continue;
+                bindings.AddRange(MsfsInputProfiles.FindBindings(files, other, fed));
+            }
             found = bindings.Count == 0 ? null : string.Join("; ", bindings);
         }
         catch (Exception ex)
@@ -1228,8 +1254,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _logger.Warn("Could not read the MSFS control profiles: " + ex.Message);
         }
         _profileBindings = bindings;
-        var stickPid = MsfsInputProfiles.ProductIdFromKey(_settings.StickDevice);
-        var stickBound = bindings.Any(b => b.Axes.Contains("pitch") || b.Axes.Contains("roll"));
+        // Pass-through is decided per axis, and only for HeavyPro's own devices: another
+        // controller only fights while it moves, which the live monitor catches.
+        _ownConflictAxes = own.Distinct().ToList();
         if (found == _profileConflict && stickBound == _stickBoundInMsfs)
             return;
         _profileConflict = found;
@@ -1241,8 +1268,44 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         PickRoute();
     }
 
+    // ---------------- HeavyPro as the stick's only path ----------------
+    private bool _offeredOnlyPath;
+
+    /// <summary>The stick reaches MSFS only through HeavyPro: closing HeavyPro leaves it dead.</summary>
+    public bool IsOnlyPath => StickConfigured && !_stickBoundInMsfs && _settings.RouteOverride != "Masked";
+
+    /// <summary>
+    /// Once per session, with MSFS closed, while MSFS still binds an axis HeavyPro feeds:
+    /// offers to make HeavyPro the stick's only path, the setup that shapes every aircraft
+    /// every time. No keeps the bindings and is not asked again (Setup still has the button).
+    /// </summary>
+    private void OfferOnlyPath()
+    {
+        if (_offeredOnlyPath || _settings.KeepMsfsBindings || !StickConfigured
+            || !_profileBindings.Any(b => b.File.Length > 0)
+            || System.Diagnostics.Process.GetProcessesByName("FlightSimulator2024").Length > 0)
+            return;
+        _offeredOnlyPath = true;
+        var answer = System.Windows.MessageBox.Show(
+            "Make HeavyPro your stick's only path into MSFS?\n\n"
+            + "With your stick bound in MSFS, some aircraft (BlueBird 757, Aerosoft A330/A340 and others that read the stick themselves) cannot get HeavyPro's feel. "
+            + "With HeavyPro as the only path, every aircraft gets it, every time.\n\n"
+            + "HeavyPro clears only the stick and rudder axes in your MSFS controls (buttons stay, a backup is kept), and starts with Windows so the stick always works. Restore MSFS bindings puts them back.\n\n"
+            + "Yes: do it now. No: keep your MSFS bindings (you will not be asked again).",
+            "HeavyPro", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+        if (answer == System.Windows.MessageBoxResult.Yes)
+        {
+            FixMsfsBindings(alreadyAsked: true);
+            return;
+        }
+        _settings.KeepMsfsBindings = true;
+        _logger.Info("Kept the MSFS bindings: HeavyPro will not offer to be the only path again.");
+        ScheduleSave();
+    }
+
     // ---------------- Route: picked by itself, or by you ----------------
     private bool _stickBoundInMsfs;
+    private IReadOnlyCollection<string> _ownConflictAxes = Array.Empty<string>();
     private RouteChoice _route = new(Real1.RouteName, false, "starting");
     // The aircraft the route was picked for. Cleared at the main menu (see ResetRouteAtMenu).
     private AircraftIdentity _routeAircraft = new();
@@ -1287,7 +1350,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         var aircraft = _routeAircraft;
         var choice = RoutePicker.Choose(_stickBoundInMsfs, aircraft, AircraftProfileLinks.Find(_settings, aircraft) != null, _settings.RouteOverride);
         // Direct with the stick bound passes it through untouched instead of fighting it.
-        _client.KnownBindingConflict = choice.PassThrough || _profileConflict != null;
+        _client.KnownConflictAxes = choice.PassThrough ? new[] { "pitch", "roll", "yaw" } : _ownConflictAxes;
         if (choice == _route)
             return;
         _route = choice;
@@ -1350,14 +1413,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     /// Only on REAL1 and Direct. The MSFS bindings route needs those bindings: offered there,
     /// Fix cleared the stick from every airplane profile and the GA planes lost their stick.
     /// </remarks>
-    public bool CanFixBindings => IsDirect && !_route.PassThrough && _profileConflict != null;
+    // Offered on every route: making HeavyPro the only path is what lets every aircraft be shaped.
+    public bool CanFixBindings => _profileConflict != null;
 
     /// <summary>
     /// "Fix MSFS bindings for me": clears exactly the stick axes HeavyPro feeds (never a button) in the MSFS
     /// control profiles that bind them, after a backup, then switches to the Direct route
     /// (measured smooth on the PMDG 777 once nothing else sends the stick).
     /// </summary>
-    private void FixMsfsBindings()
+    private void FixMsfsBindings(bool alreadyAsked = false)
     {
         ScanMsfsBindings();
         var bindings = _profileBindings.Where(b => b.File.Length > 0).ToList();
@@ -1372,7 +1436,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             return;
         }
         var list = string.Join("\n", bindings.Select(b => "• " + string.Join(", ", b.Axes) + " on " + b.DeviceName + " (profile \"" + b.ProfileName + "\")"));
-        var answer = System.Windows.MessageBox.Show(
+        var answer = alreadyAsked ? System.Windows.MessageBoxResult.Yes : System.Windows.MessageBox.Show(
             "HeavyPro will clear these axes in your MSFS 2024 controls, so your stick reaches the aircraft only through HeavyPro:\n\n"
             + list + "\n\nOnly the stick axes are removed: every button, including buttons on these same controls, and everything else in those profiles stays as it is. A backup of each is kept. Continue?",
             "Fix MSFS bindings", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
@@ -1412,8 +1476,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _lastBindingScan = DateTime.MinValue;
         ScanMsfsBindings();
         OnChanged(nameof(CanRestoreBindings));
+        // HeavyPro is now the stick's only path: keep it running, from the tray, from Windows start.
+        RunInBackground = true;
+        StartWithWindows = true;
+        _settings.KeepMsfsBindings = false;
+        ScheduleSave();
         System.Windows.MessageBox.Show(
-            "Done. MSFS no longer sends your stick on its own, and HeavyPro is on the Direct route.\n\n"
+            "Done. Your stick now reaches MSFS only through HeavyPro, so every aircraft gets HeavyPro's feel.\n\n"
+            + "HeavyPro now starts with Windows and keeps running in the tray, so the stick always works. Restore MSFS bindings (Setup) puts the bindings back.\n\n"
             + "Start MSFS 2024 and fly. If Steam asks about cloud saves for MSFS, choose the files on this PC.\n\nBackups: " + backupDir,
             "HeavyPro");
     }

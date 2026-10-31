@@ -598,32 +598,41 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         && DateTime.UtcNow - _lastInfluence < ArmedTimeout
         && DateTime.UtcNow >= _writesPausedUntil;
 
-    public bool KnownBindingConflict { get; set; }
-    private bool _bindingSeenThisSession;
+    public IReadOnlyCollection<string> KnownConflictAxes { get; set; } = Array.Empty<string>();
+    private readonly HashSet<string> _liveConflictAxes = new();
+
+    private static string AxisName(Events ev) =>
+        ev == Events.AxisElevator ? "pitch" : ev == Events.AxisAileron ? "roll" : "yaw";
 
     /// <summary>
-    /// Direct route with the stick still bound in MSFS: the aircraft gets the raw stick
-    /// and HeavyPro's shaped one in turn, so it jumps between them. Until the binding
-    /// is cleared HeavyPro passes the stick through untouched, which cannot twitch.
+    /// Direct route with this axis still bound in MSFS: the aircraft gets the raw axis
+    /// and HeavyPro's shaped one in turn, so it jumps between them. Until the binding is
+    /// cleared HeavyPro passes that axis through untouched, which cannot twitch, and
+    /// keeps shaping the others: a throttle slider still bound to rudder costs the
+    /// rudder its feel, not the stick (the VL3 lost pitch and roll shaping to it).
     /// A binding seen live stays known until reconnecting: while HeavyPro passes the
-    /// stick through, the binding sends the same values and no longer looks foreign.
-    /// Not while the WASM bridge is told to answer the binding (CounterMsfsBindings, the
-    /// BlueBird 757): then the binding is expected and the bridge replaces its value.
+    /// axis through, the binding sends the same values and no longer looks foreign.
     /// </summary>
-    private bool BindingFight
+    private bool Conflicted(Events ev)
     {
-        get
+        if (!DirectInput || CounterMsfsBindings)
+            return false;
+        if (InputConflict is { } live)
         {
-            if (!DirectInput || CounterMsfsBindings)
-                return false;
-            if (!_bindingSeenThisSession && InputConflict != null)
+            foreach (var axis in live.Split(new[] { ", " }, StringSplitOptions.RemoveEmptyEntries))
             {
-                _bindingSeenThisSession = true;
-                _logger.Warn("Direct route with the stick still bound in MSFS: passing the stick through untouched until the binding is cleared (then reconnect).");
+                if (_liveConflictAxes.Add(axis))
+                    _logger.Warn($"Direct route with {axis} still bound in MSFS: passing {axis} through untouched until the binding is cleared (then reconnect). The other axes are still shaped.");
             }
-            return KnownBindingConflict || _bindingSeenThisSession;
         }
+        var name = AxisName(ev);
+        return KnownConflictAxes.Contains(name) || _liveConflictAxes.Contains(name);
     }
+
+    /// <summary>Every axis HeavyPro feeds is still bound in MSFS: nothing is left to shape.</summary>
+    private bool BindingFight => DirectInput && _physicalAxis.Count > 0 && _physicalAxis.Keys.ToList().All(Conflicted);
+
+    private bool AnyConflict => DirectInput && _physicalAxis.Keys.ToList().Any(Conflicted);
 
     private void NoteMaskedAxis(Events ev, uint data)
     {
@@ -653,7 +662,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     {
         raw = (int)Numeric.Clamp(raw, -16383, 16383);
         _physicalAxis[ev] = raw;
-        if (!ShapingOwnsInput)
+        if (!ShapingOwnsInput || Conflicted(ev))
             TransmitAxis(ev, raw);
     }
 
@@ -975,15 +984,16 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             // axis the hardware still drives directly would fight it.
             if (command.WriteAxes && _axisWriteReady)
             {
-                if (_physicalAxis.ContainsKey(Events.AxisElevator))
+                // An axis still bound in MSFS gets the raw stick from NotePhysical instead.
+                if (_physicalAxis.ContainsKey(Events.AxisElevator) && !Conflicted(Events.AxisElevator))
                     TransmitAxis(Events.AxisElevator, command.ElevatorAxis);
-                if (_physicalAxis.ContainsKey(Events.AxisAileron))
+                if (_physicalAxis.ContainsKey(Events.AxisAileron) && !Conflicted(Events.AxisAileron))
                     TransmitAxis(Events.AxisAileron, command.AileronAxis);
-                if (_physicalAxis.ContainsKey(Events.AxisRudder))
+                if (_physicalAxis.ContainsKey(Events.AxisRudder) && !Conflicted(Events.AxisRudder))
                     TransmitAxis(Events.AxisRudder, command.RudderAxis);
             }
 
-            if (command.WriteYoke && _yokeWriteReady)
+            if (command.WriteYoke && _yokeWriteReady && !AnyConflict)
             {
                 var yoke = new YokeWritePacket
                 {
@@ -1214,7 +1224,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         _shapingArmed = false;
         _flightLayoutBroken = false;
         _panelReady = false;
-        _bindingSeenThisSession = false;
+        _liveConflictAxes.Clear();
         _bridgeReady = false;
         _bridgeLoaded = false;
         _bridgeShaped.Clear();

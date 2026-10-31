@@ -57,6 +57,9 @@ public sealed class AppSettings
     /// <summary>"" picks the route by itself; "Real1", "Direct" or "Masked" is your own pick for every aircraft.</summary>
     public string RouteOverride { get; set; } = "";
 
+    /// <summary>You said No to making HeavyPro the stick's only path: not asked again.</summary>
+    public bool KeepMsfsBindings { get; set; }
+
     /// <summary>Closing the window keeps HeavyPro running in the tray, still shaping.</summary>
     public bool RunInBackground { get; set; } = true;
     public int SettingsVersion { get; set; }
