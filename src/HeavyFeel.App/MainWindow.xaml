@@ -303,8 +303,10 @@
                                 <Border Background="{StaticResource BrushBg2}" BorderBrush="{StaticResource BrushLine}" BorderThickness="1"
                                         CornerRadius="8" Padding="12,8" Margin="0,0,0,10">
                                     <StackPanel>
-                                        <TextBlock Text="ROUTE · PICKED AUTOMATICALLY" Style="{StaticResource MutedText}" FontSize="10" FontWeight="Bold"/>
-                                        <TextBlock Text="{Binding RouteText}" TextWrapping="Wrap" FontSize="13" Margin="0,3,0,0"/>
+                                        <TextBlock Text="ROUTE" Style="{StaticResource MutedText}" FontSize="10" FontWeight="Bold"/>
+                                        <ComboBox ItemsSource="{Binding RouteOptions}" SelectedItem="{Binding SelectedRouteOption}" Margin="0,5,0,6"
+                                                  ToolTip="Auto picks the route for each aircraft. Pick one yourself to use it for every aircraft."/>
+                                        <TextBlock Text="{Binding RouteText, StringFormat=In use: {0}}" TextWrapping="Wrap" FontSize="12"/>
                                     </StackPanel>
                                 </Border>
                                 <TextBlock Text="Stick" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"/>
