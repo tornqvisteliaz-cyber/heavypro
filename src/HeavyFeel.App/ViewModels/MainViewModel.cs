@@ -486,6 +486,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool InvertRoll { get => _settings.InvertRoll; set { _settings.InvertRoll = value; OnChanged(); ScheduleSave(); } }
     public bool InvertRudder { get => _settings.InvertRudder; set { _settings.InvertRudder = value; OnChanged(); ScheduleSave(); } }
 
+    /// <summary>The payware aircraft HeavyPro knows by name, for the Setup card.</summary>
+    public string KnownAircraftText => "Recognised by name: " + string.Join(", ", PaywareCatalog.Names) + ".";
+
     public string StickStatus
     {
         get => _stickStatus;
@@ -1572,7 +1575,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private void ApplyIdentity(AircraftIdentity id)
     {
         _snap = new FlightSnapshot { Aircraft = id };
-        DetectedProfile = id.SuggestedProfile;
+        var known = PaywareCatalog.Find(id);
+        DetectedProfile = known?.Name ?? id.SuggestedProfile;
+        if (known != null)
+            _logger.Info($"Recognised payware: {known.Name} (REAL1 feel: {Real1.ForFamily(known.Family).Family}).");
         if (_settings.AircraftProfile == "Auto Detect")
             _logger.Info("Auto profile suggestion: " + DetectedProfile);
 
@@ -1675,11 +1681,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _lastFpsSample = now;
         }
 
-        var profile = snap.Aircraft.IsFenixA320
+        var profile = PaywareCatalog.Find(snap.Aircraft)?.Name
+            ?? (snap.Aircraft.IsFenixA320
             ? "Fenix A320"
             : snap.Aircraft.IsPmdg777
                 ? "PMDG 777"
-                : AircraftCatalog.DisplayName(snap.Class);
+                : AircraftCatalog.DisplayName(snap.Class));
         if (profile != DetectedProfile)
             DetectedProfile = profile;
 

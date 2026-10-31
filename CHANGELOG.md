@@ -2,6 +2,11 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.6.8
+
+- **Major payware aircraft recognised by name:** HeavyPro shows which aircraft you are flying ("PMDG 777-300ER", "iniBuilds A350-1000", "Fenix A320"…) and REAL1 gives each the feel of its real controls: Boeing columns for the PMDG 737 and 777, iFly 737 MAX, CSS 737, BlueBird 757, 727, MD-82, DC-9 and E-Jets; heavy columns for the A300, A310, TriStar, MD-11 and Concorde; Airbus sidesticks for Fenix, FSLabs, iniBuilds and Aerosoft Airbuses; a regional feel for the HondaJet, Citation, F406, Islander, Kodiak and Black Square; light cables for A2A, Just Flight and Carenado. The full list is under Setup.
+- Every other aircraft still gets a feel from its type, as before.
+
 ## 0.6.7
 
 - **One route, picked for you:** no more choosing between REAL1, Direct and MSFS bindings. With your stick bound in MSFS, HeavyPro shapes it through that binding, as in 0.5.3; with it unbound, REAL1 (or Direct with your own profile if you linked one to the aircraft). If the stick never reaches HeavyPro through MSFS in an aircraft, that aircraft switches to REAL1 by itself. Setup shows which route is in use and why.
