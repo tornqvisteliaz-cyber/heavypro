@@ -88,11 +88,29 @@ public static class Real1
     private static readonly Real1Tuning LightGa =
         new("Light aircraft cables", 0.015, 0.01, 0.12, 1.00, 0.90, 1.35, 1.0, 0.00, 1.2, 45, true, 0.07);
 
+    public static Real1Tuning ForFamily(FeelFamily family) => family switch
+    {
+        FeelFamily.Fenix => Fenix,
+        FeelFamily.AirbusNarrow => AirbusNarrow,
+        FeelFamily.AirbusWide => AirbusWide,
+        FeelFamily.Boeing777 => Boeing777,
+        FeelFamily.Boeing757 => Boeing757,
+        FeelFamily.Boeing737 => Boeing737,
+        FeelFamily.Boeing787 => Boeing787,
+        FeelFamily.HeavyAirliner => HeavyAirliner,
+        FeelFamily.Airliner => Airliner,
+        FeelFamily.Regional => Regional,
+        _ => LightGa
+    };
+
     /// <summary>The tuning for the aircraft MSFS reports.</summary>
     public static Real1Tuning For(FlightSnapshot snapshot)
     {
         var a = snapshot.Aircraft;
         var id = ($"{a.Title} {a.AtcModel} {a.AtcType}").ToUpperInvariant();
+        // A payware aircraft HeavyPro knows by name gets the feel of its real controls.
+        if (PaywareCatalog.Find(a) is { } known)
+            return ForFamily(known.Family);
         if (a.IsFenixA320)
             return Fenix;
         if (a.IsPmdg777 || Has(id, "777", "B77W", "B77L", "B772", "B773"))

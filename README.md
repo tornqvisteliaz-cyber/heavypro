@@ -22,6 +22,8 @@ Windows desktop app for **Microsoft Flight Simulator 2024** that makes your stic
 
 **Runs in the background:** closing the window keeps HeavyPro shaping from the tray (right-click its icon to open or exit). **Start with Windows** under Aircraft & app starts it there when you log in.
 
+**Payware aircraft recognised by name** (the app shows the name and REAL1 gives each the feel of its real controls): PMDG 777-300ER / 777F / 777-200, PMDG 737, iFly 737 MAX 8, CSS 737 Classic, BlueBird 757-200, FSS Boeing 727, Horizon Simulations 787-9, PMDG DC-6, Fenix A319 / A320 / A321, FSLabs A321, iniBuilds A320neo, iniBuilds A350-900 / -1000, iniBuilds A300-600, iniBuilds A310, Aerosoft A330-900neo, Aerosoft A340-600 Pro, iniBuilds L-1011 TriStar, Leonardo MaddogX MD-82, TFDi MD-11, SkySimulations DC-9, FSS Embraer E-Jet, Aerosoft CRJ, DC Designs Concorde, Just Flight 146, FlightFX HondaJet, Skyward Citation Latitude, iniBuilds F406 Caravan II, BlackBox Islander, SimWorks Kodiak, Black Square, A2A Comanche, Just Flight PA-28 and Carenado. Every other aircraft still gets a feel from its type.
+
 **PMDG 777: Real 777 feel** (off until you turn it on) builds a copy of your own PMDG 777 flight model with more pitch and roll inertia and damping, in a package of its own.
 
 The header badge tells you what is happening:
