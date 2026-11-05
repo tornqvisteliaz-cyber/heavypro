@@ -57,8 +57,24 @@ public sealed class AppSettings
     /// <summary>"" picks the route by itself; "Real1", "Direct" or "Masked" is your own pick for every aircraft.</summary>
     public string RouteOverride { get; set; } = "";
 
-    /// <summary>SimBrief username or pilot id, for showing your planned weights.</summary>
+    /// <summary>SimBrief pilot id or username, for loading your latest flight plan.</summary>
     public string SimBriefUsername { get; set; } = "";
+
+    // Response, on every route (REAL1 included). See ResponseTuning for what each does.
+    /// <summary>How quickly the shaped stick follows yours, 0..100. 40 is the default.</summary>
+    public double RealisticResponse { get; set; } = ResponseDefaults.RealisticResponse;
+    /// <summary>Per axis, 0..100; 50 leaves that axis as Realistic Response sets it.</summary>
+    public double PitchResponsiveness { get; set; } = ResponseDefaults.Axis;
+    public double RollResponsiveness { get; set; } = ResponseDefaults.Axis;
+    public double YawResponsiveness { get; set; } = ResponseDefaults.Axis;
+    /// <summary>How long a control's rate takes to build up, 0..100. Lower is crisper.</summary>
+    public double InputSmoothing { get; set; } = ResponseDefaults.InputSmoothing;
+    /// <summary>Adapt the response to the aircraft's weight, centre of gravity and ground state.</summary>
+    public bool AircraftAwareness { get; set; } = true;
+
+    /// <summary>HeavyPro's copy of the imported flight plan, and the name it was imported from.</summary>
+    public string FlightPlanFile { get; set; } = "";
+    public string FlightPlanName { get; set; } = "";
 
     /// <summary>You said No to making HeavyPro the stick's only path: not asked again.</summary>
     public bool KeepMsfsBindings { get; set; }
@@ -77,6 +93,22 @@ public sealed class AppSettings
     public string FeelLevel { get; set; } = "RealisticPlus";
     public double WindowWidth { get; set; } = 1280;
     public double WindowHeight { get; set; } = 800;
+}
+
+/// <summary>Defaults of the response settings, also used by Reset to defaults.</summary>
+public static class ResponseDefaults
+{
+    public const double RealisticResponse = 40;
+    public const double Axis = 50;
+    public const double InputSmoothing = 35;
+
+    public static void Apply(AppSettings s)
+    {
+        s.RealisticResponse = RealisticResponse;
+        s.PitchResponsiveness = s.RollResponsiveness = s.YawResponsiveness = Axis;
+        s.InputSmoothing = InputSmoothing;
+        s.AircraftAwareness = true;
+    }
 }
 
 public static class SliderLimits

@@ -2,6 +2,7 @@ using HeavyPro.Core;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows.Input;
@@ -113,7 +114,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         DetectRollCommand = new RelayCommand(() => StartDetect("roll"));
         DetectRudderCommand = new RelayCommand(() => StartDetect("rudder"));
         RefreshDevicesCommand = new RelayCommand(RefreshDevices);
-        FetchSimBriefCommand = new RelayCommand(() => _ = FetchSimBriefAsync());
+        FetchSimBriefCommand = new RelayCommand(() => _ = FetchSimBriefAsync(verify: false));
+        VerifySimBriefCommand = new RelayCommand(() => _ = FetchSimBriefAsync(verify: true));
+        SaveSimBriefIdCommand = new RelayCommand(SaveSimBriefId);
+        RemoveSimBriefIdCommand = new RelayCommand(RemoveSimBriefId);
+        UseSimBriefPlanCommand = new RelayCommand(() => _ = UseSimBriefPlanAsync());
+        ImportFlightPlanCommand = new RelayCommand(ImportFlightPlan);
+        RemoveFlightPlanCommand = new RelayCommand(RemoveFlightPlan);
+        ResetResponseCommand = new RelayCommand(ResetResponse);
+        SaveSettingsCommand = new RelayCommand(SaveSettingsNow);
         OpenDownloadCommand = new RelayCommand(OpenDownloadPage);
         _stickTimer = new DispatcherTimer(DispatcherPriority.Send) { Interval = TimeSpan.FromMilliseconds(8) };
         _stickTimer.Tick += (_, _) => PollStick();
@@ -183,6 +192,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             if (FeelPresets.Match(_settings) is var matched && matched != FeelLevel.Custom)
                 _settings.FeelLevel = matched.ToString();
         }
+        LoadSavedPlans();
         RefreshConnection();
         RaiseFeel();
     }
@@ -408,42 +418,373 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ICommand RefreshDevicesCommand { get; }
     public ICommand FetchSimBriefCommand { get; }
 
-    // ---------------- SimBrief weights ----------------
-    public string SimBriefUsername
+    // ---------------- SimBrief ----------------
+    public ICommand SaveSimBriefIdCommand { get; }
+    public ICommand RemoveSimBriefIdCommand { get; }
+    public ICommand VerifySimBriefCommand { get; }
+    public ICommand UseSimBriefPlanCommand { get; }
+
+    private string DataFolder => Path.GetDirectoryName(_settingsStore.FilePath) ?? ".";
+
+    /// <summary>What is typed in the box; Save (or Verify) keeps it.</summary>
+    private string _simBriefIdEntry = "";
+    public string SimBriefIdEntry
     {
-        get => _settings.SimBriefUsername;
-        set { _settings.SimBriefUsername = value; OnChanged(); ScheduleSave(); }
+        get => _simBriefIdEntry;
+        set { Set(ref _simBriefIdEntry, value ?? ""); OnChanged(nameof(SimBriefIdEdited)); }
     }
 
-    private string _simBriefStatus = "Enter your SimBrief username and press Load to see your planned weights.";
+    /// <summary>The saved pilot id or username.</summary>
+    public string SimBriefUsername => _settings.SimBriefUsername;
+
+    public bool SimBriefIdEdited => SimBriefIdEntry.Trim() != _settings.SimBriefUsername;
+    public bool HasSimBriefId => _settings.SimBriefUsername.Length > 0;
+
+    private SimBriefOfp? _simBriefOfp;
+    private bool _simBriefVerified;
+
+    private string _simBriefStatus = "";
     public string SimBriefStatus { get => _simBriefStatus; private set => Set(ref _simBriefStatus, value); }
 
-    private string _simBriefWeights = "";
-    public string SimBriefWeights { get => _simBriefWeights; private set => Set(ref _simBriefWeights, value); }
-    public bool HasSimBriefWeights => _simBriefWeights.Length > 0;
+    /// <summary>NOT SET, SAVED, CONNECTED, CACHED or ERROR.</summary>
+    private string _simBriefConnection = "NOT SET";
+    public string SimBriefConnection { get => _simBriefConnection; private set => Set(ref _simBriefConnection, value); }
 
-    private async Task FetchSimBriefAsync()
+    private string _simBriefDetails = "";
+    public string SimBriefDetails { get => _simBriefDetails; private set => Set(ref _simBriefDetails, value); }
+    public bool HasSimBriefDetails => _simBriefDetails.Length > 0;
+    public bool CanUseSimBriefPlan => _simBriefOfp != null;
+
+    private void SaveSimBriefId()
     {
-        SimBriefStatus = "Loading your SimBrief plan…";
-        var result = await SimBrief.FetchAsync(_settings.SimBriefUsername);
-        SimBriefStatus = result.Message;
+        var id = SimBriefIdEntry.Trim();
+        if (SimBrief.Validate(id) is { } invalid)
+        {
+            SimBriefStatus = invalid;
+            return;
+        }
+        if (id != _settings.SimBriefUsername)
+        {
+            _settings.SimBriefUsername = id;
+            // A plan from another pilot no longer applies.
+            SimBrief.ClearCache(DataFolder);
+            ShowSimBrief(null, cached: false);
+            Persist();
+        }
+        SimBriefIdEntry = id;
+        SimBriefConnection = _simBriefVerified ? "CONNECTED" : "SAVED";
+        SimBriefStatus = (SimBrief.IsPilotId(id) ? "Pilot id" : "Username") + " saved. Press Verify to load your latest plan.";
+        RaiseSimBrief();
+    }
+
+    private void RemoveSimBriefId()
+    {
+        _settings.SimBriefUsername = "";
+        SimBriefIdEntry = "";
+        SimBrief.ClearCache(DataFolder);
+        ShowSimBrief(null, cached: false);
+        SimBriefConnection = "NOT SET";
+        SimBriefStatus = "SimBrief removed. Nothing about it is kept.";
+        Persist();
+        RaiseSimBrief();
+        _logger.Info("SimBrief pilot id removed.");
+    }
+
+    /// <summary>Verify and Refresh: ask SimBrief for the latest plan. Verify also saves an edited id first.</summary>
+    private async Task FetchSimBriefAsync(bool verify)
+    {
+        if (verify && SimBriefIdEdited)
+            SaveSimBriefId();
+        var id = _settings.SimBriefUsername;
+        if (SimBrief.Validate(id) is { } invalid)
+        {
+            SimBriefConnection = "NOT SET";
+            SimBriefStatus = invalid;
+            return;
+        }
+        SimBriefStatus = "Asking SimBrief for your latest plan…";
+        var result = await SimBrief.FetchAndCacheAsync(id, DataFolder);
         if (result.Ofp is { } o)
         {
-            string W(double v) => v.ToString("#,0", CultureInfo.InvariantCulture) + " " + o.Units;
-            SimBriefWeights =
-                $"{o.Aircraft}   {o.FlightNumber}".Trim() + "\n"
-                + $"Zero fuel weight    {W(o.ZeroFuelWeight)}\n"
-                + $"Payload             {W(o.Payload)}   ({o.Passengers} pax, {W(o.Cargo)} cargo)\n"
-                + $"Takeoff weight      {W(o.TakeoffWeight)}\n"
-                + $"Landing weight      {W(o.LandingWeight)}\n"
-                + $"Block fuel          {W(o.BlockFuel)}   (reserve {W(o.ReserveFuel)})";
-            _logger.Info($"SimBrief: {o.Route} {o.Aircraft}, ZFW {W(o.ZeroFuelWeight)}, block {W(o.BlockFuel)}.");
+            ShowSimBrief(o, cached: false);
+            SimBriefStatus = $"Latest plan: {o.Route}" + (o.Generated is { } g ? $", made {g.ToLocalTime():yyyy-MM-dd HH:mm}" : "") + ".";
+            _logger.Info($"SimBrief: {o.Route} {o.AircraftType}, ZFW {o.ZeroFuelWeight:0} {o.Units}, block {o.BlockFuel:0} {o.Units}.");
         }
         else
         {
-            SimBriefWeights = "";
+            // Keep a cached plan on screen when SimBrief is just unreachable; an id SimBrief rejects is an error.
+            var rejected = result.Message.StartsWith("SimBrief:", StringComparison.Ordinal);
+            SimBriefConnection = rejected || _simBriefOfp == null ? "ERROR" : "CACHED";
+            SimBriefStatus = result.Message
+                + (rejected ? " Check the pilot id under Account Settings on simbrief.com."
+                    : _simBriefOfp != null ? " Showing the last plan HeavyPro kept." : "");
+            if (rejected)
+                ShowSimBrief(null, cached: false);
+            _logger.Warn("SimBrief: " + result.Message);
         }
-        OnChanged(nameof(HasSimBriefWeights));
+        RaiseSimBrief();
+    }
+
+    private void ShowSimBrief(SimBriefOfp? o, bool cached)
+    {
+        _simBriefOfp = o;
+        _simBriefVerified = o != null && !cached;
+        if (o != null)
+            SimBriefConnection = cached ? "CACHED" : "CONNECTED";
+        SimBriefDetails = o == null ? "" : DescribeOfp(o);
+        UpdateEnginePlan();
+        OnChanged(nameof(HasSimBriefDetails));
+        OnChanged(nameof(CanUseSimBriefPlan));
+    }
+
+    private static string DescribeOfp(SimBriefOfp o)
+    {
+        string W(double v) => v > 0 ? v.ToString("#,0", CultureInfo.InvariantCulture) + " " + o.Units : "—";
+        string T(string s) => s.Length > 0 ? s : "—";
+        var duration = o.Duration > TimeSpan.Zero ? $"{(int)o.Duration.TotalHours}:{o.Duration.Minutes:00}" : "—";
+        return
+            $"Flight          {T(o.FlightNumber)}\n"
+            + $"Departure       {T(o.Origin)}\n"
+            + $"Arrival         {T(o.Destination)}\n"
+            + $"Aircraft        {T(o.AircraftType)}   {T(o.Aircraft)}\n"
+            + $"Registration    {T(o.Registration)}\n"
+            + $"Takeoff weight  {W(o.TakeoffWeight)}\n"
+            + $"Zero fuel wt    {W(o.ZeroFuelWeight)}\n"
+            + $"Payload         {W(o.Payload)}   ({o.Passengers} pax, {W(o.Cargo)} cargo)\n"
+            + $"Fuel (block)    {W(o.BlockFuel)}\n"
+            + $"Cruise          {(o.CruiseAltitudeFeet > 0 ? "FL" + (o.CruiseAltitudeFeet / 100).ToString("000", CultureInfo.InvariantCulture) : "—")}\n"
+            + $"Duration        {duration}\n"
+            + $"Route           {T(o.RouteText)}";
+    }
+
+    private void RaiseSimBrief()
+    {
+        OnChanged(nameof(SimBriefUsername));
+        OnChanged(nameof(HasSimBriefId));
+        OnChanged(nameof(SimBriefIdEdited));
+        OnChanged(nameof(CanUseSimBriefPlan));
+    }
+
+    // ---------------- Flight plan ----------------
+    public ICommand ImportFlightPlanCommand { get; }
+    public ICommand RemoveFlightPlanCommand { get; }
+
+    private FlightPlanInfo? _plan;
+
+    private string _flightPlanStatus = "";
+    public string FlightPlanStatus { get => _flightPlanStatus; private set => Set(ref _flightPlanStatus, value); }
+
+    private string _flightPlanDetails = "";
+    public string FlightPlanDetails { get => _flightPlanDetails; private set => Set(ref _flightPlanDetails, value); }
+    public bool HasFlightPlan => _plan != null;
+
+    private void ImportFlightPlan()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Import a flight plan",
+            Filter = FlightPlans.DialogFilter,
+            CheckFileExists = true
+        };
+        if (dialog.ShowDialog() != true)
+            return;
+        var result = FlightPlans.Load(dialog.FileName);
+        if (!result.Ok)
+        {
+            // A bad file leaves the current plan as it was.
+            FlightPlanStatus = result.Message + (_plan != null ? " Your current plan is unchanged." : "");
+            _logger.Warn($"Flight plan {Path.GetFileName(dialog.FileName)} not imported: {result.Message}");
+            return;
+        }
+        try
+        {
+            _settings.FlightPlanFile = FlightPlans.Keep(DataFolder, dialog.FileName);
+            _settings.FlightPlanName = Path.GetFileName(dialog.FileName);
+            Persist();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.Warn("Could not keep a copy of the flight plan: " + ex.Message);
+        }
+        ShowPlan(result.Plan!, result.Message);
+        _logger.Info("Flight plan imported: " + result.Message);
+    }
+
+    /// <summary>Use the SimBrief plan: SimBrief's own MSFS .pln when it offers one, else the OFP itself.</summary>
+    private async Task UseSimBriefPlanAsync()
+    {
+        if (_simBriefOfp is not { } ofp)
+            return;
+        FlightPlanStatus = "Getting the SimBrief flight plan…";
+        var pln = await SimBrief.DownloadMsfsPlanAsync(ofp);
+        var parsed = pln != null ? FlightPlans.Parse(pln, "SimBrief.pln") : null;
+        try
+        {
+            if (parsed is { Ok: true })
+            {
+                _settings.FlightPlanFile = FlightPlans.KeepText(DataFolder, pln!, ".pln");
+                ShowPlan(parsed.Plan! with { Ofp = ofp, SourceName = "SimBrief" }, parsed.Message);
+            }
+            else
+            {
+                var cache = SimBrief.CachePath(DataFolder);
+                _settings.FlightPlanFile = File.Exists(cache) ? FlightPlans.Keep(DataFolder, cache) : "";
+                ShowPlan(FlightPlans.FromOfp(ofp) with { SourceName = "SimBrief" }, "SimBrief OFP: " + ofp.Route);
+            }
+            _settings.FlightPlanName = "SimBrief " + ofp.Route;
+            Persist();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            FlightPlanStatus = "Could not keep the SimBrief plan: " + ex.Message;
+        }
+    }
+
+    private void RemoveFlightPlan()
+    {
+        try { FlightPlans.Forget(DataFolder); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { _logger.Warn("Could not delete the kept flight plan: " + ex.Message); }
+        _settings.FlightPlanFile = "";
+        _settings.FlightPlanName = "";
+        Persist();
+        _plan = null;
+        FlightPlanDetails = "";
+        FlightPlanStatus = "Flight plan removed.";
+        UpdateEnginePlan();
+        OnChanged(nameof(HasFlightPlan));
+    }
+
+    private void ShowPlan(FlightPlanInfo plan, string message)
+    {
+        _plan = plan;
+        FlightPlanStatus = message;
+        var cruise = plan.CruiseAltitudeFeet > 0 ? "FL" + (plan.CruiseAltitudeFeet / 100).ToString("000", CultureInfo.InvariantCulture) : "—";
+        FlightPlanDetails =
+            $"Format          {plan.Format}" + (plan.SourceName.Length > 0 ? $"  ({plan.SourceName})" : "") + "\n"
+            + $"Departure       {(plan.Departure.Length > 0 ? plan.Departure : "—")}\n"
+            + $"Arrival         {(plan.Arrival.Length > 0 ? plan.Arrival : "—")}\n"
+            + $"Cruise          {cruise}\n"
+            + $"Waypoints       {plan.Waypoints.Count}\n"
+            + $"Route           {(plan.RouteText.Length > 0 ? plan.RouteText : "—")}"
+            + (plan.Ofp is { } o && o.TakeoffWeight > 0
+                ? $"\nTakeoff weight  {o.TakeoffWeight.ToString("#,0", CultureInfo.InvariantCulture)} {o.Units} (used when the sim gives no weight)"
+                : "");
+        UpdateEnginePlan();
+        OnChanged(nameof(HasFlightPlan));
+    }
+
+    /// <summary>The plan the response uses: the imported one, else the SimBrief OFP.</summary>
+    private void UpdateEnginePlan() =>
+        _engine.Plan = _plan ?? (_simBriefOfp != null ? FlightPlans.FromOfp(_simBriefOfp) : null);
+
+    /// <summary>At start: the cached SimBrief plan and the kept flight plan, without any network.</summary>
+    private void LoadSavedPlans()
+    {
+        SimBriefIdEntry = _settings.SimBriefUsername;
+        if (_settings.SimBriefUsername.Length > 0 && SimBrief.LoadCache(DataFolder) is { Ofp: { } cached })
+        {
+            ShowSimBrief(cached, cached: true);
+            SimBriefStatus = $"Last plan HeavyPro kept: {cached.Route}. Press Refresh for your latest.";
+        }
+        else
+        {
+            SimBriefConnection = _settings.SimBriefUsername.Length > 0 ? "SAVED" : "NOT SET";
+            SimBriefStatus = _settings.SimBriefUsername.Length > 0
+                ? "Press Verify to load your latest SimBrief plan."
+                : "Enter your SimBrief pilot id (Account Settings on simbrief.com) or username.";
+        }
+
+        if (_settings.FlightPlanFile.Length > 0)
+        {
+            var result = FlightPlans.Load(_settings.FlightPlanFile);
+            if (result.Ok)
+            {
+                var plan = result.Plan! with { SourceName = _settings.FlightPlanName };
+                // A plan taken from SimBrief keeps its weights when the cached OFP is the same flight.
+                if (plan.Ofp == null && _simBriefOfp is { } o && o.Origin == plan.Departure && o.Destination == plan.Arrival)
+                    plan = plan with { Ofp = o };
+                ShowPlan(plan, result.Message);
+            }
+            else
+            {
+                FlightPlanStatus = "The saved flight plan could not be read again: " + result.Message;
+                _settings.FlightPlanFile = "";
+                _settings.FlightPlanName = "";
+            }
+        }
+        else
+        {
+            FlightPlanStatus = "No flight plan. Import a .pln, .flp or SimBrief OFP file, or use your SimBrief plan.";
+        }
+        RaiseSimBrief();
+    }
+
+    // ---------------- Response ----------------
+    public ICommand ResetResponseCommand { get; }
+    public ICommand SaveSettingsCommand { get; }
+
+    public double RealisticResponse { get => _settings.RealisticResponse; set => SetResponse(nameof(RealisticResponse), value, v => _settings.RealisticResponse = v); }
+    public double PitchResponsiveness { get => _settings.PitchResponsiveness; set => SetResponse(nameof(PitchResponsiveness), value, v => _settings.PitchResponsiveness = v); }
+    public double RollResponsiveness { get => _settings.RollResponsiveness; set => SetResponse(nameof(RollResponsiveness), value, v => _settings.RollResponsiveness = v); }
+    public double YawResponsiveness { get => _settings.YawResponsiveness; set => SetResponse(nameof(YawResponsiveness), value, v => _settings.YawResponsiveness = v); }
+    public double InputSmoothing { get => _settings.InputSmoothing; set => SetResponse(nameof(InputSmoothing), value, v => _settings.InputSmoothing = v); }
+
+    public bool AircraftAwareness
+    {
+        get => _settings.AircraftAwareness;
+        set { _settings.AircraftAwareness = value; OnChanged(); OnChanged(nameof(ResponseSummary)); SettingsSaved = ""; ScheduleSave(); }
+    }
+
+    /// <summary>What the settings do, in numbers: travel time and rate build-up against HeavyPro 0.8.0.</summary>
+    public string ResponseSummary
+    {
+        get
+        {
+            var travel = ResponseTuning.TravelScale(_settings.RealisticResponse);
+            string Axis(double v) => (travel * ResponseTuning.AxisScale(v)).ToString("0.00", CultureInfo.InvariantCulture);
+            return F("Travel time vs 0.8.0: pitch {0}×  roll {1}×  yaw {2}×  ·  rate build-up {3}×",
+                Axis(_settings.PitchResponsiveness), Axis(_settings.RollResponsiveness), Axis(_settings.YawResponsiveness),
+                ResponseTuning.MomentFor(_settings).ToString("0.00", CultureInfo.InvariantCulture))
+                + (_settings.AircraftAwareness ? "  ·  aircraft awareness on" : "");
+        }
+    }
+
+    private string _settingsSaved = "";
+    public string SettingsSaved { get => _settingsSaved; private set => Set(ref _settingsSaved, value); }
+
+    private void SetResponse(string name, double value, Action<double> assign)
+    {
+        assign(Numeric.Clamp(double.IsNaN(value) ? 50 : value, SliderLimits.Min, SliderLimits.Max));
+        OnChanged(name);
+        OnChanged(nameof(ResponseSummary));
+        SettingsSaved = "";
+        ScheduleSave();
+    }
+
+    private void ResetResponse()
+    {
+        ResponseDefaults.Apply(_settings);
+        foreach (var name in new[] { nameof(RealisticResponse), nameof(PitchResponsiveness), nameof(RollResponsiveness),
+                     nameof(YawResponsiveness), nameof(InputSmoothing), nameof(AircraftAwareness), nameof(ResponseSummary) })
+            OnChanged(name);
+        SaveSettingsNow();
+        SettingsSaved = "Response reset to defaults (Realistic Response 40) and saved.";
+        _logger.Info("Response settings reset to defaults.");
+    }
+
+    private void SaveSettingsNow()
+    {
+        _saveTimer.Stop();
+        try
+        {
+            _settingsStore.Save(_settings);
+            SettingsSaved = "Saved " + DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + ".";
+        }
+        catch (Exception ex)
+        {
+            SettingsSaved = "Could not save: " + ex.Message;
+            _logger.Error("Could not save settings", ex);
+        }
     }
 
     /// <summary>Direct and REAL1 both send the stick where hardware enters; only MSFS bindings masks it.</summary>
@@ -685,6 +1026,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         // when it moves but no stick event reaches HeavyPro (the aircraft took it first).
         _stickPitch = pitch;
         _stickRoll = roll;
+        _stickYaw = yaw;
         var offCentre = Math.Max(Math.Abs(pitch ?? 0), Math.Abs(roll ?? 0)) > 0.25;
         var pitchRollCaptured = _snap.CapturedPitch.HasValue || _snap.CapturedRoll.HasValue;
         if (!_client.DirectInput && _client.IsConnected && offCentre && !pitchRollCaptured)
@@ -1188,6 +1530,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     // Live meters: where the stick is versus what the sim is being sent.
     private double? _stickPitch;
     private double? _stickRoll;
+    private double? _stickYaw;
     private DateTime? _stickHiddenSince;
     private bool _stickHidden;
 
@@ -1753,6 +2096,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public void Dispose()
     {
+        TimerResolution.Release();
         Persist();
         _reconnectTimer.Stop();
         _saveTimer.Stop();
@@ -1886,6 +2230,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _logger.Telemetry(FormatTelemetryLine(snap));
         }
 
+        snap = WithFreshStick(snap);
         var cmd = _engine.Step(_settings, snap, _settings.MasterEnable && _client.IsConnected);
         _lastCmd = cmd;
         _client.SetFeelGain(cmd.Mix > 0 ? cmd.Mix : 0.55);
@@ -1908,6 +2253,24 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _lastMeterRefresh = now;
             RaiseMeters();
         }
+    }
+
+    /// <summary>
+    /// Direct route: read the stick again right before shaping, so the value shaped this frame is
+    /// microseconds old instead of up to one stick-timer tick (the timer is not in step with the sim's frames).
+    /// </summary>
+    private FlightSnapshot WithFreshStick(FlightSnapshot snap)
+    {
+        if (!_client.DirectInput || !_client.IsConnected || _detecting != null || !StickConfigured)
+            return snap;
+        PollStick();
+        static double Unit(double v) => Numeric.Clamp(ToAxisEvent(v), -16383, 16383) / 16384.0;
+        return snap with
+        {
+            CapturedPitch = _stickPitch.HasValue ? Unit(_stickPitch.Value) : snap.CapturedPitch,
+            CapturedRoll = _stickRoll.HasValue ? Unit(_stickRoll.Value) : snap.CapturedRoll,
+            CapturedYaw = _stickYaw.HasValue ? Unit(_stickYaw.Value) : snap.CapturedYaw
+        };
     }
 
     private static string FormatTelemetryLine(FlightSnapshot s)
@@ -1936,6 +2299,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _ => "DISCONNECTED"
         };
         Status = _client.StatusText;
+        // 1 ms Windows timer resolution while connected, so the 8 ms stick timer really ticks
+        // every 8 ms instead of every 15.6 ms; given back when not connected.
+        if (_client.IsConnected) TimerResolution.Hold(); else TimerResolution.Release();
         OnChanged(nameof(ConnectionLabel));
         RaiseMeters();
     }

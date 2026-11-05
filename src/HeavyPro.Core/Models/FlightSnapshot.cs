@@ -4,7 +4,7 @@ namespace HeavyPro.Core.Models;
 /// One sample of user-aircraft state. All fields come from documented SimVars.
 /// Phase 1 is read-only; nothing in this type is written back to the sim.
 /// </summary>
-public sealed class FlightSnapshot
+public sealed record FlightSnapshot
 {
     public DateTime Utc { get; init; } = DateTime.UtcNow;
 
@@ -54,6 +54,8 @@ public sealed class FlightSnapshot
     public double RollMoi { get; init; }
     public double YawMoi { get; init; }
     public double FuelWeightPounds { get; init; }
+    /// <summary>Centre of gravity as a fraction of the mean aerodynamic chord (CG PERCENT); 0 when MSFS gives none.</summary>
+    public double CgPercentMac { get; init; }
 
     public double FlapsHandlePercent { get; init; }
     public double FlapsHandleIndex { get; init; }

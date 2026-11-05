@@ -11,6 +11,13 @@ public sealed class InertiaEngine
     private readonly InputDynamicsEngine _input = new();
     private DateTime _last = DateTime.MinValue;
 
+    /// <summary>The current flight plan, for weights when the sim gives none.</summary>
+    public FlightPlanInfo? Plan
+    {
+        get => _input.Plan;
+        set => _input.Plan = value;
+    }
+
     public InfluenceCommand Step(AppSettings settings, FlightSnapshot snap, bool masterEnable)
     {
         var dt = 0.016;
@@ -71,6 +78,7 @@ public sealed class InertiaEngine
             AirspeedFactor = frame.AirspeedFactor,
             Reason = $"WRITING shaped stick · {phase} · {frame.Profile} · {frame.Feel} · P {frame.PitchSeconds:0.00}s"
                 + (frame.RudderAuthority < 0.999 ? $" · rudder {frame.RudderAuthority:P0}" : "")
+                + (frame.Awareness.Length > 0 ? " · " + frame.Awareness : "")
         };
     }
 

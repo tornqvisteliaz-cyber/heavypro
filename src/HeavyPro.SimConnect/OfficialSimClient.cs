@@ -32,7 +32,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         PanelState = 8,
         PanelRequest = 9,
         BridgeWrite = 10,
-        BridgeStatus = 11
+        BridgeStatus = 11,
+        Balance = 12
     }
 
     private enum Requests : uint
@@ -43,7 +44,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         Flags = 4,
         YokeSense = 5,
         PanelRequest = 6,
-        BridgeStatus = 7
+        BridgeStatus = 7,
+        Balance = 8
     }
 
     private enum Events : uint
@@ -89,6 +91,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private FenixFcuPacket _fenixFcu;
     private FlagsPacket _flags;
     private YokeSensePacket _yokeSense;
+    private BalancePacket _balance;
     private bool _rateWriteReady;
     private bool _axisWriteReady;
     private bool _yokeWriteReady;
@@ -363,6 +366,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             RegisterFenixFcu();
             RegisterFlags();
             RegisterYokeSense();
+            RegisterBalance();
             RegisterYokeWrite();
             RegisterRateWrite();
             RegisterPanel();
@@ -432,6 +436,22 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             catch (Exception ex)
             {
                 _logger.Warn("Yoke indicator request was not accepted: " + ex.Message);
+            }
+
+            try
+            {
+                // Centre of gravity changes with fuel and load, never per frame.
+                sender.RequestDataOnSimObject(
+                    Requests.Balance,
+                    Definitions.Balance,
+                    Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                    SIMCONNECT_PERIOD.SECOND,
+                    SIMCONNECT_DATA_REQUEST_FLAG.CHANGED,
+                    0, 0, 0);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warn("Centre of gravity request was not accepted: " + ex.Message);
             }
 
             SetState(ConnectionState.Connected, "Connected to MSFS 2024. Waiting for aircraft data…");
@@ -730,6 +750,11 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
                         _yokeSense = ys;
                     break;
 
+                case Requests.Balance:
+                    if (data.dwData[0] is BalancePacket balance)
+                        _balance = balance;
+                    break;
+
                 case Requests.PanelRequest:
                     if (data.dwData[0] is PanelRequestPacket panel)
                         OnPanelRequest(panel);
@@ -820,6 +845,21 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         Add(Definitions.Flight, "AUTOPILOT HEADING LOCK", "number");
         Add(Definitions.Flight, "AUTOPILOT ALTITUDE LOCK", "number");
         _sim!.RegisterDataDefineStruct<FlightPacket>(Definitions.Flight);
+    }
+
+    private void RegisterBalance()
+    {
+        try
+        {
+            // Its own definition, so a sim that rejects the name cannot shift the flight packet.
+            Add(Definitions.Balance, "CG PERCENT", "percent over 100");
+            _sim!.RegisterDataDefineStruct<BalancePacket>(Definitions.Balance);
+            _logger.Info("Registered centre of gravity definition.");
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn("Could not register centre of gravity: " + ex.Message);
+        }
     }
 
     private void RegisterFlags()
@@ -1152,6 +1192,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             RollMoi = f.RollMoi,
             YawMoi = f.YawMoi,
             FuelWeightPounds = f.FuelWeight,
+            CgPercentMac = double.IsNaN(_balance.CgPercent) || double.IsInfinity(_balance.CgPercent) ? 0 : _balance.CgPercent,
             FlapsHandlePercent = f.FlapsHandlePercent,
             FlapsHandleIndex = f.FlapsHandleIndex,
             TrailingEdgeFlapsPercent = f.TrailingEdgeFlaps,
@@ -1347,6 +1388,12 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         public double X;
         public double Y;
         public double Rudder;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct BalancePacket
+    {
+        public double CgPercent;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]

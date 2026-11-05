@@ -68,6 +68,16 @@ A desktop stick has a fixed spring, so HeavyPro renders weight as how quickly th
 | FBW sidestick | Airbus A320 family, A330, A340, A350, A380, A220 | Same spring at every speed; the stick commands g and roll rate, so the weight is in the aircraft's response | Light shaping only (at most 0.6 s), no airspeed scaling, which avoids pilot-induced oscillation |
 | Mechanical | Light aircraft, most turboprops and bizjets | Stick force grows with dynamic pressure (V²) | Stiffens with dynamic pressure on a light-aircraft scale |
 
+**Plan & response (0.9.0):** the Plan & response tab sets how quickly HeavyPro's shaped stick follows yours, on every route (REAL1 included):
+
+- **Realistic Response** (0–100, default 40) scales every axis's travel time from 1.3× HeavyPro 0.8.0's at 0 to 0.35× at 100 (20 equals 0.8.0), and the rate build-up by the square root of that. At 40, a 60 % pitch input reaches 90 % of its shaped target about a third sooner than in 0.8.0 (PMDG 777 at 200 kt: 1.98 s → 1.30 s; C172: 0.53 s → 0.38 s).
+- **Pitch / roll / yaw responsiveness** (default 50, neutral) adjust one axis; **Input smoothing** (default 35) is how long a control's rate takes to build up.
+- **Aircraft awareness:** weight relative to the aircraft's own maximum (heavier is slower), centre of gravity (`CG PERCENT`; aft is a lighter pitch) and nosewheel steering at taxi speed (quicker yaw). With no weight from the sim, the SimBrief plan's takeoff weight stands in, only when the plan is for the same ICAO type. Anything unavailable counts as neutral.
+- **SimBrief:** save your Pilot ID or username, Connect/Verify, and Refresh load your latest OFP from SimBrief's documented fetcher (`xml.fetcher.php`). The last good plan is cached in `%AppData%\HeavyPro\simbrief-latest.json`; Remove deletes it.
+- **Flight plans:** import an MSFS `.pln`, an Airbus `.flp` (`[CoRte]`) or a saved SimBrief OFP (`.json`/`.xml`), or use SimBrief's own MSFS plan for your OFP. A copy is kept in `%AppData%\HeavyPro\flightplan`.
+
+All of this shapes stick input only; no aircraft or flight-model file is touched.
+
 **Jet rudder limiter:** like the 747's rudder ratio changer (about 30° of rudder at low speed down to about 5° near 500 kt), rudder throw shrinks from full at 160 kt to a fifth by 320 kt. It is skipped for PMDG, Fenix, iniBuilds and FlyByWire aircraft, which model it themselves, and can be turned off.
 
 ## Licensing

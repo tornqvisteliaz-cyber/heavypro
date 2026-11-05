@@ -394,19 +394,108 @@
                                 <TextBlock Text="{Binding WriteStatus}" TextWrapping="Wrap" FontFamily="Consolas"
                                            FontSize="10" Foreground="{StaticResource BrushAccent}" Margin="0,11,0,0"/>
 
-                                <Border Height="1" Background="{StaticResource BrushLine}" Margin="0,14,0,12"/>
-                                <TextBlock Text="SIMBRIEF WEIGHTS" Style="{StaticResource SectionText}" Margin="0,0,0,8"/>
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBox Text="{Binding SimBriefUsername, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center"
-                                             ToolTip="Your SimBrief username (Account Settings on simbrief.com) or numeric pilot id."/>
-                                    <Button Grid.Column="1" Content="Load" Command="{Binding FetchSimBriefCommand}" Padding="12,4" Margin="8,0,0,0"/>
-                                </Grid>
-                                <TextBlock Text="{Binding SimBriefWeights}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
-                                           Foreground="{StaticResource BrushText}" Visibility="{Binding HasSimBriefWeights, Converter={StaticResource BoolToVis}}"/>
-                                <TextBlock Text="{Binding SimBriefStatus}" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                <TextBlock Text="SimBrief, flight plans and Realistic Response are under Plan &amp; response."
+                                           Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,12,0,0"/>
                             </StackPanel>
                         </Border>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Plan &amp; response">
+                <ScrollViewer Margin="0,14,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MaxWidth="460"/>
+                            <ColumnDefinition Width="16"/>
+                            <ColumnDefinition Width="*" MaxWidth="460"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Response: on every route, REAL1 included. -->
+                        <Border VerticalAlignment="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="RESPONSE" Style="{StaticResource SectionText}" Margin="0,0,0,4"/>
+                                <TextBlock Text="How quickly HeavyPro's shaped stick follows yours, on every route and every aircraft. Changes apply at once."
+                                           Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Realistic Response" FontWeight="SemiBold"/><TextBlock Text="{Binding RealisticResponse, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="0" Maximum="100" Value="{Binding RealisticResponse}" SmallChange="1" LargeChange="10" Margin="0,0,0,2"
+                                        ToolTip="0 is heavy and slow, 100 is quick. Default 40."/>
+                                <TextBlock Text="Lower: heavier, slower to answer. Higher: quicker. Default 40." Style="{StaticResource MutedText}" FontSize="10" Margin="0,0,0,10"/>
+
+                                <TextBlock Text="AIRCRAFT RESPONSE" Style="{StaticResource MutedText}" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Pitch responsiveness"/><TextBlock Text="{Binding PitchResponsiveness, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="0" Maximum="100" Value="{Binding PitchResponsiveness}" SmallChange="1" LargeChange="10" Margin="0,0,0,7" ToolTip="50 leaves pitch as Realistic Response sets it."/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Roll responsiveness"/><TextBlock Text="{Binding RollResponsiveness, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="0" Maximum="100" Value="{Binding RollResponsiveness}" SmallChange="1" LargeChange="10" Margin="0,0,0,7" ToolTip="50 leaves roll as Realistic Response sets it."/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Yaw responsiveness"/><TextBlock Text="{Binding YawResponsiveness, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="0" Maximum="100" Value="{Binding YawResponsiveness}" SmallChange="1" LargeChange="10" Margin="0,0,0,7" ToolTip="50 leaves yaw as Realistic Response sets it."/>
+                                <Grid Margin="0,0,0,2"><TextBlock Text="Input smoothing"/><TextBlock Text="{Binding InputSmoothing, StringFormat={}{0:0}}" Style="{StaticResource MutedText}" HorizontalAlignment="Right"/></Grid>
+                                <Slider Minimum="0" Maximum="100" Value="{Binding InputSmoothing}" SmallChange="1" LargeChange="10" Margin="0,0,0,7"
+                                        ToolTip="How long a control takes to get up to speed. Lower is crisper; too high feels late. Default 35."/>
+                                <CheckBox Content="Aircraft awareness (weight, centre of gravity, ground steering)" IsChecked="{Binding AircraftAwareness}" Margin="0,2,0,6"
+                                          ToolTip="Heavier for its type is slower, an aft centre of gravity is a lighter pitch, nosewheel steering at taxi speed is quicker. Uses SimBrief weights when the sim gives none."/>
+                                <TextBlock Text="{Binding ResponseSummary}" FontFamily="Consolas" FontSize="10" TextWrapping="Wrap"
+                                           Foreground="{StaticResource BrushAccent}" Margin="0,0,0,10"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Reset to defaults" Command="{Binding ResetResponseCommand}" Padding="12,6"/>
+                                    <Button Content="Save settings" Command="{Binding SaveSettingsCommand}" Style="{StaticResource PrimaryButton}" Padding="12,6" Margin="8,0,0,0"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding SettingsSaved}" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                                <TextBlock Text="Settings also save by themselves a moment after each change. The sliders under Fly → Response tuning still shape the Direct and MSFS bindings routes."
+                                           Style="{StaticResource MutedText}" FontSize="10" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Grid.Column="2">
+                            <!-- SimBrief -->
+                            <Border VerticalAlignment="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,8">
+                                        <TextBlock Text="SIMBRIEF" Style="{StaticResource SectionText}"/>
+                                        <TextBlock Text="{Binding SimBriefConnection}" FontSize="10" FontWeight="Bold" HorizontalAlignment="Right" Foreground="{StaticResource BrushAccent}"/>
+                                    </Grid>
+                                    <TextBlock Text="Pilot ID or username" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"/>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                        <TextBox Text="{Binding SimBriefIdEntry, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center"
+                                                 ToolTip="Your SimBrief Pilot ID (Account Settings on simbrief.com) or username. Only sent to SimBrief."/>
+                                        <Button Grid.Column="1" Content="Save" Command="{Binding SaveSimBriefIdCommand}" Padding="10,4" Margin="8,0,0,0"/>
+                                        <Button Grid.Column="2" Content="Remove" Command="{Binding RemoveSimBriefIdCommand}" Padding="10,4" Margin="6,0,0,0"/>
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <Button Content="Connect / Verify" Command="{Binding VerifySimBriefCommand}" Style="{StaticResource PrimaryButton}" Padding="12,5"
+                                                ToolTip="Saves the id if you changed it and loads your latest SimBrief flight plan."/>
+                                        <Button Content="Refresh" Command="{Binding FetchSimBriefCommand}" Padding="12,5" Margin="8,0,0,0"
+                                                ToolTip="Loads your latest SimBrief plan again."/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding SimBriefStatus}" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                    <TextBlock Text="{Binding SimBriefDetails}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
+                                               Foreground="{StaticResource BrushText}" Visibility="{Binding HasSimBriefDetails, Converter={StaticResource BoolToVis}}"/>
+                                    <Button Content="Use as flight plan" Command="{Binding UseSimBriefPlanCommand}" Padding="12,5" Margin="0,8,0,0" HorizontalAlignment="Left"
+                                            Visibility="{Binding CanUseSimBriefPlan, Converter={StaticResource BoolToVis}}"
+                                            ToolTip="Downloads SimBrief's MSFS flight plan for this OFP (or uses the OFP itself) as HeavyPro's flight plan."/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Flight plan -->
+                            <Border VerticalAlignment="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="FLIGHT PLAN" Style="{StaticResource SectionText}" Margin="0,0,0,8"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <Button Content="Import flight plan…" Command="{Binding ImportFlightPlanCommand}" Style="{StaticResource PrimaryButton}" Padding="12,5"
+                                                ToolTip="MSFS .pln, Airbus .flp (Aerosoft, Fenix, iniBuilds) or a saved SimBrief OFP (.json or .xml). Importing again replaces the plan."/>
+                                        <Button Content="Remove" Command="{Binding RemoveFlightPlanCommand}" Padding="12,5" Margin="8,0,0,0"
+                                                Visibility="{Binding HasFlightPlan, Converter={StaticResource BoolToVis}}"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding FlightPlanStatus}" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                    <TextBlock Text="{Binding FlightPlanDetails}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
+                                               Foreground="{StaticResource BrushText}" Visibility="{Binding HasFlightPlan, Converter={StaticResource BoolToVis}}"/>
+                                    <TextBlock Text="A plan's weights (SimBrief) stand in for the aircraft's weight when the sim gives none. Waypoints and route are shown for reference."
+                                               Style="{StaticResource MutedText}" FontSize="10" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
                     </Grid>
                 </ScrollViewer>
             </TabItem>
