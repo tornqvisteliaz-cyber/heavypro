@@ -1,0 +1,21 @@
+<?xml version='1.0'?>
+<!-- Identifier-renaming obfuscation of HeavyPro's shipped support DLLs (not the WPF exe,
+     whose XAML/BAML bindings and event handlers would break). KeepPublicApi keeps the
+     public surface so references, serialization and data binding still resolve; private
+     and internal members (the licence verification internals, the physics internals) are
+     renamed. String literals are left intact so the machine-id salt and endpoints never
+     change. New-AppPayload.ps1 fills in __INPATH__/__OUTPATH__. -->
+<Obfuscator>
+  <Var name="InPath" value="__INPATH__" />
+  <Var name="OutPath" value="__OUTPATH__" />
+  <Var name="KeepPublicApi" value="true" />
+  <Var name="HidePrivateApi" value="true" />
+  <Var name="HideStrings" value="false" />
+  <Var name="RegenerateDebugInfo" value="false" />
+  <Var name="RenameProperties" value="true" />
+  <Var name="RenameFields" value="true" />
+  <Var name="RenameEvents" value="true" />
+  <Module file="$(InPath)\Rotaidem.Licensing.dll" />
+  <Module file="$(InPath)\HeavyFeel.Core.dll" />
+  <Module file="$(InPath)\HeavyFeel.Logging.dll" />
+</Obfuscator>

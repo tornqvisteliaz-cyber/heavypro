@@ -77,7 +77,7 @@ public sealed class BackgroundTray : IDisposable
             return;
         _toldOnce = true;
         _icon.ShowBalloonTip(4000, "HeavyPro is still running",
-            "It keeps shaping your stick in the background. Right-click the tray icon to open or exit it.",
+            "HeavyPro keeps running in the background; you can find it in your system tray.",
             System.Windows.Forms.ToolTipIcon.Info);
     }
 

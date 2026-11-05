@@ -9,3 +9,6 @@ lib/SimConnect.dll
 dist/
 release-notes.md
 dist-logo/
+
+# Obfuscation staging (New-AppPayload.ps1)
+obj-obf/
