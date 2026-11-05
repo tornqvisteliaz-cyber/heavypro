@@ -60,15 +60,17 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        var confirmedRecently = await EnsureLicensedAsync();
-        if (confirmedRecently is null)
+        var leaseUntil = await EnsureLicensedAsync();
+        if (leaseUntil is null)
         {
             Shutdown();
             return;
         }
-        // Licence confirmed: let the shaping output run. Without this the write path stays a
-        // pass-through, so skipping the licence screen does not give a working product.
-        HeavyPro.Core.Physics.ControlLimits.Unlock();
+        // Licence confirmed: let the shaping output run until the lease ends. Without this the
+        // write path stays a pass-through, so skipping the licence screen does not give a working
+        // product — and because the unlock expires by itself, disabling the recheck loop below
+        // does not keep it working either.
+        HeavyPro.Core.Physics.ControlLimits.Unlock(leaseUntil.Value);
 
         // Closing the window hides HeavyPro in the tray; Exit there (or turning the option off) quits.
         _tray = new BackgroundTray();
@@ -77,21 +79,20 @@ public partial class App : System.Windows.Application
         ShutdownMode = ShutdownMode.OnMainWindowClose;
         MainWindow.Show();
 
-        if (confirmedRecently == true)
-            await RecheckInBackgroundAsync();
+        _ = RecheckLoopAsync();
     }
 
-    /// <summary>
-    /// Null: not licensed, quit. True: started from a key confirmed within the
-    /// offline grace period, still to be re-checked online. False: just checked.
-    /// </summary>
-    private static async Task<bool?> EnsureLicensedAsync()
+    /// <summary>Checked and re-armed periodically for as long as the app runs; see <see cref="RecheckLoopAsync"/>.</summary>
+    private static readonly TimeSpan RecheckInterval = TimeSpan.FromMinutes(20);
+
+    /// <summary>The confirmed lease to unlock shaping until, or null: not licensed, quit.</summary>
+    private static async Task<DateTimeOffset?> EnsureLicensedAsync()
     {
 #if DEBUG
         // Developer builds from Visual Studio skip the check. Release builds,
         // which the installer ships, always enforce it.
         await Task.CompletedTask;
-        return false;
+        return DateTimeOffset.MaxValue;
 #else
         var store = HeavyProLicense.Store();
         var saved = store.Load();
@@ -99,49 +100,59 @@ public partial class App : System.Windows.Application
         // A saved answer signed by the licence server, for this PC and still within its
         // lease, starts at once, so a slow or missing internet connection never blocks
         // start-up. A key without one (older versions) is confirmed online first.
-        if (HeavyProLicense.CheckOffline().IsValid)
-            return true;
+        var offline = HeavyProLicense.CheckOffline();
+        if (offline.IsValid)
+            return offline.LeaseUntil ?? DateTimeOffset.UtcNow.Add(RecheckInterval);
 
         string? reason = null;
         if (saved != null)
         {
             var result = await HeavyProLicense.CheckAsync();
             if (result.IsValid)
-                return false;
+                return result.LeaseUntil ?? DateTimeOffset.UtcNow.Add(RecheckInterval);
             reason = result.Message;
             LogLicence($"Start-up check rejected the saved key: {result.Status} — {result.Message}");
         }
 
         var dialog = new LicenseWindow(reason, saved?.Key);
-        return dialog.ShowDialog() == true ? false : null;
+        return dialog.ShowDialog() == true ? dialog.LeaseUntil ?? DateTimeOffset.UtcNow.Add(RecheckInterval) : null;
 #endif
     }
 
-    private async Task RecheckInBackgroundAsync()
+    /// <summary>
+    /// Re-checks the licence for as long as HeavyPro runs, extending the unlock on success. On
+    /// anything else it locks shaping at once (not only on the next expiry) and shuts down.
+    /// </summary>
+    private async Task RecheckLoopAsync()
     {
-        var result = await HeavyProLicense.CheckAsync();
-        switch (result.Status)
+        while (true)
         {
-            case LicenseStatus.Valid:
-                return;
-            case LicenseStatus.OfflineGrace:
-                // The server being asleep or offline is normal; only warn near the end of the lease.
-                if (result.LeaseUntil is { } until && until - DateTimeOffset.UtcNow <= TimeSpan.FromDays(3))
-                    MessageBox.Show(MainWindow!, result.Message, "HeavyPro");
-                return;
-            default:
-                // Revoked, removed from this PC, not signed by the real server, or the
-                // lease ran out: stop now. Keep the key on disk (never make the customer
-                // dig it out again) but drop the signed answer, so the next start checks
-                // online and shows the activation window pre-filled with the reason.
-                LogLicence($"Background check rejected the saved key: {result.Status} — {result.Message}");
-                var rejected = HeavyProLicense.Store().Load();
-                if (rejected != null)
-                    HeavyProLicense.Store().Save(rejected.Key, DateTimeOffset.FromUnixTimeSeconds(0));
-                MessageBox.Show(MainWindow!, result.Message + "\n\nHeavyPro will close. Start it again to re-check or enter a licence key.", "HeavyPro",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                Shutdown();
-                return;
+            await Task.Delay(RecheckInterval);
+            var result = await HeavyProLicense.CheckAsync();
+            switch (result.Status)
+            {
+                case LicenseStatus.Valid:
+                case LicenseStatus.OfflineGrace:
+                    HeavyPro.Core.Physics.ControlLimits.Unlock(result.LeaseUntil ?? DateTimeOffset.UtcNow.Add(RecheckInterval));
+                    // The server being asleep or offline is normal; only warn near the end of the lease.
+                    if (result.Status == LicenseStatus.OfflineGrace && result.LeaseUntil is { } until && until - DateTimeOffset.UtcNow <= TimeSpan.FromDays(3))
+                        MessageBox.Show(MainWindow!, result.Message, "HeavyPro");
+                    break;
+                default:
+                    // Revoked, removed from this PC, not signed by the real server, or the
+                    // lease ran out: stop now. Keep the key on disk (never make the customer
+                    // dig it out again) but drop the signed answer, so the next start checks
+                    // online and shows the activation window pre-filled with the reason.
+                    LogLicence($"Recheck rejected the saved key: {result.Status} — {result.Message}");
+                    var rejected = HeavyProLicense.Store().Load();
+                    if (rejected != null)
+                        HeavyProLicense.Store().Save(rejected.Key, DateTimeOffset.FromUnixTimeSeconds(0));
+                    HeavyPro.Core.Physics.ControlLimits.Lock();
+                    MessageBox.Show(MainWindow!, result.Message + "\n\nHeavyPro will close. Start it again to re-check or enter a licence key.", "HeavyPro",
+                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    Shutdown();
+                    return;
+            }
         }
     }
 

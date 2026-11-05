@@ -53,7 +53,7 @@ jobs:
           }
       - name: Run unit tests
         run: dotnet test src/HeavyPro.Core.Tests/HeavyPro.Core.Tests.csproj -c Release
-      - name: Build app and refresh payload
+      - name: Build app
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path lib | Out-Null
@@ -69,7 +69,17 @@ jobs:
           } finally { $old.Dispose() }
           dotnet build src/HeavyPro.App/HeavyPro.App.csproj -c Release -p:Platform=x64
           if ($LASTEXITCODE -ne 0) { throw "App build failed." }
-          & packaging/New-AppPayload.ps1 -Configuration Release
+      - name: Sign HeavyPro.exe
+        # Users see a SmartScreen/antivirus warning on every run of an unsigned exe. No-op
+        # until CODE_SIGNING_PFX_BASE64/CODE_SIGNING_PFX_PASSWORD secrets are added.
+        shell: pwsh
+        env:
+          CODE_SIGNING_PFX_BASE64: ${{ secrets.CODE_SIGNING_PFX_BASE64 }}
+          CODE_SIGNING_PFX_PASSWORD: ${{ secrets.CODE_SIGNING_PFX_PASSWORD }}
+        run: & packaging/Sign-File.ps1 -Path src/HeavyPro.App/bin/x64/Release/net48/HeavyPro.exe
+      - name: Refresh payload
+        shell: pwsh
+        run: & packaging/New-AppPayload.ps1 -Configuration Release -SkipBuild
       - name: Verify bundled SimConnect runtime files
         shell: pwsh
         run: |
@@ -102,6 +112,12 @@ jobs:
           # With no bundled runtime the setup is the payload plus ~100 KB, under 1 MB today,
           # so compare against the payload itself rather than a fixed size.
           if ($size -lt $payload) { throw "HeavyProSetup.exe is smaller than the app payload; the payload was not embedded." }
+      - name: Sign HeavyProSetup.exe
+        shell: pwsh
+        env:
+          CODE_SIGNING_PFX_BASE64: ${{ secrets.CODE_SIGNING_PFX_BASE64 }}
+          CODE_SIGNING_PFX_PASSWORD: ${{ secrets.CODE_SIGNING_PFX_PASSWORD }}
+        run: & packaging/Sign-File.ps1 -Path publish/HeavyProSetup.exe
       - name: Add a zip and a checksum for testers
         shell: pwsh
         run: |
