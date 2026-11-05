@@ -57,6 +57,9 @@ public sealed class AppSettings
     /// <summary>"" picks the route by itself; "Real1", "Direct" or "Masked" is your own pick for every aircraft.</summary>
     public string RouteOverride { get; set; } = "";
 
+    /// <summary>SimBrief username or pilot id, for showing your planned weights.</summary>
+    public string SimBriefUsername { get; set; } = "";
+
     /// <summary>You said No to making HeavyPro the stick's only path: not asked again.</summary>
     public bool KeepMsfsBindings { get; set; }
 

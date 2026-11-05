@@ -9,6 +9,9 @@
         Foreground="{StaticResource BrushText}"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
     <DockPanel LastChildFill="True">
         <Border DockPanel.Dock="Top" Background="{StaticResource BrushHeader}" Padding="24,14">
             <Grid>
@@ -129,6 +132,14 @@
                 <TextBlock Grid.Column="4" Text="{Binding BackendName}" Style="{StaticResource SectionText}"
                            VerticalAlignment="Center"/>
             </Grid>
+        </Border>
+
+        <Border DockPanel.Dock="Top" Background="#243A2B" BorderBrush="{StaticResource BrushGood}" BorderThickness="0,0,0,1"
+                Padding="18,8" Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Open downloads" Command="{Binding OpenDownloadCommand}" Padding="10,3"/>
+                <TextBlock Text="{Binding UpdateBanner}" Foreground="{StaticResource BrushText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+            </DockPanel>
         </Border>
 
         <TabControl Margin="20,14,20,12">
@@ -382,6 +393,18 @@
                                 <TextBlock Text="{Binding FlightModelStatus}" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
                                 <TextBlock Text="{Binding WriteStatus}" TextWrapping="Wrap" FontFamily="Consolas"
                                            FontSize="10" Foreground="{StaticResource BrushAccent}" Margin="0,11,0,0"/>
+
+                                <Border Height="1" Background="{StaticResource BrushLine}" Margin="0,14,0,12"/>
+                                <TextBlock Text="SIMBRIEF WEIGHTS" Style="{StaticResource SectionText}" Margin="0,0,0,8"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding SimBriefUsername, UpdateSourceTrigger=PropertyChanged}" VerticalContentAlignment="Center"
+                                             ToolTip="Your SimBrief username (Account Settings on simbrief.com) or numeric pilot id."/>
+                                    <Button Grid.Column="1" Content="Load" Command="{Binding FetchSimBriefCommand}" Padding="12,4" Margin="8,0,0,0"/>
+                                </Grid>
+                                <TextBlock Text="{Binding SimBriefWeights}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
+                                           Foreground="{StaticResource BrushText}" Visibility="{Binding HasSimBriefWeights, Converter={StaticResource BoolToVis}}"/>
+                                <TextBlock Text="{Binding SimBriefStatus}" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
                     </Grid>

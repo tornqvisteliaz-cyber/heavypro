@@ -2,6 +2,11 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.8.0
+
+- **SimBrief weights:** enter your SimBrief username under Setup and press Load to see your planned flight's weights in HeavyPro: zero-fuel, takeoff and landing weight, payload, passengers, cargo and block fuel. Nothing is stored or sent anywhere else.
+- **Update reminder:** when a newer HeavyPro build is out, a banner at the top reminds you to update through RotaHub. It checks quietly and never gets in the way.
+
 ## 0.7.3
 
 - **Renamed from HeavyFeel to HeavyPro throughout** (projects, assemblies, namespaces and the data folder). Your settings and logs move across automatically the first time, so nothing is lost. The app, your licence and your profiles are unchanged.
