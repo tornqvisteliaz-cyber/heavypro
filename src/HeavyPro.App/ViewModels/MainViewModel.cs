@@ -113,6 +113,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         DetectRollCommand = new RelayCommand(() => StartDetect("roll"));
         DetectRudderCommand = new RelayCommand(() => StartDetect("rudder"));
         RefreshDevicesCommand = new RelayCommand(RefreshDevices);
+        FetchSimBriefCommand = new RelayCommand(() => _ = FetchSimBriefAsync());
+        OpenDownloadCommand = new RelayCommand(OpenDownloadPage);
         _stickTimer = new DispatcherTimer(DispatcherPriority.Send) { Interval = TimeSpan.FromMilliseconds(8) };
         _stickTimer.Tick += (_, _) => PollStick();
         _stickTimer.Start();
@@ -404,6 +406,45 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ICommand DetectRollCommand { get; }
     public ICommand DetectRudderCommand { get; }
     public ICommand RefreshDevicesCommand { get; }
+    public ICommand FetchSimBriefCommand { get; }
+
+    // ---------------- SimBrief weights ----------------
+    public string SimBriefUsername
+    {
+        get => _settings.SimBriefUsername;
+        set { _settings.SimBriefUsername = value; OnChanged(); ScheduleSave(); }
+    }
+
+    private string _simBriefStatus = "Enter your SimBrief username and press Load to see your planned weights.";
+    public string SimBriefStatus { get => _simBriefStatus; private set => Set(ref _simBriefStatus, value); }
+
+    private string _simBriefWeights = "";
+    public string SimBriefWeights { get => _simBriefWeights; private set => Set(ref _simBriefWeights, value); }
+    public bool HasSimBriefWeights => _simBriefWeights.Length > 0;
+
+    private async Task FetchSimBriefAsync()
+    {
+        SimBriefStatus = "Loading your SimBrief plan…";
+        var result = await SimBrief.FetchAsync(_settings.SimBriefUsername);
+        SimBriefStatus = result.Message;
+        if (result.Ofp is { } o)
+        {
+            string W(double v) => v.ToString("#,0", CultureInfo.InvariantCulture) + " " + o.Units;
+            SimBriefWeights =
+                $"{o.Aircraft}   {o.FlightNumber}".Trim() + "\n"
+                + $"Zero fuel weight    {W(o.ZeroFuelWeight)}\n"
+                + $"Payload             {W(o.Payload)}   ({o.Passengers} pax, {W(o.Cargo)} cargo)\n"
+                + $"Takeoff weight      {W(o.TakeoffWeight)}\n"
+                + $"Landing weight      {W(o.LandingWeight)}\n"
+                + $"Block fuel          {W(o.BlockFuel)}   (reserve {W(o.ReserveFuel)})";
+            _logger.Info($"SimBrief: {o.Route} {o.Aircraft}, ZFW {W(o.ZeroFuelWeight)}, block {W(o.BlockFuel)}.");
+        }
+        else
+        {
+            SimBriefWeights = "";
+        }
+        OnChanged(nameof(HasSimBriefWeights));
+    }
 
     /// <summary>Direct and REAL1 both send the stick where hardware enters; only MSFS bindings masks it.</summary>
     public bool IsDirect => !string.Equals(_settings.InputRoute, "Masked", StringComparison.OrdinalIgnoreCase);
@@ -1655,6 +1696,36 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             _reconnectTimer.Start();
             Connect();
         }
+        _ = CheckForUpdateAsync();
+    }
+
+    // ---------------- Update reminder ----------------
+    private string _downloadUrl = UpdateCheck.DownloadUrl;
+    public ICommand OpenDownloadCommand { get; }
+
+    private string _updateBanner = "";
+    public string UpdateBanner { get => _updateBanner; private set => Set(ref _updateBanner, value); }
+
+    private bool _updateAvailable;
+    public bool UpdateAvailable { get => _updateAvailable; private set => Set(ref _updateAvailable, value); }
+
+    /// <summary>Asks rotaidem.com whether a newer build is out and, if so, shows a reminder banner.</summary>
+    private async Task CheckForUpdateAsync()
+    {
+        var info = await UpdateCheck.CheckAsync(AppVersion.Current);
+        if (info is { UpdateAvailable: true })
+        {
+            _downloadUrl = info.DownloadUrl;
+            UpdateBanner = $"HeavyPro {info.LatestVersion} is out — you have {AppVersion.Current.ToString(3)}. Update in RotaHub.";
+            UpdateAvailable = true;
+            _logger.Info($"Update available: {info.LatestVersion} (running {AppVersion.Current.ToString(3)}).");
+        }
+    }
+
+    private void OpenDownloadPage()
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_downloadUrl) { UseShellExecute = true }); }
+        catch (Exception ex) { _logger.Error("Could not open the download page", ex); }
     }
 
     public void Connect()
