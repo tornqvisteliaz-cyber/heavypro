@@ -947,7 +947,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             return;
 
         var now = DateTime.UtcNow;
-        var armed = command.Armed && !_writesDisabled && now >= _writesPausedUntil && !BindingFight;
+        var armed = command.Armed && !_writesDisabled && now >= _writesPausedUntil && !BindingFight
+            && HeavyFeel.Core.Physics.ControlLimits.Unlocked;
         if (_shapingArmed && !armed)
             ReleaseToPhysical();
         _shapingArmed = armed;

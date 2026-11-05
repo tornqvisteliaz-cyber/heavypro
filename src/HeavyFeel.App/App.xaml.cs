@@ -62,6 +62,9 @@ public partial class App : System.Windows.Application
             Shutdown();
             return;
         }
+        // Licence confirmed: let the shaping output run. Without this the write path stays a
+        // pass-through, so skipping the licence screen does not give a working product.
+        HeavyFeel.Core.Physics.ControlLimits.Unlock();
 
         // Closing the window hides HeavyPro in the tray; Exit there (or turning the option off) quits.
         _tray = new BackgroundTray();
