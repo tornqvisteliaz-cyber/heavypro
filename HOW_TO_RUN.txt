@@ -3,7 +3,7 @@ WHY F5 SAYS "NO EXTENSION FOR PLAIN TEXT"
 
 That message means the program you are in thinks you are editing a text file
 (README, START_HERE, or the .sln file opened as text). F5 only starts the
-app after Visual Studio has loaded HeavyFeel as a PROJECT.
+app after Visual Studio has loaded HeavyPro as a PROJECT.
 
 Do not press F5 in Notepad, Word, Cursor, or VS Code unless C# projects
 are already loaded. Use Visual Studio 2022 Community.
@@ -30,36 +30,36 @@ OPEN THE APP THE RIGHT WAY
 
 1. Close the text file you were looking at.
 
-2. In Windows File Explorer go to your HeavyFeel folder.
+2. In Windows File Explorer go to your HeavyPro folder.
 
-3. Double-click HeavyFeel.sln
+3. Double-click HeavyPro.sln
    It must open in Visual Studio 2022, not in Notepad.
 
 4. If Windows asks "How do you want to open this file?", choose
    Visual Studio 2022. Do not choose Notepad or VS Code.
 
 5. Wait until the left side shows projects:
-   HeavyFeel
-   HeavyFeel.Core
-   HeavyFeel.Logging
-   HeavyFeel.SimConnect
+   HeavyPro
+   HeavyPro.Core
+   HeavyPro.Logging
+   HeavyPro.SimConnect
 
-6. In Solution Explorer, right-click the project named HeavyFeel
-   (the one under src\HeavyFeel.App) and choose
+6. In Solution Explorer, right-click the project named HeavyPro
+   (the one under src\HeavyPro.App) and choose
    Set as Startup Project.
 
 7. At the top toolbar you should see a green Play button
-   and the name HeavyFeel.
+   and the name HeavyPro.
 
 8. Click that green Play button. That is the same as F5.
 
 
-IF YOU SEE: debug executable ... HeavyFeel.exe does not exist
+IF YOU SEE: debug executable ... HeavyPro.exe does not exist
 =============================================================
 
 Visual Studio tried to START the app before it was BUILT.
 The file
-  src\HeavyFeel.App\bin\Debug\net8.0-windows\HeavyFeel.exe
+  src\HeavyPro.App\bin\Debug\net8.0-windows\HeavyPro.exe
 is created only after a successful Build.
 
 Do this in order:
@@ -76,19 +76,19 @@ Do this in order:
    Install that from the yellow bar or from Visual Studio Installer:
      Modify -> .NET desktop development -> tick .NET 8 and Windows.
 
-4. In Solution Explorer, right-click HeavyFeel.App
+4. In Solution Explorer, right-click HeavyPro.App
    -> Set as Startup Project.
-   The project name is HeavyFeel.App, not HeavyFeel.Core.
+   The project name is HeavyPro.App, not HeavyPro.Core.
 
 5. Click the green Play button (or F5).
 
 Do not press F5 until Rebuild succeeded once.
 
 
-IF HeavyFeel.sln OPENS AS TEXT
+IF HeavyPro.sln OPENS AS TEXT
 ==============================
 
 The .sln file is a project list. If you see lines that start with
 "Microsoft Visual Studio Solution File", you opened it as a text file.
 
-Close it. Right-click HeavyFeel.sln -> Open with -> Visual Studio 2022.
+Close it. Right-click HeavyPro.sln -> Open with -> Visual Studio 2022.

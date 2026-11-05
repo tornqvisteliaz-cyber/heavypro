@@ -1,13 +1,13 @@
 HEAVYFEEL / HEAVYPRO - START HERE
 =================================
 
-1. Double-click Setup-SimConnect.bat (next to HeavyFeel.sln)
+1. Double-click Setup-SimConnect.bat (next to HeavyPro.sln)
    - Or run: scripts\Setup-SimConnect.ps1
    - If Windows hides extensions it may appear only as "Setup-SimConnect"
 
-2. Double-click HeavyFeel.sln so it opens in Visual Studio 2022
+2. Double-click HeavyPro.sln so it opens in Visual Studio 2022
 
-3. In Solution Explorer: right-click HeavyFeel.App → Set as Startup Project
+3. In Solution Explorer: right-click HeavyPro.App → Set as Startup Project
 
 4. Press F5 (or the green Play button)
 

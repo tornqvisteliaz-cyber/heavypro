@@ -52,7 +52,7 @@ jobs:
             Write-Warning 'Building without a licence public key: this build will refuse every licence.'
           }
       - name: Run unit tests
-        run: dotnet test src/HeavyFeel.Core.Tests/HeavyFeel.Core.Tests.csproj -c Release
+        run: dotnet test src/HeavyPro.Core.Tests/HeavyPro.Core.Tests.csproj -c Release
       - name: Build app and refresh payload
         shell: pwsh
         run: |
@@ -67,7 +67,7 @@ jobs:
               [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $dest, $true)
             }
           } finally { $old.Dispose() }
-          dotnet build src/HeavyFeel.App/HeavyFeel.App.csproj -c Release -p:Platform=x64
+          dotnet build src/HeavyPro.App/HeavyPro.App.csproj -c Release -p:Platform=x64
           if ($LASTEXITCODE -ne 0) { throw "App build failed." }
           & packaging/New-AppPayload.ps1 -Configuration Release
       - name: Verify bundled SimConnect runtime files

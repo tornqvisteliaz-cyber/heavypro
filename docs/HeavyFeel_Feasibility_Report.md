@@ -1,4 +1,4 @@
-# HeavyFeel — Technical Feasibility Report
+# HeavyPro — Technical Feasibility Report
 **Target:** Microsoft Flight Simulator 2024  
 **Platform:** Windows 11, C# / .NET, SimConnect, desktop GUI  
 **First aircraft:** Fenix A320  
@@ -49,7 +49,7 @@ There is **no official SimConnect API** that says “increase aircraft inertia�
 - **Guaranteed Fenix A320 sidestick-law rewrite: NO, not with public SimConnect alone.** Fenix implements its own fly-by-wire. Sidestick commands load factor and roll rate inside Fenix software. Standard elevator/aileron events may be ignored or only weakly coupled.
 - **True flight-model inertia change without touching aircraft files: NO.**
 
-HeavyFeel should be designed as a **layered influence engine** with per-aircraft profiles that enable only methods proven to work on that aircraft.
+HeavyPro should be designed as a **layered influence engine** with per-aircraft profiles that enable only methods proven to work on that aircraft.
 
 ---
 
@@ -59,12 +59,12 @@ Recommended shape: out-of-process WPF (or WinUI 3) app on .NET 8, using the offi
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ HeavyFeel.exe  (.NET 8, WPF)                                │
+│ HeavyPro.exe  (.NET 8, WPF)                                │
 │                                                             │
 │  UI  ── sliders, master enable, profile, telemetry pane     │
 │   │                                                         │
 │  App Services                                               │
-│   ├── SettingsStore (JSON in %AppData%\HeavyFeel)           │
+│   ├── SettingsStore (JSON in %AppData%\HeavyPro)           │
 │   ├── Logger                                                │
 │   ├── AircraftProfileService                                │
 │   └── PhysicsEngine (disabled in prototype 1)               │
@@ -300,21 +300,21 @@ Fenix profile default (until proven otherwise): all write backends **off**. Tele
 ## 6. Project folder structure
 
 ```
-HeavyFeel/
-  HeavyFeel.sln
+HeavyPro/
+  HeavyPro.sln
   README.md
   docs/
-    HeavyFeel_Feasibility_Report.md
+    HeavyPro_Feasibility_Report.md
   src/
-    HeavyFeel.App/                 WPF UI
+    HeavyPro.App/                 WPF UI
       Views/
       ViewModels/
       Themes/
-    HeavyFeel.Core/                models, profiles, settings, physics interfaces
-    HeavyFeel.SimConnect/          connection, data defs, mapping
-    HeavyFeel.Logging/
+    HeavyPro.Core/                models, profiles, settings, physics interfaces
+    HeavyPro.SimConnect/          connection, data defs, mapping
+    HeavyPro.Logging/
   tests/
-    HeavyFeel.Tests/
+    HeavyPro.Tests/
   artifacts/
     logs/
 ```
@@ -380,7 +380,7 @@ No phase starts until the previous exit criteria are met.
 
 ## 9. Honest recommendation
 
-Build HeavyFeel. Keep the UI and telemetry ambitious. Keep the physics **humble**.
+Build HeavyPro. Keep the UI and telemetry ambitious. Keep the physics **humble**.
 
 The product that can actually ship is:
 

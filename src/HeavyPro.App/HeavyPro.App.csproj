@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\HeavyPro.ico</ApplicationIcon>
+    <RootNamespace>HeavyPro.App</RootNamespace>
+    <AssemblyName>HeavyPro</AssemblyName>
+    <PlatformTarget>x64</PlatformTarget>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HeavyPro.Core\HeavyPro.Core.csproj" />
+    <ProjectReference Include="..\HeavyPro.Logging\HeavyPro.Logging.csproj" />
+    <ProjectReference Include="..\HeavyPro.SimConnect\HeavyPro.SimConnect.csproj" />
+    <ProjectReference Include="..\Rotaidem.Licensing\Rotaidem.Licensing.csproj" />
+    <Compile Include="..\Shared\HeavyProLicense.cs" Link="HeavyProLicense.cs" />
+    <!-- The licence server's public key (the build fetches it from rotaidem.com/api/licenses/jwks.json).
+         HeavyPro accepts only licence answers signed with the matching private key. -->
+    <EmbeddedResource Include="..\..\packaging\licence-public-key.json" LogicalName="HeavyPro.LicensePublicKey.json" Condition="Exists('..\..\packaging\licence-public-key.json')" />
+    <!-- "What's new" after an update comes from the same file as the release notes. -->
+    <EmbeddedResource Include="..\..\CHANGELOG.md" LogicalName="HeavyPro.Changelog.md" />
+    <EmbeddedResource Include="..\..\TERMS.md" LogicalName="HeavyPro.Terms.md" />
+    <Reference Include="System.Net.Http" />
+    <!-- Only for the tray icon (no UseWindowsForms, so WPF names stay unambiguous). -->
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\HeavyPro.ico" />
+  </ItemGroup>
+</Project>

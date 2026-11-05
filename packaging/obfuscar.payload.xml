@@ -16,6 +16,6 @@
   <Var name="RenameFields" value="true" />
   <Var name="RenameEvents" value="true" />
   <Module file="$(InPath)\Rotaidem.Licensing.dll" />
-  <Module file="$(InPath)\HeavyFeel.Core.dll" />
-  <Module file="$(InPath)\HeavyFeel.Logging.dll" />
+  <Module file="$(InPath)\HeavyPro.Core.dll" />
+  <Module file="$(InPath)\HeavyPro.Logging.dll" />
 </Obfuscator>

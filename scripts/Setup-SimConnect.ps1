@@ -1,4 +1,4 @@
-# Copies MSFS 2024 SimConnect libraries into HeavyFeel\lib
+# Copies MSFS 2024 SimConnect libraries into HeavyPro\lib
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $lib = Join-Path $root "lib"
@@ -41,4 +41,4 @@ Copy-Item $foundNative (Join-Path $lib "SimConnect.dll") -Force
 Write-Host "Copied SimConnect libraries from:"
 Write-Host "  $foundManaged"
 Write-Host "  $foundNative"
-Write-Host "Now open HeavyFeel.sln in Visual Studio and press F5."
+Write-Host "Now open HeavyPro.sln in Visual Studio and press F5."
