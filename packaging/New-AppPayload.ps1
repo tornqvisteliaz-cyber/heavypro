@@ -6,8 +6,8 @@
 
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$project = Join-Path $repo "src\HeavyFeel.App\HeavyFeel.App.csproj"
-$output = Join-Path $repo "src\HeavyFeel.App\bin\x64\$Configuration\net48"
+$project = Join-Path $repo "src\HeavyPro.App\HeavyPro.App.csproj"
+$output = Join-Path $repo "src\HeavyPro.App\bin\x64\$Configuration\net48"
 $archive = Join-Path $PSScriptRoot "HeavyProAppPayload.zip"
 
 & $DotNet build $project -c $Configuration -p:Platform=x64
@@ -37,12 +37,12 @@ if (-not $SkipObfuscation) {
     } finally {
         $env:DOTNET_ROLL_FORWARD = $prev
     }
-    foreach ($dll in @("Rotaidem.Licensing.dll", "HeavyFeel.Core.dll", "HeavyFeel.Logging.dll")) {
+    foreach ($dll in @("Rotaidem.Licensing.dll", "HeavyPro.Core.dll", "HeavyPro.Logging.dll")) {
         $obf = Join-Path $obfOut $dll
         if (-not (Test-Path $obf)) { throw "Obfuscation did not produce $dll." }
         Copy-Item -LiteralPath $obf -Destination (Join-Path $output $dll) -Force
     }
-    Write-Host "Obfuscated the support DLLs (Rotaidem.Licensing, HeavyFeel.Core, HeavyFeel.Logging)."
+    Write-Host "Obfuscated the support DLLs (Rotaidem.Licensing, HeavyPro.Core, HeavyPro.Logging)."
 }
 
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem

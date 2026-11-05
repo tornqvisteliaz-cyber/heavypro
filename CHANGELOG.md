@@ -2,6 +2,10 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.7.3
+
+- **Renamed from HeavyFeel to HeavyPro throughout** (projects, assemblies, namespaces and the data folder). Your settings and logs move across automatically the first time, so nothing is lost. The app, your licence and your profiles are unchanged.
+
 ## 0.7.2
 
 - **Licence tied into the shaping itself:** HeavyPro only shapes your stick once the licence has been confirmed. Skipping the licence step now leaves the stick passing straight through with no feel, instead of a working app. For a paying user nothing changes.

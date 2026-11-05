@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>HeavyProSetup</AssemblyName>
-    <ApplicationIcon>..\HeavyFeel.App\Assets\HeavyPro.ico</ApplicationIcon>
+    <ApplicationIcon>..\HeavyPro.App\Assets\HeavyPro.ico</ApplicationIcon>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
   <ItemGroup>

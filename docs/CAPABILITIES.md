@@ -1,6 +1,6 @@
 # What SimConnect can and cannot do (MSFS 2024)
 
-This is the honest map for HeavyFeel. No invented APIs.
+This is the honest map for HeavyPro. No invented APIs.
 
 ## Possible (used)
 

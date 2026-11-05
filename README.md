@@ -1,4 +1,4 @@
-# HeavyPro (HeavyFeel)
+# HeavyPro (HeavyPro)
 
 > **Private and confidential.** © 2025-2026 Rotaidem. All rights reserved. This is a private program: no one may use, copy, modify or share this code without Rotaidem's written permission. See [LICENSE](LICENSE).
 
@@ -94,7 +94,7 @@ Tested against a live MSFS 2024 (1.9.18) session:
 - **Fixed:** after the stick is released the exact stick value is sent again, so the yoke no longer rests a few counts off centre.
 - **Fixed:** the Curve / Stick release / Aircraft drop-downs rendered white-on-white.
 - **New:** header status badge and live **Stick → Aircraft** meters.
-- Crashes are written to `%AppData%\HeavyFeel\logs\crash.log`.
+- Crashes are written to `%AppData%\HeavyPro\logs\crash.log`.
 
 Measured on the L-39 with the Realistic preset: a 0 → 73 % pitch step reaches the sim over ~1.0 s instead of 0.2 s, and returns to exactly centre on release. With Master off the same step passes straight through.
 
@@ -139,13 +139,13 @@ The setup script searches the usual places.
 
 ## Build and run (do this in order)
 
-1. Copy the whole folder to your PC, for example `C:\Work\HeavyFeel`.
-2. Double-click `Setup-SimConnect.bat` next to `HeavyFeel.sln`.
+1. Copy the whole folder to your PC, for example `C:\Work\HeavyPro`.
+2. Double-click `Setup-SimConnect.bat` next to `HeavyPro.sln`.
    - There is also `scripts\Setup-SimConnect.ps1` if you prefer PowerShell.
    - If Windows hides extensions, the file may appear only as `Setup-SimConnect`.
-3. Double-click `HeavyFeel.sln`.
+3. Double-click `HeavyPro.sln`.
 4. In Visual Studio choose **Debug** and **Any CPU** (or x64).
-5. Right-click **HeavyFeel.App** → **Set as Startup Project**.
+5. Right-click **HeavyPro.App** → **Set as Startup Project**.
 6. Press **F5** (or the green Play button).
 7. Start MSFS 2024 if it is not already running, load an aircraft (Fenix A320 recommended), and click **Connect** if it did not auto-connect.
 8. In MSFS, bind your stick and pedals to **Elevator Axis**, **Aileron Axis** and **Rudder Axis**. Move the stick once; the debug panel's `Route` line changes to `Active`.
@@ -163,8 +163,8 @@ If the setup script cannot find the SDK, copy these two files into the `lib` fol
 - IAS, pitch, weight, N1, and yoke values change when you move the aircraft
 - Debug panel `PHYSICAL` shows your stick values and `Route` shows `Active` after the first stick movement
 - Log lines appear at the bottom
-- Log files: `%AppData%\HeavyFeel\logs\`
-- Settings: `%AppData%\HeavyFeel\settings.json`
+- Log files: `%AppData%\HeavyPro\logs\`
+- Settings: `%AppData%\HeavyPro\settings.json`
 
 ## If it does not connect
 
@@ -180,16 +180,16 @@ Write down which field stays at zero. That SimVar may use a different unit name 
 ## Project layout
 
 ```
-HeavyFeel/
-  HeavyFeel.sln
+HeavyPro/
+  HeavyPro.sln
   lib/                  SimConnect DLLs go here (gitignored)
   scripts/              Setup-SimConnect.ps1
   docs/                 Capabilities, feasibility, changelog, input dynamics
-  src/HeavyFeel.App     WPF window + view-model
-  src/HeavyFeel.Core    Settings, aircraft catalog, inertia engine
-  src/HeavyFeel.SimConnect
-  src/HeavyFeel.Logging
-  src/HeavyFeel.Core.Tests
+  src/HeavyPro.App     WPF window + view-model
+  src/HeavyPro.Core    Settings, aircraft catalog, inertia engine
+  src/HeavyPro.SimConnect
+  src/HeavyPro.Logging
+  src/HeavyPro.Core.Tests
 ```
 
 ## Current behaviour (accurate)
@@ -205,7 +205,7 @@ HeavyFeel/
 | Body-rate writes | **Disabled** (by design) |
 | View-cue (camera offset) | Optional, off by default |
 | SimConnect axis-event capture and rewrite | Working for axes bound to Elevator/Aileron/Rudder Axis; pass-through when not shaping. Verified in MSFS 2024 with injected AXIS events |
-| Unit tests (`dotnet test src/HeavyFeel.Core.Tests`) | Run in CI |
+| Unit tests (`dotnet test src/HeavyPro.Core.Tests`) | Run in CI |
 
 ## Next ideas (not built)
 

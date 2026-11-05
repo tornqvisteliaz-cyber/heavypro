@@ -1,10 +1,10 @@
 @echo off
 setlocal
-title HeavyFeel SimConnect setup
+title HeavyPro SimConnect setup
 cd /d "%~dp0"
 
 echo.
-echo HeavyFeel - copy MSFS 2024 SimConnect files
+echo HeavyPro - copy MSFS 2024 SimConnect files
 echo.
 
 if not exist "lib" mkdir "lib"
@@ -69,6 +69,6 @@ echo Copied:
 echo   %MANAGED%
 echo   %NATIVE%
 echo.
-echo Next: open HeavyFeel.sln in Visual Studio and press F5.
+echo Next: open HeavyPro.sln in Visual Studio and press F5.
 echo.
 pause

@@ -1,6 +1,6 @@
 # Phase 1 changelog
 
-Created the HeavyFeel / HeavyPro prototype. Reads live MSFS state and, with Master Enable on, writes **AXIS inertia** to the user aircraft while the stick is held.
+Created the HeavyPro / HeavyPro prototype. Reads live MSFS state and, with Master Enable on, writes **AXIS inertia** to the user aircraft while the stick is held.
 
 ## Added
 
@@ -11,8 +11,8 @@ Created the HeavyFeel / HeavyPro prototype. Reads live MSFS state and, with Mast
 - Aircraft class catalog (Light GA → Regional → Narrow-body → Wide-body → Heavy wide-body)
 - Live flight data listed in the feasibility report and CAPABILITIES.md
 - Dark desktop UI with Master Enable, sliders, profile box, telemetry, log
-- JSON settings in `%AppData%\HeavyFeel\settings.json`
-- Daily logs in `%AppData%\HeavyFeel\logs`
+- JSON settings in `%AppData%\HeavyPro\settings.json`
+- Daily logs in `%AppData%\HeavyPro\logs`
 - Setup script to copy SimConnect DLLs from the SDK
 - Header feel tabs: Normal, Medium, Realistic — these feed the write model when Master is on
 - Ground/air label uses official MSFS 2024 `IS ON GROUND` plus `PLANE ALT ABOVE GROUND` / `RADIO HEIGHT`
