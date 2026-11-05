@@ -1,7 +1,10 @@
 ﻿param(
     [string] $DotNet = "dotnet",
     [string] $Configuration = "Release",
-    [switch] $SkipObfuscation
+    [switch] $SkipObfuscation,
+    # The caller already built (and, in CI, signed) HeavyPro.exe; building again here would
+    # overwrite that signature with a fresh unsigned binary.
+    [switch] $SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,8 +13,10 @@ $project = Join-Path $repo "src\HeavyPro.App\HeavyPro.App.csproj"
 $output = Join-Path $repo "src\HeavyPro.App\bin\x64\$Configuration\net48"
 $archive = Join-Path $PSScriptRoot "HeavyProAppPayload.zip"
 
-& $DotNet build $project -c $Configuration -p:Platform=x64
-if ($LASTEXITCODE -ne 0) { throw "HeavyPro build failed with exit code $LASTEXITCODE." }
+if (-not $SkipBuild) {
+    & $DotNet build $project -c $Configuration -p:Platform=x64
+    if ($LASTEXITCODE -ne 0) { throw "HeavyPro build failed with exit code $LASTEXITCODE." }
+}
 if (-not (Test-Path (Join-Path $output "HeavyPro.exe"))) { throw "Build output not found: $output" }
 
 # Obfuscate the shipped support DLLs (identifier renaming): the licence verification and the
