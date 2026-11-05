@@ -1,6 +1,7 @@
 ﻿param(
     [string] $DotNet = "dotnet",
-    [string] $Configuration = "Release"
+    [string] $Configuration = "Release",
+    [switch] $SkipObfuscation
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,6 +13,37 @@ $archive = Join-Path $PSScriptRoot "HeavyProAppPayload.zip"
 & $DotNet build $project -c $Configuration -p:Platform=x64
 if ($LASTEXITCODE -ne 0) { throw "HeavyPro build failed with exit code $LASTEXITCODE." }
 if (-not (Test-Path (Join-Path $output "HeavyPro.exe"))) { throw "Build output not found: $output" }
+
+# Obfuscate the shipped support DLLs (identifier renaming): the licence verification and the
+# physics internals become unreadable while the public surface, strings and machine id are
+# untouched. The WPF exe is left as-is (XAML binds and event handlers by name). -SkipObfuscation
+# is for quick local builds only; release builds must obfuscate.
+if (-not $SkipObfuscation) {
+    $obfOut = Join-Path $repo "obj-obf"
+    if (Test-Path $obfOut) { Remove-Item -LiteralPath $obfOut -Recurse -Force }
+    New-Item -ItemType Directory -Force -Path $obfOut | Out-Null
+    $template = Get-Content (Join-Path $PSScriptRoot "obfuscar.payload.xml") -Raw
+    $configFile = Join-Path $obfOut "obfuscar.run.xml"
+    $template.Replace("__INPATH__", $output).Replace("__OUTPATH__", $obfOut) | Set-Content $configFile -Encoding utf8
+
+    & $DotNet tool restore
+    if ($LASTEXITCODE -ne 0) { throw "Could not restore the Obfuscar tool (dotnet tool restore)." }
+    # Obfuscar targets .NET 6; roll it forward to whatever runtime is installed (CI has .NET 8).
+    $prev = $env:DOTNET_ROLL_FORWARD
+    $env:DOTNET_ROLL_FORWARD = "LatestMajor"
+    try {
+        & $DotNet tool run obfuscar.console -- $configFile
+        if ($LASTEXITCODE -ne 0) { throw "Obfuscar failed with exit code $LASTEXITCODE." }
+    } finally {
+        $env:DOTNET_ROLL_FORWARD = $prev
+    }
+    foreach ($dll in @("Rotaidem.Licensing.dll", "HeavyFeel.Core.dll", "HeavyFeel.Logging.dll")) {
+        $obf = Join-Path $obfOut $dll
+        if (-not (Test-Path $obf)) { throw "Obfuscation did not produce $dll." }
+        Copy-Item -LiteralPath $obf -Destination (Join-Path $output $dll) -Force
+    }
+    Write-Host "Obfuscated the support DLLs (Rotaidem.Licensing, HeavyFeel.Core, HeavyFeel.Logging)."
+}
 
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 if (Test-Path $archive) { Remove-Item -LiteralPath $archive -Force }

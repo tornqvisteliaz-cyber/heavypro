@@ -2,6 +2,11 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.7.1
+
+- **Shipped DLLs are obfuscated:** the licence verification and the physics internals are renamed so they are much harder to read or patch. The public interfaces, the machine id and the server addresses are untouched, so your licence keeps working exactly as before.
+- The tray notice now reads "HeavyPro keeps running in the background; you can find it in your system tray."
+
 ## 0.7.0
 
 - **Every aircraft, every time: HeavyPro as your stick's only path.** HeavyPro offers it once, with MSFS closed: it clears only the stick and rudder axes in your MSFS controls on every connected controller that has them (buttons stay, a backup is kept), uses REAL1 for every aircraft and starts with Windows in the tray. HeavyPro then sends the stick the way the joystick itself does, so aircraft that read the stick themselves (BlueBird 757, Aerosoft A330/A340, MD-11) get the feel too. Say No to keep your MSFS bindings and the 0.6.9 behaviour; you will not be asked again.
