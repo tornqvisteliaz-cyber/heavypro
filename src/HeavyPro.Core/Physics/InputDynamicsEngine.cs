@@ -15,6 +15,9 @@ public sealed class InputDynamicsEngine
     private bool _seed;
     private double _clock;
 
+    /// <summary>The imported or SimBrief flight plan, for weights when the sim gives none.</summary>
+    public FlightPlanInfo? Plan { get; set; }
+
     public InputDynamicsFrame Step(AppSettings settings, FlightSnapshot snapshot, double deltaTime)
         => Step(settings, snapshot, deltaTime, CommunityProfile.TravelScale());
 
@@ -64,12 +67,13 @@ public sealed class InputDynamicsEngine
         if (snapshot.OnGround)
             tune *= SliderScale(settings.GroundInertia, 0.6, 1.7);
 
+        var response = ResponseTuning.For(settings, snapshot, Plan);
         var pitchRate = settings.PitchRateLimit > 0 ? settings.PitchRateLimit : profile.Elevator.MaxRate;
         var rollRate = settings.RollRateLimit > 0 ? settings.RollRateLimit : profile.Aileron.MaxRate;
         var yawRate = settings.YawRateLimit > 0 ? settings.YawRateLimit : profile.Rudder.MaxRate;
-        var pitchTime = ControlInertia.TravelSeconds(snapshot.PitchMoi, snapshot.TotalWeightPounds, pitchRate > 0 ? 1.2 / pitchRate : 0.35, snapshot.Class) * scale * tune * SliderScale(settings.PitchDamping, 0.5, 2.0);
-        var rollTime = ControlInertia.TravelSeconds(snapshot.RollMoi, snapshot.TotalWeightPounds, rollRate > 0 ? 1.0 / rollRate : 0.25, snapshot.Class) * scale * tune * SliderScale(settings.RollDamping, 0.5, 2.0);
-        var yawTime = ControlInertia.TravelSeconds(snapshot.YawMoi, snapshot.TotalWeightPounds, yawRate > 0 ? 1.1 / yawRate : 0.35, snapshot.Class) * scale * tune * SliderScale(settings.YawDamping, 0.5, 2.0);
+        var pitchTime = ControlInertia.TravelSeconds(snapshot.PitchMoi, snapshot.TotalWeightPounds, pitchRate > 0 ? 1.2 / pitchRate : 0.35, snapshot.Class) * scale * tune * SliderScale(settings.PitchDamping, 0.5, 2.0) * response.Pitch;
+        var rollTime = ControlInertia.TravelSeconds(snapshot.RollMoi, snapshot.TotalWeightPounds, rollRate > 0 ? 1.0 / rollRate : 0.25, snapshot.Class) * scale * tune * SliderScale(settings.RollDamping, 0.5, 2.0) * response.Roll;
+        var yawTime = ControlInertia.TravelSeconds(snapshot.YawMoi, snapshot.TotalWeightPounds, yawRate > 0 ? 1.1 / yawRate : 0.35, snapshot.Class) * scale * tune * SliderScale(settings.YawDamping, 0.5, 2.0) * response.Yaw;
         pitchTime = Numeric.Clamp(pitchTime, feel.MinTravelSeconds, feel.MaxTravelSeconds);
         rollTime = Numeric.Clamp(rollTime, feel.MinTravelSeconds, feel.MaxTravelSeconds);
         yawTime = Numeric.Clamp(yawTime * feel.RudderFeelScale(settings, snapshot), feel.MinTravelSeconds, feel.MaxTravelSeconds);
@@ -79,9 +83,10 @@ public sealed class InputDynamicsEngine
         var pitchRelease = Release(settings, profile.Elevator);
         var rollRelease = Release(settings, profile.Aileron);
         var yawRelease = Release(settings, profile.Rudder);
-        var elevator = ControlInertia.Step(_elevator, shapedElevator, deltaTime, pitchTime, accel, decel, DampingScale(settings.PitchDamping), pitchRelease.Delay, pitchRelease.Rate);
-        var aileron = ControlInertia.Step(_aileron, shapedAileron, deltaTime, rollTime, accel, decel, DampingScale(settings.RollDamping), rollRelease.Delay, rollRelease.Rate);
-        var rudder = ControlInertia.Step(_rudder, shapedRudder, deltaTime, yawTime, accel, decel, DampingScale(settings.YawDamping), yawRelease.Delay, yawRelease.Rate);
+        // Input smoothing shortens or lengthens how long each axis takes to get up to speed.
+        var elevator = ControlInertia.Step(_elevator, shapedElevator, deltaTime, pitchTime, accel, decel, DampingScale(settings.PitchDamping) * response.Moment, pitchRelease.Delay, pitchRelease.Rate);
+        var aileron = ControlInertia.Step(_aileron, shapedAileron, deltaTime, rollTime, accel, decel, DampingScale(settings.RollDamping) * response.Moment, rollRelease.Delay, rollRelease.Rate);
+        var rudder = ControlInertia.Step(_rudder, shapedRudder, deltaTime, yawTime, accel, decel, DampingScale(settings.YawDamping) * response.Moment, yawRelease.Delay, yawRelease.Rate);
 
         // Turbulence: a gentle buffet on the controls in the air, growing with airspeed.
         _clock += deltaTime;
@@ -117,14 +122,16 @@ public sealed class InputDynamicsEngine
             PitchSeconds = pitchTime,
             RollSeconds = rollTime,
             YawSeconds = yawTime,
+            Awareness = response.Awareness,
             Compatibility = ControlInertia.Compatibility(snapshot)
         };
     }
 
     /// <summary>
-    /// REAL1: everything from the aircraft family's tuning (see <see cref="Real1"/>), none
-    /// of it from the sliders or the global travel scale, so every aircraft gets the feel
-    /// it should have out of the box. Only the feel level scales its strength.
+    /// REAL1: the feel comes from the aircraft family's tuning (see <see cref="Real1"/>), not from
+    /// the classic sliders or the global travel scale, so every aircraft gets the feel it should
+    /// have out of the box. The feel level scales its strength, and the response settings
+    /// (<see cref="ResponseTuning"/>) and the aircraft's weight, CG and ground state adjust it.
     /// </summary>
     private InputDynamicsFrame StepReal1(AppSettings settings, FlightSnapshot snapshot, double deltaTime)
     {
@@ -155,10 +162,11 @@ public sealed class InputDynamicsEngine
         var speed = Real1.AirspeedScale(tuning, snapshot, feel);
         var strength = Real1.Strength(settings);
         var scale = ControlInertia.PhaseScale(phase) * speed * strength;
-        var pitchTime = Numeric.Clamp(tuning.PitchSeconds * scale, 0.08, 5.0);
-        var rollTime = Numeric.Clamp(tuning.RollSeconds * scale, 0.08, 5.0);
-        var yawTime = Numeric.Clamp(tuning.YawSeconds * scale * feel.RudderFeelScale(rudderSettings, snapshot), 0.08, 5.0);
-        var moment = tuning.MomentSeconds * strength * DampingScale(tuning.Damping);
+        var response = ResponseTuning.For(settings, snapshot, Plan);
+        var pitchTime = Numeric.Clamp(tuning.PitchSeconds * scale * response.Pitch, 0.08, 5.0);
+        var rollTime = Numeric.Clamp(tuning.RollSeconds * scale * response.Roll, 0.08, 5.0);
+        var yawTime = Numeric.Clamp(tuning.YawSeconds * scale * response.Yaw * feel.RudderFeelScale(rudderSettings, snapshot), 0.08, 5.0);
+        var moment = tuning.MomentSeconds * strength * DampingScale(tuning.Damping) * response.Moment;
 
         var elevator = Real1.StepAxis(_elevator, shapedElevator, deltaTime, pitchTime, moment, tuning.ReturnDelaySeconds, tuning.ReturnRate);
         var aileron = Real1.StepAxis(_aileron, shapedAileron, deltaTime, rollTime, moment, tuning.ReturnDelaySeconds, tuning.ReturnRate);
@@ -195,6 +203,7 @@ public sealed class InputDynamicsEngine
             PitchSeconds = pitchTime,
             RollSeconds = rollTime,
             YawSeconds = yawTime,
+            Awareness = response.Awareness,
             Compatibility = ControlInertia.Compatibility(snapshot)
         };
     }
@@ -309,6 +318,8 @@ public sealed record InputDynamicsFrame
     public double PitchSeconds { get; init; }
     public double RollSeconds { get; init; }
     public double YawSeconds { get; init; }
+    /// <summary>What aircraft awareness used this frame ("82 % of max weight · CG 28 % MAC"), empty when nothing.</summary>
+    public string Awareness { get; init; } = "";
     public string Compatibility { get; init; } = "UNKNOWN";
 }
 

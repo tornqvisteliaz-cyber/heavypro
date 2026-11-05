@@ -2,6 +2,14 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.9.0
+
+- **Realistic Response, default 40:** a new Plan & response tab sets how quickly HeavyPro's shaped stick follows yours, on every route including REAL1, where 0.8.0's Response slider had no effect. The default answers a pitch input about a third sooner than 0.8.0 (PMDG 777: 1.98 s to 1.30 s; C172: 0.53 s to 0.38 s) and keeps each aircraft's own weight; 20 gives 0.8.0's feel back. Pitch, roll and yaw responsiveness, Input smoothing, Reset to defaults and Save settings sit beside it, and every change applies at once.
+- **Aircraft awareness:** the response now follows the aircraft's weight for its type, its centre of gravity and nosewheel steering at taxi speed. When the sim gives no weight, your SimBrief plan's weight fills in (only for the same aircraft type). Anything unknown is left neutral.
+- **SimBrief:** save, edit or remove your Pilot ID or username, then Connect/Verify and Refresh. HeavyPro shows departure, arrival, aircraft type and registration, takeoff and zero-fuel weight, payload, fuel, cruise altitude, route, duration and flight number, and keeps the last good plan for the next start. A wrong ID now shows SimBrief's own message instead of "Could not reach SimBrief".
+- **Flight plans:** import an MSFS .pln, an Airbus .flp (Aerosoft, Fenix, iniBuilds) or a saved SimBrief OFP, or use SimBrief's MSFS plan for your flight. Replace or remove it any time; a file HeavyPro can't read just says why.
+- **Quicker stick path:** the stick is read again right before each shaped frame, and Windows' timer runs at 1 ms while HeavyPro is connected, so the 8 ms stick timer no longer waits 15.6 ms.
+
 ## 0.8.0
 
 - **SimBrief weights:** enter your SimBrief username under Setup and press Load to see your planned flight's weights in HeavyPro: zero-fuel, takeoff and landing weight, payload, passengers, cargo and block fuel. Nothing is stored or sent anywhere else.
