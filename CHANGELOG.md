@@ -2,6 +2,10 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.7.2
+
+- **Licence tied into the shaping itself:** HeavyPro only shapes your stick once the licence has been confirmed. Skipping the licence step now leaves the stick passing straight through with no feel, instead of a working app. For a paying user nothing changes.
+
 ## 0.7.1
 
 - **Shipped DLLs are obfuscated:** the licence verification and the physics internals are renamed so they are much harder to read or patch. The public interfaces, the machine id and the server addresses are untouched, so your licence keeps working exactly as before.
