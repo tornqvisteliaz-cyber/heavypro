@@ -76,12 +76,14 @@ jobs:
         env:
           CODE_SIGNING_PFX_BASE64: ${{ secrets.CODE_SIGNING_PFX_BASE64 }}
           CODE_SIGNING_PFX_PASSWORD: ${{ secrets.CODE_SIGNING_PFX_PASSWORD }}
-        run: & packaging/Sign-File.ps1 -Path src/HeavyPro.App/bin/x64/Release/net48/HeavyPro.exe
+        run: |
+          & packaging/Sign-File.ps1 -Path src/HeavyPro.App/bin/x64/Release/net48/HeavyPro.exe
       - name: Refresh payload
         shell: pwsh
         # Plain compiled DLLs: the obfuscated HeavyPro.Core broke 0.9.2 at start-up (MissingMethodException
         # on FlightPlanInfo.SourceName), and renamed/packed binaries are what antivirus heuristics distrust.
-        run: & packaging/New-AppPayload.ps1 -Configuration Release -SkipBuild -SkipObfuscation
+        run: |
+          & packaging/New-AppPayload.ps1 -Configuration Release -SkipBuild -SkipObfuscation
       - name: Verify bundled SimConnect runtime files
         shell: pwsh
         run: |
@@ -119,7 +121,8 @@ jobs:
         env:
           CODE_SIGNING_PFX_BASE64: ${{ secrets.CODE_SIGNING_PFX_BASE64 }}
           CODE_SIGNING_PFX_PASSWORD: ${{ secrets.CODE_SIGNING_PFX_PASSWORD }}
-        run: & packaging/Sign-File.ps1 -Path publish/HeavyProSetup.exe
+        run: |
+          & packaging/Sign-File.ps1 -Path publish/HeavyProSetup.exe
       - name: Add a zip and a checksum for testers
         shell: pwsh
         run: |
