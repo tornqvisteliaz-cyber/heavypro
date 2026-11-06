@@ -146,6 +146,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         FixBindingsCommand = new RelayCommand(() => FixMsfsBindings());
         RestoreBindingsCommand = new RelayCommand(RestoreMsfsBindings);
         ShowTermsCommand = new RelayCommand(() => new TermsWindow(mustAccept: false) { Owner = System.Windows.Application.Current.MainWindow }.ShowDialog());
+        ShowLicenseCommand = new RelayCommand(() => _ = ShowLicenseAsync());
         CopyBetaReportCommand = new RelayCommand(CopyBetaReport);
         DeleteProfileCommand = new RelayCommand(DeleteProfile);
         ShareProfileCommand = new RelayCommand(() => _ = ShareProfileAsync());
@@ -213,6 +214,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ICommand FixBindingsCommand { get; }
     public ICommand RestoreBindingsCommand { get; }
     public ICommand ShowTermsCommand { get; }
+    public ICommand ShowLicenseCommand { get; }
     public ICommand CopyBetaReportCommand { get; }
 
     public ICommand ApplyProfileCommand { get; }
@@ -2271,6 +2273,59 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             CapturedRoll = _stickRoll.HasValue ? Unit(_stickRoll.Value) : snap.CapturedRoll,
             CapturedYaw = _stickYaw.HasValue ? Unit(_stickYaw.Value) : snap.CapturedYaw
         };
+    }
+
+    /// <summary>The licence on this PC in plain words, from the saved signed answer (no network).</summary>
+    internal static string LicenseSummary(Rotaidem.Licensing.LicenseResult r)
+    {
+        switch (r.Status)
+        {
+            case Rotaidem.Licensing.LicenseStatus.Valid:
+            case Rotaidem.Licensing.LicenseStatus.OfflineGrace:
+                var used = r.MaxActivations > 0 ? $" ({r.ActivationsUsed} of {r.MaxActivations} computers)" : "";
+                var until = r.LeaseUntil is { } u ? $" It keeps working offline until {u.ToLocalTime():d}; it re-checks by itself whenever you are online." : "";
+                return "Active on this PC" + used + "." + until;
+            case Rotaidem.Licensing.LicenseStatus.NoKey:
+            case Rotaidem.Licensing.LicenseStatus.NotActivated:
+                return "Not activated on this PC. Restart HeavyPro and enter your licence key.";
+            case Rotaidem.Licensing.LicenseStatus.LeaseExpired:
+                return "Offline too long. Connect to the internet and restart HeavyPro so the licence can be checked.";
+            default:
+                return r.Message;
+        }
+    }
+
+    private async Task ShowLicenseAsync()
+    {
+        var owner = System.Windows.Application.Current.MainWindow;
+        var saved = HeavyPro.Licensing.HeavyProLicense.Store().Load();
+        var summary = LicenseSummary(HeavyPro.Licensing.HeavyProLicense.CheckOffline());
+        if (saved is null)
+        {
+            System.Windows.MessageBox.Show(owner, summary, "HeavyPro licence");
+            return;
+        }
+        var answer = System.Windows.MessageBox.Show(owner,
+            summary + "\n\nMoving to another PC? Choose Yes to deactivate HeavyPro on this PC. That frees its activation for the new one, "
+            + "and HeavyPro closes here.", "HeavyPro licence", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Information,
+            System.Windows.MessageBoxResult.No);
+        if (answer != System.Windows.MessageBoxResult.Yes)
+            return;
+
+        var result = await HeavyPro.Licensing.HeavyProLicense.DeactivateAsync(saved.Key);
+        if (!result.IsValid)
+        {
+            _logger.Warn($"Deactivation failed: {result.Status} — {result.Message}");
+            System.Windows.MessageBox.Show(owner, "This PC could not be deactivated: " + result.Message
+                + "\n\nNothing changed here. Try again when you are online, or contact support@rotaidem.com.", "HeavyPro licence");
+            return;
+        }
+        // The key and its signed answer go, and shaping stops now rather than when the lease would run out.
+        HeavyPro.Licensing.HeavyProLicense.Store().Clear();
+        ControlLimits.Lock();
+        _logger.Info("This PC was deactivated; the licence slot is free.");
+        System.Windows.MessageBox.Show(owner, "HeavyPro is deactivated on this PC. Activate it on your other PC with the same key.", "HeavyPro licence");
+        System.Windows.Application.Current.Shutdown();
     }
 
     private static string FormatTelemetryLine(FlightSnapshot s)

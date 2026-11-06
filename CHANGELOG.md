@@ -7,6 +7,11 @@ Each release's lines show in HeavyPro as "What's new" and on its GitHub release 
 - **Quicker small corrections, same weight:** REAL1 closes in on your stick without the slight carry-and-settle it had, so small corrections arrive 15–30 % sooner on every aircraft and axis (a 777 nudge gets halfway in 0.32 s instead of 0.42 s). Full stick still takes as long as before, so each aircraft keeps its own weight. Realistic Response stays at 40 by default.
 - **No overshoot on a stutter:** when the sim hitches for a frame, the controls land on your input instead of stepping past it.
 - REAL1 uses about half the CPU per frame it did.
+- **Licence no longer unlocks forever:** the stick-shaping switch now carries an expiry taken from the server's signed lease and is re-armed every 20 minutes by a background recheck that now always runs (a gap meant it never ran again after a fresh online activation). If the recheck stops succeeding, shaping turns back off on its own instead of depending only on the app managing to shut itself down.
+- **Build pipeline can now sign HeavyPro.exe and the installer** (`packaging/Sign-File.ps1`), so Windows stops warning on every run — inert until the `CODE_SIGNING_PFX_BASE64`/`CODE_SIGNING_PFX_PASSWORD` repo secrets are added; a certificate still has to be bought separately.
+- **Licence button** (bottom bar): shows whether HeavyPro is active on this PC, how many of your computers use the key and until when it works offline, with what to do if not. **Deactivate this PC** frees its activation when you move to a new computer, without contacting support.
+- **Clearer licence answers:** a licence with an end date says when it ended ("Expired") instead of "not found", and a key moved between computers too often says so.
+- **Reinstalled Windows or a new PC no longer locks you out:** when your key is at its limit, a computer that has not checked in for 30 days gives its slot to the new one by itself.
 
 ## 0.9.0
 
@@ -15,8 +20,6 @@ Each release's lines show in HeavyPro as "What's new" and on its GitHub release 
 - **SimBrief:** save, edit or remove your Pilot ID or username, then Connect/Verify and Refresh. HeavyPro shows departure, arrival, aircraft type and registration, takeoff and zero-fuel weight, payload, fuel, cruise altitude, route, duration and flight number, and keeps the last good plan for the next start. A wrong ID now shows SimBrief's own message instead of "Could not reach SimBrief".
 - **Flight plans:** import an MSFS .pln, an Airbus .flp (Aerosoft, Fenix, iniBuilds) or a saved SimBrief OFP, or use SimBrief's MSFS plan for your flight. Replace or remove it any time; a file HeavyPro can't read just says why.
 - **Quicker stick path:** the stick is read again right before each shaped frame, and Windows' timer runs at 1 ms while HeavyPro is connected, so the 8 ms stick timer no longer waits 15.6 ms.
-- **Licence no longer unlocks forever:** the stick-shaping switch now carries an expiry taken from the server's signed lease and is re-armed every 20 minutes by a background recheck that now always runs (a gap meant it never ran again after a fresh online activation). If the recheck stops succeeding, shaping turns back off on its own instead of depending only on the app managing to shut itself down.
-- **Build pipeline can now sign HeavyPro.exe and the installer** (`packaging/Sign-File.ps1`), so Windows stops warning on every run — inert until the `CODE_SIGNING_PFX_BASE64`/`CODE_SIGNING_PFX_PASSWORD` repo secrets are added; a certificate still has to be bought separately.
 
 ## 0.8.0
 

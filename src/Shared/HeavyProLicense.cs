@@ -72,6 +72,10 @@ internal static class HeavyProLicense
     public static Task<LicenseResult> ActivateAsync(string key) =>
         FirstMatchingProduct(client => client.ActivateAsync(key));
 
+    /// <summary>Frees this computer's activation on the server (moving to a new PC).</summary>
+    public static Task<LicenseResult> DeactivateAsync(string key) =>
+        FirstMatchingProduct(client => client.DeactivateAsync(key));
+
     public static Task<LicenseResult> CheckAsync() =>
         FirstMatchingProduct(client => client.CheckAsync(Store(), OfflineGrace));
 
