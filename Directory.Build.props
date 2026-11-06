@@ -3,11 +3,12 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Company>HeavyPro</Company>
+    <Company>Rotaidem</Company>
     <Product>HeavyPro</Product>
+    <Trademark>HeavyPro is a trademark of Rotaidem.</Trademark>
     <!-- Keep equal to the newest "## x.y.z" in CHANGELOG.md (a test checks it), so every build,
          not only tagged ones, says which version it is. -->
-    <Version>0.9.3</Version>
+    <Version>0.9.4</Version>
     <!-- Release builds: CI sets HP_VERSION from the tag (v1.0.1 -> 1.0.1), which the Update button compares against. -->
     <Version Condition="'$(HP_VERSION)' != ''">$(HP_VERSION)</Version>
     <Authors>Rotaidem</Authors>
@@ -15,5 +16,13 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <PlatformTarget>x64</PlatformTarget>
     <Prefer32Bit>false</Prefer32Bit>
+    <!-- Reproducible builds: a clean rebuild of the same commit produces byte-identical DLLs.
+         On CI (GitHub sets CI=true) source paths in the PDB are normalised too, so the symbols
+         do not leak the runner's folder layout. -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <!-- Separate portable PDBs (SDK default for Release): symbols ship privately, never in the
+         installer. Stated here so a future change cannot silently embed them in the DLLs. -->
+    <DebugType>portable</DebugType>
   </PropertyGroup>
 </Project>

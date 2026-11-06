@@ -123,14 +123,11 @@ jobs:
           CODE_SIGNING_PFX_PASSWORD: ${{ secrets.CODE_SIGNING_PFX_PASSWORD }}
         run: |
           & packaging/Sign-File.ps1 -Path publish/HeavyProSetup.exe
-      - name: Add a zip and a checksum for testers
+      - name: Add a zip for testers
         shell: pwsh
         run: |
           # Some browsers, mail filters and company networks block bare .exe downloads; a zip gets through.
           Compress-Archive -Path publish/HeavyProSetup.exe -DestinationPath publish/HeavyProSetup.zip -Force
-          $hash = (Get-FileHash publish/HeavyProSetup.exe -Algorithm SHA256).Hash.ToLower()
-          "$hash  HeavyProSetup.exe" | Set-Content publish/SHA256SUMS.txt -Encoding ascii
-          Write-Host "SHA-256: $hash"
       - name: Sign the update manifest
         # update.jws lets HeavyPro 0.5.0/0.5.1, which still have an Update button, move to this
         # release once. Newer versions update through RotaHub instead. Signed with the release
@@ -189,6 +186,37 @@ jobs:
             -AppDir '%LOCALAPPDATA%\HeavyPro' -AppExe HeavyPro.exe -Shortcut HeavyPro -Processes HeavyPro `
             -Community rotaidem-heavypro-panel:msfs2024 `
             -Notes $(if (Test-Path release-notes.md) { Get-Content release-notes.md -Raw -Encoding utf8 } else { '' })
+      - name: Checksums for every release file
+        # One SHA256SUMS.txt covering every artifact we publish (not only the setup exe), so a
+        # tester can verify each download with `sha256sum -c`. Only files that exist this run are
+        # hashed (manifests are tag-only), in a fixed order for a reproducible list.
+        shell: pwsh
+        run: |
+          $names = 'HeavyProSetup.exe', 'HeavyProSetup.zip', 'HeavyPro-rotahub.zip', 'update.jws', 'rotahub.jws'
+          $lines = foreach ($name in $names) {
+            $path = "publish/$name"
+            if (Test-Path $path) { "{0}  {1}" -f (Get-FileHash $path -Algorithm SHA256).Hash.ToLower(), $name }
+          }
+          $lines | Set-Content publish/SHA256SUMS.txt -Encoding ascii
+          Write-Host ($lines -join "`n")
+      - name: Preserve debug symbols privately
+        # Portable PDBs for the proprietary assemblies, kept as a login-only CI artifact so the team
+        # can symbolicate a crash from a shipped build. They are never put in the installer or on the
+        # public release. Expire with the normal artifact retention.
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path symbols | Out-Null
+          Get-ChildItem src/HeavyPro.App/bin/x64/Release/net48 -Filter *.pdb |
+            Where-Object { $_.Name -notlike 'System.*' } |
+            ForEach-Object { Copy-Item $_.FullName symbols/ }
+          Get-ChildItem src/HeavyPro.Setup/bin/Release/net48 -Filter HeavyProSetup.pdb -ErrorAction SilentlyContinue |
+            ForEach-Object { Copy-Item $_.FullName symbols/ }
+          Write-Host (Get-ChildItem symbols | ForEach-Object Name) -Separator "`n"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HeavyPro-symbols-${{ env.HP_VERSION || github.sha }}
+          path: symbols/*.pdb
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: HeavyProSetup
