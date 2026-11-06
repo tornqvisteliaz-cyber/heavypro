@@ -1006,6 +1006,15 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
         try
         {
+            // Second, independent licence gate, separate from the `armed` check above: even if that
+            // one is patched out, no shaped value is written here without a live licence.
+            if (!HeavyPro.Core.Physics.ControlLimits.Unlocked)
+            {
+                ReleaseToPhysical();
+                _wasWriting = false;
+                return;
+            }
+
             if (command.WriteRates && _rateWriteReady)
             {
                 var packet = new RateWritePacket

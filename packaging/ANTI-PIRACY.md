@@ -6,8 +6,16 @@ unpiratable.** Anything the code checks, the pirate can patch out, because the c
 edit. What follows is about raising the cost of that, not pretending it is impossible.
 
 ## How enforcement works
-The stick-shaping output (the thing customers pay for) is gated in one place —
-`OfficialSimClient.ApplyInfluence`, by `ControlLimits.Unlocked`. `App` calls
+The stick-shaping output (the thing customers pay for) is gated at **several independent points**
+so no single edit re-enables it:
+1. `MainViewModel.ApplySnapshot` (App assembly) — a locked HeavyPro builds an *unarmed* command,
+   before anything reaches the transport.
+2. `OfficialSimClient.ApplyInfluence` top (SimConnect assembly) — `armed && … && Unlocked`.
+3. `OfficialSimClient.ApplyInfluence` write block (same method, different spot) — a second check
+   right before the `SetDataOnSimObject` calls, so patching (2) alone still writes nothing.
+4. `AssemblyIntegrity` at start-up (App) — once signed, a modified DLL fails and nothing unlocks.
+
+All read `ControlLimits.Unlocked`. `App` calls
 `ControlLimits.Unlock(lease)` only after the licence server returns a token signed with its private
 key (RS256; HeavyPro holds only the public key). The unlock carries the server's lease time and is
 re-armed every 20 minutes; a revoked/expired licence, or the recheck loop simply stopping, relocks
@@ -26,10 +34,12 @@ it on its own. `#if DEBUG` skips the check; Release (what ships) always enforces
   back, and the signed lease caps offline running regardless.
 
 ## The attack that WORKS (the ceiling)
-Patch the gate in the DLL. `ControlLimits.IsUnlockedAt` → `return true;`, or drop the
-`&& ControlLimits.Unlocked` term in `ApplyInfluence`, plus stub `EnsureLicensedAsync` to skip the
-window. On an **unsigned** build this is a few minutes in dnSpy/ILSpy and gives a fully offline,
-keyless copy. There is no way to make this impossible on the client — only harder.
+Patch `ControlLimits.IsUnlockedAt` → `return true;`. Because every gate above reads that one
+method, flipping it defeats all of them at once — the layering raises the cost of finding the
+gates, not the cost of this specific patch. There is no way to make this impossible on the client;
+the two things that genuinely raise its cost are both below. On an **unsigned** build an attacker
+who finds `IsUnlockedAt` is done in minutes; the point of the layers + the signature check is to
+make "find and safely patch everything" the real job.
 
 ## What raises the cost: signature-pinned tamper check (added, dormant)
 `AssemblyIntegrity` + `IntegrityPolicy` run at start-up. **Once the binaries are Authenticode-signed

@@ -2,6 +2,10 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.9.6
+
+- Anti-piracy hardening: the licence check now gates the stick output at several independent points across two program files instead of one, so a single edit no longer re-enables it. (No change for licensed users.) See `packaging/ANTI-PIRACY.md`.
+
 ## 0.9.5
 
 - **Tamper protection:** once HeavyPro is code-signed, a modified program file is detected at start-up and the stick shaping stays off. (Dormant until a signing certificate is in use.) See `packaging/ANTI-PIRACY.md`.
