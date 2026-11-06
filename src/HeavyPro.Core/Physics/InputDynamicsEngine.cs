@@ -170,7 +170,9 @@ public sealed class InputDynamicsEngine
         var pitchTime = Numeric.Clamp(tuning.PitchSeconds * scale * response.Pitch, 0.08, 5.0);
         var rollTime = Numeric.Clamp(tuning.RollSeconds * scale * response.Roll, 0.08, 5.0);
         var yawTime = Numeric.Clamp(tuning.YawSeconds * scale * response.Yaw * feel.RudderFeelScale(rudderSettings, snapshot), 0.08, 5.0);
-        var moment = tuning.MomentSeconds * strength * DampingScale(tuning.Damping) * response.Moment;
+        // 1.06: a touch heavier close-in across the board (scales both StepAxis time constants
+        // together, so it stays critically damped — slightly heavier, no overshoot).
+        var moment = tuning.MomentSeconds * strength * DampingScale(tuning.Damping) * response.Moment * 1.06;
 
         var elevator = Real1.StepAxis(_elevator, shapedElevator, deltaTime, pitchTime, moment, tuning.ReturnDelaySeconds, tuning.ReturnRate);
         var aileron = Real1.StepAxis(_aileron, shapedAileron, deltaTime, rollTime, moment, tuning.ReturnDelaySeconds, tuning.ReturnRate);

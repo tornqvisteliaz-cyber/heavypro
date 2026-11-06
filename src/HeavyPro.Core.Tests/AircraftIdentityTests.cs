@@ -40,4 +40,15 @@ public class AircraftIdentityTests
         Assert.False(id.IsFenixA320);
         Assert.Equal("Narrow-body", id.SuggestedProfile);
     }
+
+    [Theory]
+    [InlineData("ATCCOM.AC_MODEL C172.0.text", "C172")]
+    [InlineData("ATCCOM.ATC_NAME CESSNA.0.text", "CESSNA")]
+    [InlineData("TT:ATCCOM.AC_MODEL B752.0.text", "B752")]
+    [InlineData("A20N", "A20N")]
+    [InlineData("", "")]
+    public void Atc_keys_read_as_the_plain_name(string raw, string expected)
+    {
+        Assert.Equal(expected, AircraftIdentity.Readable(raw));
+    }
 }

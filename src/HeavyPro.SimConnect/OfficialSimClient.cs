@@ -310,11 +310,12 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
 
             _logger.Info("SimConnect object created. Waiting for RecvOpen.");
         }
-        catch (COMException ex)
+        catch (COMException)
         {
+            // MSFS not started yet is the normal waiting state, not an error: the reconnect timer
+            // retries every 3 s, so no red badge and no stack trace in the log on every attempt.
             _sim = null;
-            SetState(ConnectionState.Error, "MSFS 2024 is not running, or SimConnect refused the connection.");
-            _logger.Error("SimConnect.Open failed", ex);
+            SetState(ConnectionState.Disconnected, "Waiting for MSFS 2024. HeavyPro connects on its own when it starts.");
         }
         catch (Exception ex)
         {
