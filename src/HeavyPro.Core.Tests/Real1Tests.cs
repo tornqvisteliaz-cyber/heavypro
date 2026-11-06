@@ -160,4 +160,74 @@ public class Real1Tests
         Assert.Equal("REAL1", frame.Profile);
         Assert.StartsWith("Airbus widebody", frame.Feel);
     }
+
+    private static double SecondsTo(InputDynamicsEngine engine, AppSettings s, Func<double, FlightSnapshot> snap, double input, double fraction)
+    {
+        engine.Step(s, snap(0), 1.0 / 60, 1.0);
+        for (var i = 1; i <= 900; i++)
+        {
+            var f = engine.Step(s, snap(input), 1.0 / 60, 1.0);
+            if (f.FilteredElevator > 0 && f.FinalElevator >= fraction * f.FilteredElevator)   // of the shaped target
+                return i / 60.0;
+        }
+        return double.PositiveInfinity;
+    }
+
+    [Fact]
+    public void Small_corrections_arrive_sooner_but_full_stick_keeps_the_777s_weight()
+    {
+        // 0.9.1 at the default 40: a 0.15 nudge took 0.42 s to get halfway, full stick 2.75 s to 90 %.
+        FlightSnapshot B777(double y) => Snap("777-300ER", "ATCCOM.AC_MODEL B77W.0.text", AircraftClass.WideBody, 550_000, 250, y)
+            with { MaxGrossWeightPounds = 775_000 };
+        Assert.True(SecondsTo(new InputDynamicsEngine(), Real1Route, B777, 0.15, 0.5) <= 0.35);
+        Assert.True(SecondsTo(new InputDynamicsEngine(), Real1Route, B777, 1.0, 0.9) >= 2.4);
+    }
+
+    [Theory]
+    [InlineData(0.02)]
+    [InlineData(0.08)]
+    [InlineData(0.16)]
+    [InlineData(0.5)]
+    public void Axis_closes_in_without_overshoot_even_through_a_frame_hitch(double moment)
+    {
+        foreach (var input in new[] { 0.05, 0.15, 0.6, 1.0 })
+        {
+            var state = new AxisDynamicsState();
+            for (var i = 0; i < 1200; i++)
+            {
+                var dt = i % 40 == 7 ? 0.05 : 1.0 / 60;                       // a 50 ms sim hitch now and then
+                Assert.True(Real1.StepAxis(state, input, dt, 3.0, moment, 0, 1).Output <= input + 1e-9);
+            }
+            Assert.Equal(input, state.Position, 3);
+        }
+    }
+
+    [Fact]
+    public void Two_hour_flight_stays_bounded_and_does_not_build_up_lag()
+    {
+        var rng = new Random(42);
+        var engine = new InputDynamicsEngine();
+        var s = new AppSettings { InputRoute = Real1.RouteName };
+        double y = 0, x = 0, r = 0;
+        for (var i = 0; i < 2 * 3600 * 60; i++)
+        {
+            if (i % 30 == 0) { y = rng.NextDouble() * 2 - 1; x = rng.NextDouble() * 2 - 1; r = rng.NextDouble() * 2 - 1; }
+            var lb = 350_000 + 200_000 * Math.Sin(i * 1e-5);                // fuel burn and different loads
+            var snap = Snap("777-300ER", "B77W", AircraftClass.WideBody, lb, 250, y) with { CapturedRoll = x, CapturedYaw = r, MaxGrossWeightPounds = 775_000 };
+            var dt = rng.Next(500) == 0 ? 0.1 : 1.0 / 120 + rng.NextDouble() / 40;
+            var f = engine.Step(s, snap, dt, 1.0);
+            Assert.True(Math.Abs(f.FinalElevator) <= 1 && Math.Abs(f.FinalAileron) <= 1 && Math.Abs(f.FinalRudder) <= 1);
+            Assert.False(double.IsNaN(f.FinalElevator + f.FinalAileron + f.FinalRudder));
+        }
+
+        // Hands off: everything settles at centre. Then a nudge answers exactly as on a fresh engine.
+        InputDynamicsFrame last = null!;
+        for (var i = 0; i < 20 * 60; i++)
+            last = engine.Step(s, Snap("777-300ER", "B77W", AircraftClass.WideBody, 550_000, 250) with { OnGround = true }, 1.0 / 60, 1.0);
+        Assert.Equal(0, last.FinalElevator, 3);
+        Assert.Equal(0, last.FinalAileron, 3);
+        Assert.Equal(0, last.FinalRudder, 3);
+        FlightSnapshot Nudge(double v) => Snap("777-300ER", "B77W", AircraftClass.WideBody, 550_000, 250, v) with { OnGround = true };
+        Assert.Equal(SecondsTo(new InputDynamicsEngine(), s, Nudge, 0.15, 0.5), SecondsTo(engine, s, Nudge, 0.15, 0.5), 3);
+    }
 }

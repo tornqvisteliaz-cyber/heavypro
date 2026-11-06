@@ -2,6 +2,12 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.9.2
+
+- **Quicker small corrections, same weight:** REAL1 closes in on your stick without the slight carry-and-settle it had, so small corrections arrive 15–30 % sooner on every aircraft and axis (a 777 nudge gets halfway in 0.32 s instead of 0.42 s). Full stick still takes as long as before, so each aircraft keeps its own weight. Realistic Response stays at 40 by default.
+- **No overshoot on a stutter:** when the sim hitches for a frame, the controls land on your input instead of stepping past it.
+- REAL1 uses about half the CPU per frame it did.
+
 ## 0.9.0
 
 - **Realistic Response, default 40:** a new Plan & response tab sets how quickly HeavyPro's shaped stick follows yours, on every route including REAL1, where 0.8.0's Response slider had no effect. The default answers a pitch input about a third sooner than 0.8.0 (PMDG 777: 1.98 s to 1.30 s; C172: 0.53 s to 0.38 s) and keeps each aircraft's own weight; 20 gives 0.8.0's feel back. Pitch, roll and yaw responsiveness, Input smoothing, Reset to defaults and Save settings sit beside it, and every change applies at once.
