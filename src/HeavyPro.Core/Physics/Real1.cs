@@ -144,9 +144,10 @@ public static class Real1
     };
 
     /// <summary>
-    /// One control axis with mass: its rate builds up over MomentSeconds (moment of
-    /// inertia) toward a rate capped by the travel time, and eases into the target so it
-    /// carries on only a touch instead of stopping dead.
+    /// One control axis with mass: its rate builds up over (part of) MomentSeconds (moment of
+    /// inertia) toward a rate capped by the travel time, and closes in critically damped, so it
+    /// arrives as soon as it can without carrying past the target and bouncing back. 0.9.2: the
+    /// approach used to be underdamped and 1.4x slower, which made small corrections feel late.
     /// </summary>
     public static AxisSample StepAxis(AxisDynamicsState state, double raw, double dt, double fullTravelSeconds,
         double momentSeconds, double returnDelaySeconds, double returnRate)
@@ -168,10 +169,18 @@ public static class Real1
         var time = Numeric.Clamp(fullTravelSeconds * (0.35 + 0.65 * Numeric.Clamp(Math.Abs(error), 0, 1)), 0.05, 6.0);
         var maxRate = 1.0 / time * (returning ? Numeric.Clamp(returnRate, 0.1, 2.0) : 1.0);
         var moment = Numeric.Clamp(momentSeconds, 0.02, 1.5);
-        var desired = Numeric.Clamp(error / (3.0 * moment), -maxRate, maxRate);
+        // Rate lag 0.625 m and approach 2.5 m: critically damped (zeta 1), natural frequency 1/(1.25 m).
+        var desired = Numeric.Clamp(error / (2.5 * moment), -maxRate, maxRate);
         var before = state.Velocity;
-        state.Velocity += (desired - state.Velocity) * (1.0 - Math.Exp(-dt / moment));
-        state.Position = Numeric.Clamp(state.Position + state.Velocity * dt, -1, 1);
+        state.Velocity += (desired - state.Velocity) * (1.0 - Math.Exp(-dt / (0.625 * moment)));
+        var step = state.Velocity * dt;
+        if (step * error > 0 && Math.Abs(step) > Math.Abs(error))
+        {
+            // A long frame (sim hitch) would step past the target: land on it instead of bouncing.
+            step = error;
+            state.Velocity = 0;
+        }
+        state.Position = Numeric.Clamp(state.Position + step, -1, 1);
         if (Math.Abs(target - state.Position) < 0.0005 && Math.Abs(state.Velocity) < 0.002)
         {
             state.Position = target;

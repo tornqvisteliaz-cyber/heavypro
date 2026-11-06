@@ -133,11 +133,15 @@ public sealed class InputDynamicsEngine
     /// have out of the box. The feel level scales its strength, and the response settings
     /// (<see cref="ResponseTuning"/>) and the aircraft's weight, CG and ground state adjust it.
     /// </summary>
+    // Read-only rudder settings for REAL1: allocating an AppSettings every frame was most of its garbage.
+    private static readonly AppSettings RealisticRudderSettings = new() { RealisticRudder = true, RudderLimiter = true };
+    private static readonly AppSettings PlainRudderSettings = new() { RealisticRudder = false, RudderLimiter = true };
+
     private InputDynamicsFrame StepReal1(AppSettings settings, FlightSnapshot snapshot, double deltaTime)
     {
         var tuning = Real1.For(snapshot);
         var feel = ControlFeel.For(snapshot);
-        var rudderSettings = new AppSettings { RealisticRudder = tuning.RealisticRudder, RudderLimiter = true };
+        var rudderSettings = tuning.RealisticRudder ? RealisticRudderSettings : PlainRudderSettings;
 
         var rawElevator = Clamp(snapshot.StickY);
         var rawAileron = Clamp(snapshot.StickX);
