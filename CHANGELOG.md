@@ -2,6 +2,10 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.9.5
+
+- **Tamper protection:** once HeavyPro is code-signed, a modified program file is detected at start-up and the stick shaping stays off. (Dormant until a signing certificate is in use.) See `packaging/ANTI-PIRACY.md`.
+
 ## 0.9.4
 
 - **Every download can be verified:** the `SHA256SUMS.txt` on each release now lists a checksum for every file (installer, zip, RotaHub package and update files), not just the installer, so you can confirm a download arrived intact.

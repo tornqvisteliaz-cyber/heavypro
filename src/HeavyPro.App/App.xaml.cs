@@ -66,6 +66,17 @@ public partial class App : System.Windows.Application
             Shutdown();
             return;
         }
+#if !DEBUG
+        // Once HeavyPro is code-signed, a modified program file fails this and shaping stays locked.
+        // Dormant (allows start-up) on today's unsigned builds; see AssemblyIntegrity / IntegrityPolicy.
+        if (AssemblyIntegrity.Check(out var integrityReason) == HeavyPro.Core.Physics.IntegrityVerdict.Tampered)
+        {
+            LogLicence("Integrity check failed: " + integrityReason);
+            MessageBox.Show(integrityReason, "HeavyPro", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Shutdown();
+            return;
+        }
+#endif
         // Licence confirmed: let the shaping output run until the lease ends. Without this the
         // write path stays a pass-through, so skipping the licence screen does not give a working
         // product — and because the unlock expires by itself, disabling the recheck loop below
