@@ -2233,7 +2233,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
 
         snap = WithFreshStick(snap);
-        var cmd = _engine.Step(_settings, snap, _settings.MasterEnable && _client.IsConnected);
+        // Independent licence gate (the SimConnect write path has its own): a locked HeavyPro
+        // produces an unarmed command here, before it ever reaches the client. Both must be
+        // defeated to make shaping run, and they live in different assemblies.
+        var cmd = _engine.Step(_settings, snap, _settings.MasterEnable && _client.IsConnected && ControlLimits.Unlocked);
         _lastCmd = cmd;
         _client.SetFeelGain(cmd.Mix > 0 ? cmd.Mix : 0.55);
         _client.ApplyInfluence(cmd);
