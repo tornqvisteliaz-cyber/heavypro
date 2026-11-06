@@ -2,6 +2,11 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.9.4
+
+- **Every download can be verified:** the `SHA256SUMS.txt` on each release now lists a checksum for every file (installer, zip, RotaHub package and update files), not just the installer, so you can confirm a download arrived intact.
+- Build quality: reproducible builds, consistent file details (publisher Rotaidem), and crash-diagnosis symbols kept privately instead of shipped. No change to how HeavyPro flies. See `packaging/DLL-INVENTORY.md`.
+
 ## 0.9.3
 
 - **Starts reliably again, and plainer files:** HeavyPro's program files now ship exactly as built instead of scrambled. A scrambled build could stop at start with "Method not found", and scrambled files are also what antivirus programs such as Norton tend to distrust.
