@@ -11,6 +11,9 @@ namespace HeavyPro.App;
 /// </summary>
 public partial class LicenseWindow : Window
 {
+    /// <summary>The lease the server granted on a successful activation (set just before <c>DialogResult = true</c>).</summary>
+    public DateTimeOffset? LeaseUntil { get; private set; }
+
     public LicenseWindow(string? reason = null, string? key = null)
     {
         InitializeComponent();
@@ -41,6 +44,7 @@ public partial class LicenseWindow : Window
                 return;
             }
             HeavyProLicense.Save(KeyBox.Text, result);
+            LeaseUntil = result.LeaseUntil;
             Message.Visibility = Visibility.Collapsed;
             DialogResult = true;
         }

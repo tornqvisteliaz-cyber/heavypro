@@ -121,15 +121,18 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="{Binding Status}" Style="{StaticResource MutedText}"
                            TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" Text="{Binding FooterText}" Style="{StaticResource MutedText}" FontSize="11"
                            VerticalAlignment="Center" Margin="16,0,10,0"/>
-                <Button Grid.Column="2" Content="Terms" Command="{Binding ShowTermsCommand}" Padding="8,2" FontSize="10" Margin="0,0,6,0"/>
-                <Button Grid.Column="3" Content="Copy beta report" Command="{Binding CopyBetaReportCommand}" Padding="8,2" FontSize="10" Margin="0,0,14,0"
+                <Button Grid.Column="2" Content="Licence" Command="{Binding ShowLicenseCommand}" Padding="8,2" FontSize="10" Margin="0,0,6,0"
+                        ToolTip="Licence status on this PC, and Deactivate this PC when you move to a new one."/>
+                <Button Grid.Column="3" Content="Terms" Command="{Binding ShowTermsCommand}" Padding="8,2" FontSize="10" Margin="0,0,6,0"/>
+                <Button Grid.Column="4" Content="Copy beta report" Command="{Binding CopyBetaReportCommand}" Padding="8,2" FontSize="10" Margin="0,0,14,0"
                         ToolTip="Copies your version, aircraft, route and recent log to the clipboard for a bug report. Your Windows user name and licence key are left out."/>
-                <TextBlock Grid.Column="4" Text="{Binding BackendName}" Style="{StaticResource SectionText}"
+                <TextBlock Grid.Column="5" Text="{Binding BackendName}" Style="{StaticResource SectionText}"
                            VerticalAlignment="Center"/>
             </Grid>
         </Border>

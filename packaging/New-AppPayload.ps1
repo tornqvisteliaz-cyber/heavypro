@@ -1,7 +1,10 @@
 ﻿param(
     [string] $DotNet = "dotnet",
     [string] $Configuration = "Release",
-    [switch] $SkipObfuscation
+    [switch] $SkipObfuscation,
+    # The caller already built (and, in CI, signed) HeavyPro.exe; building again here would
+    # overwrite that signature with a fresh unsigned binary.
+    [switch] $SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -10,14 +13,17 @@ $project = Join-Path $repo "src\HeavyPro.App\HeavyPro.App.csproj"
 $output = Join-Path $repo "src\HeavyPro.App\bin\x64\$Configuration\net48"
 $archive = Join-Path $PSScriptRoot "HeavyProAppPayload.zip"
 
-& $DotNet build $project -c $Configuration -p:Platform=x64
-if ($LASTEXITCODE -ne 0) { throw "HeavyPro build failed with exit code $LASTEXITCODE." }
+if (-not $SkipBuild) {
+    & $DotNet build $project -c $Configuration -p:Platform=x64
+    if ($LASTEXITCODE -ne 0) { throw "HeavyPro build failed with exit code $LASTEXITCODE." }
+}
 if (-not (Test-Path (Join-Path $output "HeavyPro.exe"))) { throw "Build output not found: $output" }
 
 # Obfuscate the shipped support DLLs (identifier renaming): the licence verification and the
 # physics internals become unreadable while the public surface, strings and machine id are
-# untouched. The WPF exe is left as-is (XAML binds and event handlers by name). -SkipObfuscation
-# is for quick local builds only; release builds must obfuscate.
+# untouched. The WPF exe is left as-is (XAML binds and event handlers by name). Release builds pass
+# -SkipObfuscation since 0.9.2: the obfuscated HeavyPro.Core broke the app at start-up, and plain,
+# signed binaries are what antivirus products trust. Run without it only together with a start-up test.
 if (-not $SkipObfuscation) {
     $obfOut = Join-Path $repo "obj-obf"
     if (Test-Path $obfOut) { Remove-Item -LiteralPath $obfOut -Recurse -Force }
