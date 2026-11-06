@@ -8,6 +8,22 @@ public sealed class AircraftIdentity
     public string AtcId { get; init; } = string.Empty;
     public string Category { get; init; } = string.Empty;
 
+    /// <summary>
+    /// MSFS sends ATC names as localisation keys ("ATCCOM.AC_MODEL C172.0.text"); this is the part a
+    /// pilot recognises ("C172"). Plain values come back unchanged.
+    /// </summary>
+    public static string Readable(string? value)
+    {
+        var s = (value ?? "").Trim();
+        if (s.StartsWith("TT:", StringComparison.OrdinalIgnoreCase))
+            s = s.Substring(3);
+        if (s.StartsWith("ATCCOM.", StringComparison.OrdinalIgnoreCase) && s.IndexOf(' ') is > 0 and var space)
+            s = s.Substring(space + 1);
+        if (s.EndsWith(".0.text", StringComparison.OrdinalIgnoreCase))
+            s = s.Substring(0, s.Length - ".0.text".Length);
+        return s.Trim();
+    }
+
     public bool IsFenixA320
     {
         get

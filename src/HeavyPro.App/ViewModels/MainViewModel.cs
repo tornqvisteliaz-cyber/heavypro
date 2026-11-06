@@ -59,7 +59,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _logger = logger;
         _backend = backendName;
         _settings = settingsStore.Load();
-        _settings.MasterEnable = false;
+        // Master Enable starts on, so HeavyPro shapes the stick as soon as it is connected without
+        // anyone clicking it. Writes still only happen while the stick is held, and the toggle can
+        // still turn it off for a session.
+        _settings.MasterEnable = true;
         // A fresh install has never saved settings: it starts on REAL1, the best route.
         var freshInstall = _settings.SettingsVersion == 0;
         if (_settings.SettingsVersion < 3)
@@ -1099,7 +1102,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public string AircraftTitle => string.IsNullOrWhiteSpace(_snap.Aircraft.DisplayName) ? "No aircraft" : _snap.Aircraft.DisplayName;
     public string AircraftMeta =>
-        $"Model {_snap.Aircraft.AtcModel}   Type {_snap.Aircraft.AtcType}   ID {_snap.Aircraft.AtcId}   {_snap.Aircraft.Category}";
+        $"Model {AircraftIdentity.Readable(_snap.Aircraft.AtcModel)}   Type {AircraftIdentity.Readable(_snap.Aircraft.AtcType)}   ID {_snap.Aircraft.AtcId}   {_snap.Aircraft.Category}";
 
     public bool MasterEnable
     {
@@ -2354,7 +2357,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             ConnectionState.SimRunning => "LIVE",
             ConnectionState.Connecting => "CONNECTING",
             ConnectionState.Error => "ERROR",
-            _ => "DISCONNECTED"
+            _ => _settings.AutoConnect ? "WAITING FOR MSFS" : "DISCONNECTED"
         };
         Status = _client.StatusText;
         // 1 ms Windows timer resolution while connected, so the 8 ms stick timer really ticks

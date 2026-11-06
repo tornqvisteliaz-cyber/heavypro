@@ -2,6 +2,13 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.9.7
+
+- **Always on:** the Master Enable switch is gone. HeavyPro shapes your stick as soon as it is connected, with nothing to click.
+- **A touch heavier:** REAL1 closes in on your stick slightly more slowly on every aircraft, still without any bounce.
+- **Calmer status:** while MSFS 2024 is not started, the header says WAITING FOR MSFS instead of a red ERROR.
+- **Readable aircraft details:** the Fly tab shows the aircraft model and type as "C172" and "CESSNA" instead of MSFS's internal keys.
+
 ## 0.9.6
 
 - Anti-piracy hardening: the licence check now gates the stick output at several independent points across two program files instead of one, so a single edit no longer re-enables it. (No change for licensed users.) See `packaging/ANTI-PIRACY.md`.
