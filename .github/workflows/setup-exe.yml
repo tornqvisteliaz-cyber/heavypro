@@ -79,7 +79,9 @@ jobs:
         run: & packaging/Sign-File.ps1 -Path src/HeavyPro.App/bin/x64/Release/net48/HeavyPro.exe
       - name: Refresh payload
         shell: pwsh
-        run: & packaging/New-AppPayload.ps1 -Configuration Release -SkipBuild
+        # Plain compiled DLLs: the obfuscated HeavyPro.Core broke 0.9.2 at start-up (MissingMethodException
+        # on FlightPlanInfo.SourceName), and renamed/packed binaries are what antivirus heuristics distrust.
+        run: & packaging/New-AppPayload.ps1 -Configuration Release -SkipBuild -SkipObfuscation
       - name: Verify bundled SimConnect runtime files
         shell: pwsh
         run: |

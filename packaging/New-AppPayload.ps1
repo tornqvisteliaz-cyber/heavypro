@@ -21,8 +21,9 @@ if (-not (Test-Path (Join-Path $output "HeavyPro.exe"))) { throw "Build output n
 
 # Obfuscate the shipped support DLLs (identifier renaming): the licence verification and the
 # physics internals become unreadable while the public surface, strings and machine id are
-# untouched. The WPF exe is left as-is (XAML binds and event handlers by name). -SkipObfuscation
-# is for quick local builds only; release builds must obfuscate.
+# untouched. The WPF exe is left as-is (XAML binds and event handlers by name). Release builds pass
+# -SkipObfuscation since 0.9.2: the obfuscated HeavyPro.Core broke the app at start-up, and plain,
+# signed binaries are what antivirus products trust. Run without it only together with a start-up test.
 if (-not $SkipObfuscation) {
     $obfOut = Join-Path $repo "obj-obf"
     if (Test-Path $obfOut) { Remove-Item -LiteralPath $obfOut -Recurse -Force }
