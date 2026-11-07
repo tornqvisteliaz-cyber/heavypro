@@ -47,6 +47,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private double[] _pitchAxes = new double[6];
     private string _stickStatus = "";
     private string? _detecting;
+    private readonly ToeBrakes _toeBrakes = new();
+    private double _brakeLeftPedal, _brakeRightPedal;
+    private DateTime _lastBrakeStep = DateTime.MinValue;
     private DateTime _detectUntil;
     private Dictionary<string, double[]> _detectBase = new();
     private readonly Dictionary<string, (double Delta, int Axis, double Sign)> _detectBest = new();
@@ -116,6 +119,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         DetectPitchCommand = new RelayCommand(() => StartDetect("pitch"));
         DetectRollCommand = new RelayCommand(() => StartDetect("roll"));
         DetectRudderCommand = new RelayCommand(() => StartDetect("rudder"));
+        DetectLeftBrakeCommand = new RelayCommand(() => StartDetect("left brake"));
+        DetectRightBrakeCommand = new RelayCommand(() => StartDetect("right brake"));
         RefreshDevicesCommand = new RelayCommand(RefreshDevices);
         FetchSimBriefCommand = new RelayCommand(() => _ = FetchSimBriefAsync(verify: false));
         VerifySimBriefCommand = new RelayCommand(() => _ = FetchSimBriefAsync(verify: true));
@@ -420,6 +425,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ICommand DetectPitchCommand { get; }
     public ICommand DetectRollCommand { get; }
     public ICommand DetectRudderCommand { get; }
+    public ICommand DetectLeftBrakeCommand { get; }
+    public ICommand DetectRightBrakeCommand { get; }
     public ICommand RefreshDevicesCommand { get; }
     public ICommand FetchSimBriefCommand { get; }
 
@@ -875,6 +882,36 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public bool InvertRoll { get => _settings.InvertRoll; set { _settings.InvertRoll = value; OnChanged(); ScheduleSave(); } }
     public bool InvertRudder { get => _settings.InvertRudder; set { _settings.InvertRudder = value; OnChanged(); ScheduleSave(); } }
 
+    public bool ToeBrakes { get => _settings.ToeBrakes; set { _settings.ToeBrakes = value; OnChanged(); OnChanged(nameof(BrakeSetupText)); ScheduleSave(); } }
+
+    private bool BrakesSetUp => _settings.LeftBrakeAxis.Length > 0 || _settings.RightBrakeAxis.Length > 0;
+
+    public string BrakeSetupText => !BrakesSetUp
+        ? "Press Detect L and R once"
+        : $"Left {(_settings.LeftBrakeAxis.Length > 0 ? _settings.LeftBrakeAxis : "–")} · Right {(_settings.RightBrakeAxis.Length > 0 ? _settings.RightBrakeAxis : "–")}";
+
+    /// <summary>How far a toe brake is pressed (0..1), from the readings Detect learnt released and fully pressed.</summary>
+    private static double BrakePedal(double[] axes, string axisName, double rest, double full)
+    {
+        var i = JoystickReader.AxisIndex(axisName);
+        if (i < 0 || Math.Abs(full - rest) < 0.2)
+            return 0;
+        return Numeric.Clamp((axes[i] - rest) / (full - rest), 0, 1);
+    }
+
+    /// <summary>Each sim frame: the pedals' toe brakes through the heavy-brake model, written only while braking.</summary>
+    private void StepBrakes(FlightSnapshot snap, DateTime now)
+    {
+        var dt = _lastBrakeStep == DateTime.MinValue ? 1.0 / 60 : (now - _lastBrakeStep).TotalSeconds;
+        _lastBrakeStep = now;
+        // A toe brake still bound in MSFS would fight these writes: leave the brakes to MSFS then.
+        var on = _settings.ToeBrakes && BrakesSetUp && _settings.MasterEnable && _client.IsConnected
+            && ControlLimits.Unlocked && !_ownConflictAxes.Contains("brakes");
+        var output = _toeBrakes.Step(on ? _brakeLeftPedal : 0, on ? _brakeRightPedal : 0, snap, dt);
+        if (output.Active)
+            _client.ApplyBrakes(output.Left, output.Right);
+    }
+
     /// <summary>The payware aircraft HeavyPro knows by name, for the Setup card.</summary>
     public string KnownAircraftText => "Recognised by name: " + string.Join(", ", PaywareCatalog.Names) + ".";
 
@@ -933,6 +970,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             "pitch" => "Detecting: pull the stick fully back and hold it…",
             "roll" => "Detecting: roll the stick fully right and hold it…",
+            "left brake" => "Detecting: press the LEFT toe brake fully and hold it…",
+            "right brake" => "Detecting: press the RIGHT toe brake fully and hold it…",
             _ => "Detecting: push the right rudder pedal fully and hold it…"
         };
     }
@@ -949,6 +988,25 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         }
         var device = StickDevices.First(d => d.Key == best.Key);
         var axis = JoystickReader.AxisNames[best.Value.Axis];
+        if (what is "left brake" or "right brake")
+        {
+            if (device.Key != _settings.RudderDevice)
+            {
+                StickStatus = $"That moved on {device.Name}. Toe brakes have to be on your rudder pedals: pick them above, then Detect again.";
+                return;
+            }
+            // Released is what it read before the press, fully pressed where it went.
+            var rest = _detectBase[device.Key][best.Value.Axis];
+            var full = rest + best.Value.Sign * best.Value.Delta;
+            if (what == "left brake") { _settings.LeftBrakeAxis = axis; _settings.LeftBrakeRest = rest; _settings.LeftBrakeFull = full; }
+            else { _settings.RightBrakeAxis = axis; _settings.RightBrakeRest = rest; _settings.RightBrakeFull = full; }
+            OnChanged(nameof(BrakeSetupText));
+            _logger.Info($"Detected {what}: {device.Name} axis {axis} ({rest:0.00} released, {full:0.00} pressed).");
+            StickStatus = $"{what} → {device.Name}, axis {axis}";
+            _lastBindingScan = DateTime.MinValue;
+            ScheduleSave();
+            return;
+        }
         // Detection asks for pull back / roll right / right pedal, which must come
         // out as +1 in HeavyPro's convention; flip the axis when it moved negative.
         var invert = best.Value.Sign < 0;
@@ -1024,7 +1082,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             if (pedals != null && !pedals.HasAxis(_settings.RudderAxis))
                 missing.Add("yaw " + _settings.RudderAxis);
             else if (pedals != null && JoystickReader.TryRead(pedals.Id, out var pedalAxes))
+            {
                 yaw = Read(pedalAxes, _settings.RudderAxis, _settings.InvertRudder);
+                _brakeLeftPedal = BrakePedal(pedalAxes, _settings.LeftBrakeAxis, _settings.LeftBrakeRest, _settings.LeftBrakeFull);
+                _brakeRightPedal = BrakePedal(pedalAxes, _settings.RightBrakeAxis, _settings.RightBrakeRest, _settings.RightBrakeFull);
+            }
         }
 
         // MSFS bindings route: the app shows the stick from the device itself, and notices
@@ -1061,7 +1123,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             StickStatus = missing.Count > 0
                 ? "That device has no axis for " + string.Join(", ", missing) + ". Press Detect and move that control."
                 : F("Stick  pitch {0:+0.00;-0.00;0.00}  roll {1:+0.00;-0.00;0.00}", pitch ?? 0, roll ?? 0)
-                  + (yaw.HasValue ? F("  yaw {0:+0.00;-0.00;0.00}", yaw.Value) : "");
+                  + (yaw.HasValue ? F("  yaw {0:+0.00;-0.00;0.00}", yaw.Value) : "")
+                  + (BrakesSetUp ? F("  brakes {0:0.00}/{1:0.00}", _brakeLeftPedal, _brakeRightPedal) : "");
         }
     }
 
@@ -1614,6 +1677,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             var fed = new List<string>();
             if (stick != null) { fed.Add("pitch"); fed.Add("roll"); }
             if (pedals != null) fed.Add("yaw");
+            var brakes = pedals != null && _settings.ToeBrakes && BrakesSetUp;
+            if (brakes) fed.Add("brakes");
             if (stick is int s)
             {
                 var onStick = MsfsInputProfiles.FindBindings(files, s, new[] { "pitch", "roll" });
@@ -1623,7 +1688,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             }
             if (pedals is int p && p != stick)
             {
-                var onPedals = MsfsInputProfiles.FindBindings(files, p, new[] { "yaw" });
+                var onPedals = MsfsInputProfiles.FindBindings(files, p, brakes ? new[] { "yaw", "brakes" } : new[] { "yaw" });
                 bindings.AddRange(onPedals);
                 own.AddRange(onPedals.SelectMany(b => b.Axes));
             }
@@ -2243,6 +2308,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         _lastCmd = cmd;
         _client.SetFeelGain(cmd.Mix > 0 ? cmd.Mix : 0.55);
         _client.ApplyInfluence(cmd);
+        StepBrakes(snap, now);
         if (!_settings.CompanionMode && _settings.ViewCue)
             _client.ApplyViewCue(_viewCue.Step(_settings, snap));
         if (refreshUi)

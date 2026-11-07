@@ -22,6 +22,9 @@ public interface ISimClient : IDisposable
     /// or the backend cannot write.
     /// </summary>
     void ApplyInfluence(InfluenceCommand command);
+
+    /// <summary>Sets the left and right wheel brake (0 = off, 1 = full) for this frame.</summary>
+    void ApplyBrakes(double left, double right);
     void ApplyViewCue(ViewCue cue);
     void SetFeelGain(double gain);
     InputRouteStatus RouteStatus { get; }
