@@ -2,6 +2,11 @@
 
 Each release's lines show in HeavyPro as "What's new" and on its GitHub release page.
 
+## 0.9.8
+
+- **Heavy toe brakes:** the toe brakes on your rudder pedals now feel like an airliner's hydraulic brakes. Pressure builds up over a moment instead of locking the wheels at once, slower on heavy aircraft, and the first half of the pedal is gentle for smooth stops and taxiing. Left and right stay separate for differential braking. Set it up once: Setup → Heavy toe brakes → Detect L (press the left toe brake), then Detect R. Works on PMDG aircraft too.
+- **Fix MSFS bindings** now also clears toe brakes still bound in MSFS, so the sim and HeavyPro don't both brake.
+
 ## 0.9.7
 
 - **Always on:** the Master Enable switch is gone. HeavyPro shapes your stick as soon as it is connected, with nothing to click.

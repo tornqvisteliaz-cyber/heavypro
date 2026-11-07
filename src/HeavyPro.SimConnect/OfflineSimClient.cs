@@ -37,6 +37,10 @@ public sealed class OfflineSimClient : ISimClient
         StateChanged?.Invoke(this, _state);
     }
 
+    public void ApplyBrakes(double left, double right)
+    {
+    }
+
     public void ApplyInfluence(InfluenceCommand command)
     {
     }

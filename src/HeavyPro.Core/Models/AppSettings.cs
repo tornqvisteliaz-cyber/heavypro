@@ -51,6 +51,16 @@ public sealed class AppSettings
     public string RudderAxis { get; set; } = "R";
     public bool InvertRudder { get; set; }
 
+    /// <summary>Heavy toe brakes on the rudder pedals. Off in practice until each side is set up with Detect.</summary>
+    public bool ToeBrakes { get; set; } = true;
+    /// <summary>Pedal axis of each toe brake, and its reading released and fully pressed (learnt by Detect). "" = not set up.</summary>
+    public string LeftBrakeAxis { get; set; } = "";
+    public double LeftBrakeRest { get; set; }
+    public double LeftBrakeFull { get; set; } = 1;
+    public string RightBrakeAxis { get; set; } = "";
+    public double RightBrakeRest { get; set; }
+    public double RightBrakeFull { get; set; } = 1;
+
     /// <summary>Real 777 feel for the PMDG 777 (an override package in Community). Off until the user turns it on.</summary>
     public bool FlightModelOverride { get; set; }
 

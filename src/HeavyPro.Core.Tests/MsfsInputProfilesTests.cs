@@ -223,4 +223,29 @@ public class MsfsInputProfilesTests
         Assert.Equal("Auto Detect", old[0].AircraftProfile);
         Assert.Equal("PMDG 777", old[1].AircraftProfile);
     }
+
+    private const string PedalsWithToeBrakes = @"<?xml version=""1.0"" encoding=""UTF-8""?>
+<Version Num=""-1""/>
+<FriendlyName PlatformAvailability=""1"" Locked=""false"">pedals</FriendlyName>
+<Device DeviceName=""T-Rudder"" GUID=""{0}"" ProductID=""46713"" CompositeID=""0"" HWVer=""1.0.0.0"">
+	<AircraftInfo CategoryName=""AIRPLANE""/>
+	<Context ContextName=""SURFACES"">
+		<Action ActionName=""KEY_AXIS_RUDDER_SET"" Flag=""2""><Primary><KEY Information=""Joystick L-Axis Z "">1058</KEY></Primary></Action>
+		<Action ActionName=""KEY_AXIS_LEFT_BRAKE_SET"" Flag=""2""><Primary><KEY Information=""Joystick L-Axis X "">1026</KEY></Primary></Action>
+		<Action ActionName=""KEY_AXIS_RIGHT_BRAKE_SET"" Flag=""2""><Primary><KEY Information=""Joystick L-Axis Y "">1042</KEY></Primary></Action>
+	</Context>
+</Device>";
+
+    [Fact]
+    public void Toe_brakes_are_found_once_and_cleared_with_both_sides()
+    {
+        var binding = Assert.Single(MsfsInputProfiles.FindBindings(new[] { (DateTime.Now, PedalsWithToeBrakes) }, 46713, new[] { "yaw", "brakes" }));
+        Assert.Equal(new[] { "yaw", "brakes" }, binding.Axes);
+
+        var cleared = MsfsInputProfiles.ClearAxes(PedalsWithToeBrakes, new[] { "brakes" });
+        Assert.Contains(@"<Action ActionName=""KEY_AXIS_LEFT_BRAKE_SET"" ValueEvent=""0.000000"" Delay=""0.000000"" Flag=""2""/>", cleared);
+        Assert.Contains(@"<Action ActionName=""KEY_AXIS_RIGHT_BRAKE_SET"" ValueEvent=""0.000000"" Delay=""0.000000"" Flag=""2""/>", cleared);
+        Assert.Contains("Joystick L-Axis Z", cleared);   // the rudder stays bound unless asked
+        Assert.Equal(PedalsWithToeBrakes, MsfsInputProfiles.RestoreAxes(cleared, PedalsWithToeBrakes));
+    }
 }

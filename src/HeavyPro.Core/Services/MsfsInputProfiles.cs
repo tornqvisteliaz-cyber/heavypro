@@ -23,6 +23,8 @@ public static class MsfsInputProfiles
         ("KEY_AXIS_ELEVATOR_SET", "pitch"),
         ("KEY_AXIS_AILERONS_SET", "roll"),
         ("KEY_AXIS_RUDDER_SET", "yaw"),
+        ("KEY_AXIS_LEFT_BRAKE_SET", "brakes"),
+        ("KEY_AXIS_RIGHT_BRAKE_SET", "brakes"),
     };
 
     /// <summary>
@@ -145,7 +147,7 @@ public static class MsfsInputProfiles
                     .Where(a => (string?)a.Attribute("ActionName") == action)
                     .Any(a => a.Elements().Where(s => s.Name == "Primary" || s.Name == "Secondary")
                         .Any(s => IsAxisSlot(s.Elements("KEY").Select(k => int.TryParse(k.Value.Trim(), out var c) ? c : -1))));
-                if (hasAxis)
+                if (hasAxis && !bound.Contains(axis))
                     bound.Add(axis);
             }
             return new Profile((string?)root.Element("FriendlyName") ?? "", (string?)device.Attribute("DeviceName") ?? "",

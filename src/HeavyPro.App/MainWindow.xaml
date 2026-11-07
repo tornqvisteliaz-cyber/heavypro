@@ -345,6 +345,18 @@
                                     <CheckBox Grid.Column="2" Content="Invert" IsChecked="{Binding InvertRudder}" Margin="8,0,0,0"/>
                                     <Button Grid.Column="3" Content="Detect" Command="{Binding DetectRudderCommand}" Padding="8,3"/>
                                 </Grid>
+                                <!-- Heavy toe brakes: each side is set up once with Detect (released and fully pressed). -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox Content="Heavy toe brakes" IsChecked="{Binding ToeBrakes}" VerticalAlignment="Center" Margin="0"
+                                              ToolTip="Brake pressure builds up like an airliner's hydraulic brakes, slower on heavy aircraft, with a gentle first half of the pedal. Set up each pedal once with Detect."/>
+                                    <TextBlock Grid.Column="1" Text="{Binding BrakeSetupText}" Style="{StaticResource MutedText}" FontSize="11"
+                                               VerticalAlignment="Center" Margin="10,0,8,0" TextTrimming="CharacterEllipsis"/>
+                                    <Button Grid.Column="2" Content="Detect L" Command="{Binding DetectLeftBrakeCommand}" Padding="8,3" Margin="0,0,6,0"/>
+                                    <Button Grid.Column="3" Content="Detect R" Command="{Binding DetectRightBrakeCommand}" Padding="8,3"/>
+                                </Grid>
                                 <TextBlock Text="{Binding StickStatus}" FontFamily="Consolas" FontSize="10" TextWrapping="Wrap"
                                            Foreground="{StaticResource BrushAccent}" Margin="0,0,0,6"/>
                                 <TextBlock Text="{Binding SetupNote}" Style="{StaticResource MutedText}" FontSize="11" TextWrapping="Wrap"/>

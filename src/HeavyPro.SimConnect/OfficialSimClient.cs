@@ -33,7 +33,8 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         PanelRequest = 9,
         BridgeWrite = 10,
         BridgeStatus = 11,
-        Balance = 12
+        Balance = 12,
+        BrakeWrite = 13
     }
 
     private enum Requests : uint
@@ -95,6 +96,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     private bool _rateWriteReady;
     private bool _axisWriteReady;
     private bool _yokeWriteReady;
+    private bool _brakeWriteReady;
     private bool _shapingArmed;
     private bool _flightLayoutBroken;
     private bool _wasWriting;
@@ -369,6 +371,7 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
             RegisterYokeSense();
             RegisterBalance();
             RegisterYokeWrite();
+            RegisterBrakeWrite();
             RegisterRateWrite();
             RegisterPanel();
             RegisterBridge();
@@ -930,6 +933,41 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
         }
     }
 
+    private void RegisterBrakeWrite()
+    {
+        try
+        {
+            // The brake positions themselves, not the AXIS_*_BRAKE_SET events: PMDG ignores those.
+            Add(Definitions.BrakeWrite, "BRAKE LEFT POSITION", "position");
+            Add(Definitions.BrakeWrite, "BRAKE RIGHT POSITION", "position");
+            _sim!.RegisterDataDefineStruct<BrakeWritePacket>(Definitions.BrakeWrite);
+            _brakeWriteReady = true;
+            _logger.Info("Registered BRAKE LEFT/RIGHT POSITION write definition.");
+        }
+        catch (Exception ex)
+        {
+            _brakeWriteReady = false;
+            _logger.Warn("Could not register brake writes: " + ex.Message);
+        }
+    }
+
+    public void ApplyBrakes(double left, double right)
+    {
+        if (_sim == null || !_brakeWriteReady || !HeavyPro.Core.Physics.ControlLimits.Unlocked)
+            return;
+        try
+        {
+            _sim.SetDataOnSimObject(Definitions.BrakeWrite,
+                Microsoft.FlightSimulator.SimConnect.SimConnect.SIMCONNECT_OBJECT_ID_USER,
+                SIMCONNECT_DATA_SET_FLAG.DEFAULT,
+                new BrakeWritePacket { Left = Numeric.Clamp(left, 0, 1), Right = Numeric.Clamp(right, 0, 1) });
+        }
+        catch (Exception ex)
+        {
+            _logger.Warn("Brake write failed: " + ex.Message);
+        }
+    }
+
     private void RegisterRateWrite()
     {
         try
@@ -1390,6 +1428,13 @@ public sealed class OfficialSimClient : ISimClient, INativeMessageClient
     {
         public double XIndicator;
         public double YIndicator;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    private struct BrakeWritePacket
+    {
+        public double Left;
+        public double Right;
     }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
